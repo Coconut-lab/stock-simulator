@@ -58,20 +58,20 @@
 ## 🚀 설치 및 실행
 
 ### 1. 프로젝트 클론
-\`\`\`bash
+```bash
 git clone <repository-url>
 cd finace
-\`\`\`
+```
 
 ### 편리한 설치 스크립트 (권장)
-\`\`\`bash
+```bash
 # macOS/Linux
 chmod +x start.sh
 ./start.sh
 
 # Windows
 start.bat
-\`\`\`
+```
 
 스크립트가 자동으로 백엔드와 프론트엔드를 설정하고 실행합니다.
 
@@ -80,45 +80,45 @@ start.bat
 ### 2. Backend 설정
 
 #### 필요한 패키지 설치
-\`\`\`bash
+```bash
 # 가상환경 생성 (권장)
 python -m venv venv
 source venv/bin/activate  # Windows: venv\\Scripts\\activate
 
 # 패키지 설치
 pip install -r requirements.txt
-\`\`\`
+```
 
 #### 환경 변수 설정
-\`backend/.env\` 파일을 수정하여 JWT 시크릿 키를 설정하세요:
-\`\`\`
+`backend/.env` 파일을 수정하여 JWT 시크릿 키를 설정하세요:
+```
 JWT_SECRET_KEY=your-super-secret-jwt-key-change-this-in-production
 FLASK_ENV=development
 DEBUG=True
-\`\`\`
+```
 
 #### Backend 서버 실행
-\`\`\`bash
+```bash
 cd backend
 python app.py
-\`\`\`
+```
 
-서버는 \`http://localhost:5000\`에서 실행됩니다.
+서버는 `http://localhost:5000`에서 실행됩니다.
 
 ### 3. Frontend 설정
 
 #### 필요한 패키지 설치
-\`\`\`bash
+```bash
 cd frontend
 npm install
-\`\`\`
+```
 
 #### Frontend 개발 서버 실행
-\`\`\`bash
+```bash
 npm start
-\`\`\`
+```
 
-애플리케이션은 \`http://localhost:3000\`에서 실행됩니다.
+애플리케이션은 `http://localhost:3000`에서 실행됩니다.
 
 ## 🎆 새로 추가된 기능
 
@@ -174,7 +174,7 @@ npm start
 
 ## 🏗 프로젝트 구조
 
-\`\`\`
+```
 finace/
 ├── backend/                 # Flask 백엔드
 │   ├── models/             # 데이터 모델
@@ -194,7 +194,7 @@ finace/
 │   └── public/
 ├── requirements.txt        # Python 의존성
 └── README.md
-\`\`\`
+```
 
 ## 🔒 보안 고려사항
 
