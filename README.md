@@ -1,70 +1,337 @@
-# Getting Started with Create React App
+# 가상 주식 투자 시뮬레이터
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+실제 주식 데이터를 기반으로 한 가상 주식 투자 웹 애플리케이션입니다. 실제 돈을 잃을 위험 없이 주식 투자를 연습하고 포트폴리오 관리를 학습할 수 있습니다.
 
-## Available Scripts
+## 🚀 주요 기능
 
-In the project directory, you can run:
+### 사용자 관리
+- 회원가입 및 로그인
+- 개인 포트폴리오 관리
+- 거래 내역 추적
 
-### `npm start`
+### 주식 거래
+- 실시간 주식 가격 조회 (FinanceDataReader 라이브러리 사용)
+- 한국 주식 (KRX) 및 미국 주식 (NASDAQ) 지원
+- 매수/매도 기능
+- 실제와 동일한 거래 수수료 적용
+- 주식 가격 차트 및 상세 분석
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+### 포트폴리오 관리
+- 보유 주식 현황 조회
+- 손익 계산 및 수익률 분석
+- 포트폴리오 가치 평가
+- 거래 이력 관리
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### 시장 정보
+- 주요 주식 종목 현황
+- 주식 검색 기능
+- 시장별 인기 종목 표시
+- 주식 상세 페이지 및 가격 차트
+- 실시간 거래 기능
 
-### `npm test`
+## 🛠 기술 스택
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### Backend
+- **Python 3.8+**
+- **Flask** - 웹 프레임워크
+- **MongoDB** - 데이터베이스
+- **FinanceDataReader** - 주식 데이터 API (대안: yfinance)
+- **JWT** - 인증 토큰
+- **bcrypt** - 비밀번호 암호화
 
-### `npm run build`
+### Frontend
+- **React 19** - UI 라이브러리
+- **React Router** - 라우팅
+- **Styled Components** - 스타일링
+- **Axios** - HTTP 클라이언트
+- **Recharts** - 차트 라이브러리
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### Database
+- **MongoDB Atlas** - 클라우드 데이터베이스
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## 📋 시스템 요구사항
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+- Node.js 16.0 이상
+- Python 3.8 이상
+- MongoDB 접근 권한
 
-### `npm run eject`
+## 🚀 설치 및 실행
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+### 1. 프로젝트 클론
+\`\`\`bash
+git clone <repository-url>
+cd finace
+\`\`\`
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### 편리한 설치 스크립트 (권장)
+\`\`\`bash
+# macOS/Linux
+chmod +x start.sh
+./start.sh
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+# Windows
+start.bat
+\`\`\`
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+스크립트가 자동으로 백엔드와 프론트엔드를 설정하고 실행합니다.
 
-## Learn More
+### 수동 설치 (선택)
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### 2. Backend 설정
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+#### 필요한 패키지 설치
+\`\`\`bash
+# 가상환경 생성 (권장)
+python -m venv venv
+source venv/bin/activate  # Windows: venv\\Scripts\\activate
 
-### Code Splitting
+# 패키지 설치
+pip install -r requirements.txt
+\`\`\`
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+#### 환경 변수 설정
+\`backend/.env\` 파일을 수정하여 JWT 시크릿 키를 설정하세요:
+\`\`\`
+JWT_SECRET_KEY=your-super-secret-jwt-key-change-this-in-production
+FLASK_ENV=development
+DEBUG=True
+\`\`\`
 
-### Analyzing the Bundle Size
+#### Backend 서버 실행
+\`\`\`bash
+cd backend
+python app.py
+\`\`\`
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+서버는 \`http://localhost:5000\`에서 실행됩니다.
 
-### Making a Progressive Web App
+### 3. Frontend 설정
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+#### 필요한 패키지 설치
+\`\`\`bash
+cd frontend
+npm install
+\`\`\`
 
-### Advanced Configuration
+#### Frontend 개발 서버 실행
+\`\`\`bash
+npm start
+\`\`\`
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+애플리케이션은 \`http://localhost:3000\`에서 실행됩니다.
 
-### Deployment
+## 🎆 새로 추가된 기능
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+### 📈 주식 차트 기능
+- **실시간 가격 차트**: Line Chart 및 Area Chart 지원
+- **다양한 기간**: 1주일, 1개월, 3개월, 6개월, 1년
+- **상세 정보**: 시가, 고가, 저가, 종가, 거래량
+- **인터랙티브 툴팁**: 마우스 호버로 상세 데이터 표시
 
-### `npm run build` fails to minify
+### 📊 주식 상세 페이지
+- **주식 정보**: 현재가, 전일대비 변동률, 시가/고가/저가
+- **실시간 거래**: 상세 페이지에서 직접 매수/매도
+- **거래 계산기**: 예상 거래금액, 수수료, 총 결제금액 자동 계산
+- **내비게이션**: 시장 페이지에서 주식 클릭으로 이동
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+### 📶 FinanceDataReader 통합
+- **안정적 데이터**: 한국/미국 주식 데이터 모두 안정적 제공
+- **실시간 업데이트**: 5분마다 자동 업데이트
+- **폴백 시스템**: API 오류 시 자동 대체 데이터 사용
+
+## 💰 초기 설정
+
+- 새 사용자는 회원가입 시 **100만원**의 가상 자금으로 시작합니다
+- 거래 수수료는 실제와 동일하게 적용됩니다:
+  - 한국 주식: 0.015%
+  - 미국 주식: 0.005%
+
+## 📊 지원 주식
+
+### 한국 주식 (KOSPI)
+- 삼성전자 (005930.KS)
+- SK하이닉스 (000660.KS)
+- 네이버 (035420.KS)
+- 현대차 (005380.KS)
+- LG화학 (051910.KS)
+- 삼성SDI (006400.KS)
+- 카카오 (035720.KS)
+- 셀트리온 (068270.KS)
+- 삼성바이오로직스 (207940.KS)
+- LG에너지솔루션 (373220.KS)
+
+### 미국 주식 (NASDAQ)
+- Apple (AAPL)
+- Google (GOOGL)
+- Microsoft (MSFT)
+- Amazon (AMZN)
+- Tesla (TSLA)
+- Meta (META)
+- NVIDIA (NVDA)
+- Netflix (NFLX)
+- AMD (AMD)
+- Intel (INTC)
+
+## 🏗 프로젝트 구조
+
+\`\`\`
+finace/
+├── backend/                 # Flask 백엔드
+│   ├── models/             # 데이터 모델
+│   ├── routes/             # API 라우트
+│   ├── services/           # 비즈니스 로직
+│   ├── utils/              # 유틸리티 함수
+│   ├── config.py           # 설정 파일
+│   └── app.py              # 메인 애플리케이션
+├── frontend/               # React 프론트엔드
+│   ├── src/
+│   │   ├── components/     # 재사용 컴포넌트
+│   │   ├── pages/          # 페이지 컴포넌트
+│   │   ├── services/       # API 서비스
+│   │   ├── context/        # React Context
+│   │   ├── hooks/          # 커스텀 훅
+│   │   └── utils/          # 유틸리티 함수
+│   └── public/
+├── requirements.txt        # Python 의존성
+└── README.md
+\`\`\`
+
+## 🔒 보안 고려사항
+
+- JWT 토큰 기반 인증
+- 비밀번호 bcrypt 해싱
+- CORS 설정으로 크로스 오리진 요청 제어
+- 입력 데이터 검증 및 보안
+
+## 📈 데이터 업데이트
+
+- **한국/미국 주식**: FinanceDataReader를 통한 실시간 데이터 (5분마다 업데이트)
+- **차트 데이터**: 최대 1년간의 주가 이력 데이터 제공
+- 데이터는 MongoDB에 캐시되어 빠른 응답을 제공합니다
+- API 오류 시 fallback 데이터로 서비스 연속성을 보장합니다
+
+## 🐛 알려진 이슈
+
+- 주식 시장 휴장일에는 이전 거래일 종가가 표시됩니다
+- FinanceDataReader를 사용하여 한국/미국 주식 데이터 모두 안정적으로 제공합니다
+- 주식 차트는 최대 1년간의 데이터를 지원합니다
+- 실시간 거래 기능으로 주식 상세 페이지에서 직접 매수/매도 가능
+
+## 🔧 문제 해결
+
+### 백엔드 실행 오류 시:
+- Python 버전 확인 (3.8 이상 필요)
+- 의존성 패키지 재설치: `pip install -r requirements.txt`
+
+### 프론트엔드 실행 오류 시:
+- Node.js 버전 확인 (16.0 이상 필요)
+- 의존성 패키지 재설치: `npm install`
+
+### MongoDB 연결 오류 시:
+- 인터넷 연결 확인
+- MongoDB Atlas 클러스터 상태 확인
+
+### FinanceDataReader 관련 이슈 시:
+- 자동으로 fallback 데이터로 전환되어 서비스 연속성을 보장합니다
+- 업데이트 간격이 5분으로 설정되어 rate limiting을 방지합니다
+- 한국/미국 주식 모두 안정적으로 데이터를 제공합니다
+- 서비스 재시작 시 자동으로 복구됩니다
+
+## 💡 사용 팁
+
+1. **회원가입**: 처음 방문 시 회원가입하여 100만원의 가상 자금을 받으세요
+2. **주식 검색**: 시장 페이지에서 원하는 주식을 검색할 수 있습니다
+3. **주식 차트**: 주식을 클릭하면 상세 페이지에서 가격 차트를 확인할 수 있습니다
+4. **실시간 거래**: 주식 상세 페이지에서 직접 매수/매도가 가능합니다
+5. **포트폴리오**: 보유 주식의 실시간 손익을 확인하세요
+6. **차트 기간**: 1주일부터 1년까지 다양한 기간의 차트를 볼 수 있습니다
+7. **거래 수수료**: 매수/매도 시 실제와 동일한 수수료가 적용됩니다
+
+## 🔮 향후 개발 계획
+
+- [x] 차트 기능 추가 (가격 히스토리, 기술적 분석) - **완료**
+- [x] 주식 상세 페이지 및 실시간 거래 - **완료**
+- [ ] 포트폴리오 성과 분석 도구
+- [ ] 시장 뉴스 통합
+- [ ] 모바일 반응형 UI 개선
+- [ ] 더 많은 주식 종목 추가
+- [ ] 사용자 순위 시스템
+- [ ] 모의 투자 대회 기능
+- [ ] 알림 및 알림탁 기능
+- [ ] 다방면 차트 (캔들차트, 볼린저밴드 등)
+
+## 🤝 기여하기
+
+1. 이 저장소를 포크합니다
+2. 새로운 기능 브랜치를 생성합니다 (\`git checkout -b feature/새기능\`)
+3. 변경사항을 커밋합니다 (\`git commit -m '새 기능 추가'\`)
+4. 브랜치에 푸시합니다 (\`git push origin feature/새기능\`)
+5. Pull Request를 생성합니다
+
+## 📄 라이센스
+
+이 프로젝트는 MIT 라이센스 하에 배포됩니다.
+
+## ⚠️ 면책조항
+
+이 애플리케이션은 교육 목적으로만 사용되며, 실제 금융 조언을 제공하지 않습니다. 실제 투자 결정을 내리기 전에 전문가와 상담하시기 바랍니다.
+
+---
+
+## 🎉 프로젝트 완성 요약
+
+🚀 **가상 주식 투자 시뮬레이터**가 성공적으로 완성되었습니다!
+
+### ✅ 완성된 주요 기능
+- **사용자 인증**: 회원가입/로그인 (JWT)
+- **실시간 주식 데이터**: FinanceDataReader로 한국/미국 주식 제공
+- **인터랙티브 차트**: Recharts로 아름다운 가격 차트
+- **실시간 거래**: 주식 상세 페이지에서 매수/매도
+- **포트폴리오 관리**: 실시간 손익 및 수익률 계산
+- **거래 내역**: 전체 거래 이력 및 통계
+- **보안 기능**: 비밀번호 암호화 및 데이터 보호
+
+### 🎆 기술 성과
+- **백엔드**: Python Flask + MongoDB + FinanceDataReader
+- **프론트엔드**: React 19 + Styled Components + Recharts
+- **데이터**: 실시간 주식 데이터 + 차트 이력
+- **보안**: JWT 인증 + bcrypt 암호화
+
+---
+
+## ✅ 수정 완료된 오류들 ✅
+
+### ✓ 원달러 환율 적용 완료!
+- 실시간 USD/KRW 환율 자동 업데이트 (30분마다)
+- 미국 주식 가격을 한국 원화로 자동 변환 표시
+- 원화 표시와 함께 달러 원가도 함께 표시
+- 포트폴리오에서 손익 계산 시 환율 적용
+- 거래 시 환율을 적용한 원화 금액으로 결제
+
+### ✓ 실존 모든 주식 조회 가능!
+- KRX 전체 주식 목록 통합 (약 2,800개 종목)
+- 한국어 종목명 검색 지원
+- 숫자 코드로 한국 주식 검색
+- yfinance를 통한 미국 주식 전체 검색
+- 실시간 주식 정보 제공
+- ETF, 암호화폐 등 다양한 자산 검색 지원
+
+### ✓ 통화 표시 문제 수정!
+- 한국 주식: ₩ (원화) 표시
+- 미국 주식: ₩ (환율 적용된 원화) + $ (원본 달러 가격) 병행 표시
+- 모든 거래는 원화 기준으로 통일
+- 수수료 및 총 금액 계산도 원화 기준
+
+### 🚀 개선된 기능들
+- **실시간 환율 API**: exchangerate-api.com + FinanceDataReader 이중 보장
+- **지능형 검색**: 한국어/영어/숫자 모두 지원
+- **다국가 표시**: 원화 기준 통일 + 원본 통화 병행 표시
+- **향상된 UX**: 더 직관적이고 사용자 친화적인 인터페이스
+
+---
+## !개선해야 하는것!
+- 주식 검색으로 찾은 회사 매수시 해당 기업의 코드만 뜨고 이름은 안뜸
+- 주식 세부 페이지에서 기업 코드보단 기업의 이름이 더 크게 뜨면 좋겠음
+- 대시보드에 코스피, 코스닥 등 지수가 뜨면 좋겠음
+- 캔들차트와 선차트 둘 다 볼 수 있게하면 좋겠음 대신 캔들차트는 일봉, 주봉, 월봉만
+- 선차트에서 1일 차트도 볼 수 있으면 좋겠음
