@@ -350,6 +350,99 @@ def get_transactions():
         logging.error(f"거래 이력 조회 에러: {e}")
         return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
 
+@portfolio_bp.route('/max-buy/<symbol>', methods=['GET'])
+def calculate_max_buy(symbol):
+    """전량매수 가능 수량 및 금액 계산"""
+    try:
+        # 인증 검증
+        user_data, error = verify_auth()
+        if error:
+            return jsonify({'error': error}), 401
+        
+        # 현재 주식 가격 조회 - 상세 정보 포함
+        stock_data = stock_service.get_cached_stock_data(symbol)
+        if not stock_data:
+            stock_data = stock_service.get_stock_info(symbol)
+        
+        if not stock_data:
+            return jsonify({'error': '주식 정보를 찾을 수 없습니다.'}), 404
+        
+        current_price = stock_data['current_price']
+        market = stock_data.get('currency', 'KRW')
+        
+        # 미국 주식인 경우 환율 적용하여 원화로 변환
+        if market == 'USD' and stock_data.get('exchange_rate'):
+            current_price_krw = current_price * stock_data['exchange_rate']
+        else:
+            current_price_krw = current_price
+        
+        # 사용자 보유 자금
+        available_cash = user_data['balance']
+        
+        # 예상 수수료 율 계산
+        commission_rate = Config.COMMISSION_RATE.get(market, 0.001)
+        
+        # 최소 수수료
+        if market == 'USD':
+            min_commission = 1350  # 대략 1달러의 원화 환산
+        else:
+            min_commission = 1000
+        
+        # 전량매수 가능 수량 계산
+        # (available_cash - min_commission) / (current_price_krw * (1 + commission_rate))
+        max_quantity = int((available_cash - min_commission) / (current_price_krw * (1 + commission_rate)))
+        
+        if max_quantity <= 0:
+            return jsonify({
+                'data': {
+                    'max_quantity': 0,
+                    'estimated_amount': 0,
+                    'estimated_commission': 0,
+                    'total_cost': 0,
+                    'current_price': current_price_krw,
+                    'available_cash': available_cash,
+                    'message': '전량매수 가능한 자금이 부족합니다.'
+                }
+            }), 200
+        
+        # 실제 거래 금액 및 수수료 계산
+        estimated_amount = max_quantity * current_price_krw
+        estimated_commission = calculate_commission(estimated_amount, market)
+        total_cost = estimated_amount + estimated_commission
+        
+        # 소수점 제거
+        estimated_amount = int(round(estimated_amount))
+        estimated_commission = int(round(estimated_commission))
+        total_cost = int(round(total_cost))
+        
+        # 잔액 부족 시 수량 1개 감소
+        while total_cost > available_cash and max_quantity > 0:
+            max_quantity -= 1
+            estimated_amount = max_quantity * current_price_krw
+            estimated_commission = calculate_commission(estimated_amount, market)
+            total_cost = estimated_amount + estimated_commission
+            
+            estimated_amount = int(round(estimated_amount))
+            estimated_commission = int(round(estimated_commission))
+            total_cost = int(round(total_cost))
+        
+        return jsonify({
+            'data': {
+                'max_quantity': max_quantity,
+                'estimated_amount': estimated_amount,
+                'estimated_commission': estimated_commission,
+                'total_cost': total_cost,
+                'current_price': current_price_krw,
+                'original_price': current_price if market == 'USD' else None,
+                'available_cash': available_cash,
+                'remaining_cash': available_cash - total_cost
+            }
+        }), 200
+        
+    except Exception as e:
+        logging.error(f"전량매수 계산 에러: {e}")
+        return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
+
 @portfolio_bp.route('/summary', methods=['GET'])
 def get_portfolio_summary():
     """포트폴리오 요약 정보"""

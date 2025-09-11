@@ -10,7 +10,7 @@ PyJWT==2.8.0
 bcrypt==4.0.2
 
 # Stock Data APIs
-# yfinance==0.2.28  # Removed to avoid rate limiting - using FinanceDataReader only
+yfinance==0.2.28  # For intraday US stock data
 FinanceDataReader==0.9.50
 
 # Data Processing

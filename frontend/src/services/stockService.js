@@ -71,13 +71,23 @@ export const stockService = {
     }
   },
 
-  // 주식 이력 데이터 조회 (차트용)
-  getStockHistory: async (symbol, period = 30) => {
+  // 주식 이력 데이터 조회 (차트용) - 개선된 버전
+  getStockHistory: async (symbol, period = 30, interval = 'daily') => {
     try {
-      const response = await api.get(`/stocks/history/${symbol}?period=${period}`);
+      const response = await api.get(`/stocks/history/${symbol}?period=${period}&interval=${interval}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || { error: '주식 이력 조회에 실패했습니다.' };
+    }
+  },
+
+  // 시장 지수 정보 조회
+  getMarketIndices: async () => {
+    try {
+      const response = await api.get('/stocks/indices');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { error: '시장 지수 정보 조회에 실패했습니다.' };
     }
   }
 };
