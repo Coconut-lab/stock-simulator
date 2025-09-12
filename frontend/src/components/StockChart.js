@@ -249,9 +249,9 @@ const calculateMovingAverages = (data, periods = [5, 20, 60, 120]) => {
   });
 };
 
-// 캔들스틱 커스텀 컴포넌트 - 직접 도메인 계산 방식
+// 캔들스틱 커스텀 컴포넌트 - 간단한 Recharts 기준 계산 방식
 const CandlestickShape = (props) => {
-  const { payload, x, y, width, height } = props;
+  const { payload, x, y, width, height, yAxisMap } = props;
   
   if (!payload || typeof payload.open !== 'number' || typeof payload.close !== 'number' || 
       typeof payload.high !== 'number' || typeof payload.low !== 'number') {
@@ -261,28 +261,29 @@ const CandlestickShape = (props) => {
   const { open, close, high, low } = payload;
   
   // 데이터 유효성 검증
-  if (high <= low || low <= 0 || high <= 0 || open <= 0 || close <= 0) {
+  if (high < low || low <= 0 || high <= 0 || open <= 0 || close <= 0) {
     console.warn('비정상적인 가격 데이터:', { open, close, high, low });
     return null;
   }
   
-  // 상승/하락 여부 결정
+  // 상승/하락 여부 결정 (한국 기준: 빨강=상승, 파랑=하락)
   const isRising = close >= open;
-  const bodyColor = isRising ? '#ff4444' : '#0066ff';
-  const fillColor = isRising ? '#ff4444' : '#0066ff';
+  const bodyColor = isRising ? '#e74c3c' : '#2980b9';
+  const fillColor = isRising ? '#e74c3c' : '#2980b9';
   
   // 캔들 스타일 설정
-  const candleWidth = Math.min(width * 0.6, 10);
-  const wickWidth = 1;
+  const candleWidth = Math.min(width * 0.8, 12);
+  const wickWidth = 1.5;
   const centerX = x + width / 2;
   
-  // ⭐️ 핵심: 차트의 전체 높이를 기준으로 직접 계산
-  // Recharts에서 Bar의 y, height는 dataKey 값에 대한 상대적 위치이므로
-  // 우리가 직접 도메인 범위를 계산하여 사용
+  // ⭐️ 개선: Recharts의 기본 스케일링을 활용
+  // y와 height는 이미 적절한 값으로 계산되어 들어오므로
+  // close를 기준으로 다른 가격들의 위치를 상대적으로 계산
   
-  // 가격 범위 계산
+  // 가격 범위에 따른 픽셀 비율 계산
   const priceRange = high - low;
   if (priceRange === 0) {
+    // 가격 변동이 없는 경우 단순 선으로 표시
     return (
       <g>
         <line
@@ -297,50 +298,23 @@ const CandlestickShape = (props) => {
     );
   }
   
-  // 현재 Bar의 기준가(close)를 이용해 다른 가격들의 상대적 위치 계산
-  const getRelativeY = (price) => {
-    // close 가격이 y + height/2 위치에 있다고 가정하고
-    // 다른 가격들의 상대적 위치를 계산
-    const priceFromClose = price - close;
-    const pixelsPerPrice = height / priceRange; // 1원당 픽셀 비율
-    
-    // close 위치에서 상대적 오프셋 계산 (위쪽이 음수, 아래쪽이 양수)
-    return y + height / 2 - (priceFromClose * pixelsPerPrice);
-  };
+  // Bar 영역 전체를 가격 범위로 사용
+  const scaleY = height / priceRange;
   
-  const highY = getRelativeY(high);
-  const openY = getRelativeY(open);
-  const closeY = getRelativeY(close); // y + height / 2
-  const lowY = getRelativeY(low);
+  // 각 가격의 Y좌표 계산 (high가 상단, low가 하단)
+  const highY = y;
+  const lowY = y + height;
+  const openY = y + (high - open) * scaleY;
+  const closeY = y + (high - close) * scaleY;
   
   // 몸통의 상단과 하단
   const bodyTop = Math.min(openY, closeY);
   const bodyBottom = Math.max(openY, closeY);
+  const bodyHeight = Math.abs(bodyBottom - bodyTop);
   
-  // 몸통 높이 계산
-  const actualBodyHeight = Math.abs(bodyBottom - bodyTop);
-  const bodyHeight = actualBodyHeight > 0.3 ? actualBodyHeight : 1.5;
-  
-  // 도지 판단
-  const isDoji = Math.abs(open - close) / priceRange < 0.005;
-  
-  // 디버깅용 로그
-  if (Math.random() < 0.1) { // 10% 확률로만 로그 출력
-    console.log('캔들 좌표 계산 (직접계산):', {
-      prices: { high, open, close, low },
-      rechartProps: { y: y.toFixed(1), height: height.toFixed(1) },
-      calculated: { 
-        highY: highY.toFixed(1), 
-        openY: openY.toFixed(1), 
-        closeY: closeY.toFixed(1), 
-        lowY: lowY.toFixed(1) 
-      },
-      bodyTop: bodyTop.toFixed(1),
-      bodyBottom: bodyBottom.toFixed(1),
-      priceRange,
-      pixelsPerPrice: (height / priceRange).toFixed(2)
-    });
-  }
+  // 최소 몸통 높이 설정 (도지 처리)
+  const minBodyHeight = 1;
+  const isDoji = bodyHeight < minBodyHeight;
   
   return (
     <g>
@@ -352,6 +326,7 @@ const CandlestickShape = (props) => {
         y2={bodyTop}
         stroke={bodyColor}
         strokeWidth={wickWidth}
+        opacity={0.8}
       />
       
       {/* 아래쪽 심지 (몸통 하단 → 저가) */}
@@ -362,16 +337,17 @@ const CandlestickShape = (props) => {
         y2={lowY}
         stroke={bodyColor}
         strokeWidth={wickWidth}
+        opacity={0.8}
       />
       
       {/* 캔들 몸통 또는 도지 선 */}
       {isDoji ? (
-        // 도지(시가=종가)인 경우 수평선
+        // 도지(시가≈종가)인 경우 수평선
         <line
           x1={centerX - candleWidth / 2}
-          y1={(bodyTop + bodyBottom) / 2}
+          y1={closeY}
           x2={centerX + candleWidth / 2}
-          y2={(bodyTop + bodyBottom) / 2}
+          y2={closeY}
           stroke={bodyColor}
           strokeWidth={2}
         />
@@ -379,12 +355,13 @@ const CandlestickShape = (props) => {
         // 일반 캔들 몸통
         <rect
           x={centerX - candleWidth / 2}
-          y={bodyTop}
+          y={bodyTop    }
           width={candleWidth}
           height={bodyHeight}
           fill={isRising ? fillColor : 'white'}
           stroke={bodyColor}
           strokeWidth={1}
+          opacity={isRising ? 0.8 : 1}
         />
       )}
     </g>
@@ -433,7 +410,7 @@ const CandlestickTooltip = ({ active, payload, label }) => {
             <div style={{ color: '#333' }}>종가</div>
             <div style={{ 
               fontWeight: '600', 
-              color: isRising ? '#ff4444' : '#0066ff'
+              color: isRising ? '#e74c3c' : '#2980b9'
             }}>{formatPrice(data.close)}</div>
           </div>
         </div>
@@ -502,14 +479,14 @@ const LineTooltip = ({ active, payload, label }) => {
   return null;
 };
 
-// 거래량 바 색상 결정
+// 거래량 바 색상 결정 (한국 기준)
 const VolumeBar = (props) => {
   const { payload, x, y, width, height } = props;
   
   if (!payload) return null;
   
   const isRising = payload.close >= payload.open;
-  const color = isRising ? '#ff4444' : '#0066ff';
+  const color = isRising ? '#e74c3c' : '#2980b9';
   
   return (
     <rect
@@ -648,7 +625,7 @@ const StockChart = ({ symbol, stockInfo }) => {
         { label: '캔들', value: 'candle' }
       ];
 
-  // Y축 도메인 계산 (캔들이 가운데 위치하도록 개선)
+  // Y축 도메인 계산 (캔들이 적절한 크기로 보이도록 최적화)
   const getYAxisDomain = () => {
     if (!chartData.length) return ['auto', 'auto'];
     
@@ -676,27 +653,12 @@ const StockChart = ({ symbol, stockInfo }) => {
     const actualMax = Math.max(...prices);
     const priceRange = actualMax - actualMin;
     
-    // 위아래 대칭적인 큰 여유공간 - 캔들이 가운데 위치하고 작게 보이도록
-    const paddingPercent = 0.30; // 30% 여유공간
-    const topPadding = priceRange * paddingPercent;
-    const bottomPadding = priceRange * paddingPercent;
+    // 캔들차트와 선차트에서 다른 여유공간 적용
+    const paddingPercent = chartType === 'candle' ? 0.08 : 0.05; // 캔들차트: 8%, 선차트: 5%
+    const padding = priceRange * paddingPercent;
     
-    const minDomain = Math.max(0, actualMin - bottomPadding);
-    const maxDomain = actualMax + topPadding;
-    
-    console.log('Y축 도메인 계산 (가운데 위치):', { 
-      actualMin, 
-      actualMax, 
-      minDomain, 
-      maxDomain, 
-      priceRange,
-      topPadding,
-      bottomPadding,
-      paddingPercent,
-      newRange: maxDomain - minDomain,
-      compressionRatio: priceRange / (maxDomain - minDomain),
-      dataCount: chartData.length
-    });
+    const minDomain = Math.max(0, actualMin - padding);
+    const maxDomain = actualMax + padding;
     
     return [minDomain, maxDomain];
   };
@@ -829,7 +791,7 @@ const StockChart = ({ symbol, stockInfo }) => {
               <div className="label">종료가</div>
               <div className="value">{formatPrice(stats.lastPrice)}</div>
             </StatItem>
-            <StatItem color={stats.change >= 0 ? '#ff4444' : '#0066ff'}>
+            <StatItem color={stats.change >= 0 ? '#e74c3c' : '#2980b9'}>
               <div className="label">변동</div>
               <div className="value">
                 {stats.change >= 0 ? '+' : ''}{formatPrice(Math.abs(stats.change))}

@@ -36,10 +36,10 @@ export const formatPercent = (number, decimals = 2) => {
   return `${number.toFixed(decimals)}%`;
 };
 
-// 손익에 따른 색상 반환
+// 손익에 따른 색상 반환 (한국 기준: 빨강=수익, 파랑=손실)
 export const getProfitColor = (value) => {
-  if (value > 0) return '#e74c3c'; // 빨간색 (상승)
-  if (value < 0) return '#3498db'; // 파란색 (하락)
+  if (value > 0) return '#e74c3c'; // 빨간색 (수익)
+  if (value < 0) return '#2980b9'; // 파란색 (손실) 
   return '#95a5a6'; // 회색 (변동없음)
 };
 

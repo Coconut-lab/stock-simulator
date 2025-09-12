@@ -196,6 +196,10 @@ class StockService:
             self.update_exchange_rate()
         return self.exchange_rate
     
+    def search_stocks(self, query):
+        """주식 검색 메인 메서드"""
+        return self.search_stocks_extended(query)
+    
     def search_stocks_extended(self, query):
         """확장된 주식 검색 (FinanceDataReader만 사용)"""
         results = []

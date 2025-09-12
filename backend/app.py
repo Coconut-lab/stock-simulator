@@ -60,6 +60,7 @@ def create_app():
     def not_found(error):
         return jsonify({
             'error': '요청한 리소스를 찾을 수 없습니다.'
+
         }), 404
     
     @app.errorhandler(500)
