@@ -249,6 +249,357 @@ const calculateMovingAverages = (data, periods = [5, 20, 60, 120]) => {
   });
 };
 
+const PureCandlestickChart = ({
+  data, 
+  width = 800, 
+  height = 400,
+  margin = { top: 20, right: 30, bottom: 50, left: 20 },
+  showMovingAverages = {},
+  movingAverageColors = {}
+}) => {
+  const [hoveredCandle, setHoveredCandle] = React.useState(null);
+  
+  if (!data || data.length === 0) {
+    return (
+      <div style={{ 
+        width, 
+        height, 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        color: '#666',
+        fontSize: '14px'
+      }}>
+        차트 데이터가 없습니다.
+      </div>
+    );
+  }
+
+  // 전체 가격 범위 계산 (OHLC + 이동평균선 포함)
+  const allPrices = [];
+  data.forEach(item => {
+    if (item.high && item.low && item.open && item.close) {
+      allPrices.push(item.high, item.low, item.open, item.close);
+    }
+    
+    // 이동평균선 가격도 포함
+    Object.entries(showMovingAverages).forEach(([ma, isShown]) => {
+      if (isShown && typeof item[ma] === 'number' && item[ma] > 0) {
+        allPrices.push(item[ma]);
+      }
+    });
+  });
+
+  if (allPrices.length === 0) return null;
+
+  const minPrice = Math.min(...allPrices);
+  const maxPrice = Math.max(...allPrices);
+  const priceRange = maxPrice - minPrice;
+
+  // 15% 여유공간 추가 (캔들차트 최적화)
+  const padding = priceRange * 0.15;
+  const chartMinPrice = minPrice - padding;
+  const chartMaxPrice = maxPrice + padding;
+  const chartPriceRange = chartMaxPrice - chartMinPrice;
+
+  // 차트 영역 계산
+  const chartWidth = width - margin.left - margin.right;
+  const chartHeight = height - margin.top - margin.bottom;
+
+  // 캔들 너비 계산
+  const candleSpacing = chartWidth / data.length;
+  const candleWidth = Math.max(3, Math.min(candleSpacing * 0.6, 12));
+
+  // 가격을 Y좌표로 변환하는 함수
+  const priceToY = (price) => {
+    return margin.top + ((chartMaxPrice - price) / chartPriceRange) * chartHeight;
+  };
+
+  // 시장 구분 (한국/미국)
+  const market = getMarketFromSymbol(data[0]?.symbol || '');
+  const isKorean = market === 'KRW';
+  
+  // 가격 포맷팅 함수
+  const formatPrice = (price) => {
+    return isKorean 
+      ? `₩${Math.round(price).toLocaleString()}` 
+      : `${price.toFixed(2)}`;
+  };
+
+  // Y축 가격 라벨 생성
+  const priceLabels = [];
+  for (let i = 0; i <= 4; i++) {
+    const ratio = i / 4;
+    const price = chartMinPrice + (chartPriceRange * (1 - ratio));
+    const y = margin.top + (chartHeight * ratio);
+    priceLabels.push({ price, y });
+  }
+
+  // X축 날짜 라벨
+  const dateLabels = [];
+  const step = Math.max(1, Math.floor(data.length / 6));
+  for (let i = 0; i < data.length; i += step) {
+    const item = data[i];
+    const x = margin.left + (i + 0.5) * candleSpacing;
+    dateLabels.push({ x, date: item.displayDate || item.date });
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <svg width={width} height={height} style={{ backgroundColor: 'white' }}>
+        {/* 차트 영역 배경 */}
+        <rect 
+          x={margin.left} 
+          y={margin.top} 
+          width={chartWidth} 
+          height={chartHeight} 
+          fill="#fafafa" 
+        />
+
+        {/* Y축 격자선과 가격 라벨 */}
+        {priceLabels.map((label, i) => (
+          <g key={i}>
+            <line
+              x1={margin.left}
+              y1={label.y}
+              x2={margin.left + chartWidth}
+              y2={label.y}
+              stroke="#f0f0f0"
+              strokeWidth="1"
+            />
+            <text
+              x={margin.left - 5}
+              y={label.y + 3}
+              textAnchor="end"
+              fontSize="12"
+              fill="#666"
+            >
+              {isKorean ? `${(label.price / 1000).toFixed(0)}K` : `${label.price.toFixed(0)}`}
+            </text>
+          </g>
+        ))}
+
+        {/* Y축 선 */}
+        <line
+          x1={margin.left}
+          y1={margin.top}
+          x2={margin.left}
+          y2={margin.top + chartHeight}
+          stroke="#666"
+          strokeWidth="1"
+        />
+
+        {/* X축 선 */}
+        <line
+          x1={margin.left}
+          y1={margin.top + chartHeight}
+          x2={margin.left + chartWidth}
+          y2={margin.top + chartHeight}
+          stroke="#666"
+          strokeWidth="1"
+        />
+        
+        {/* 이동평균선들 */}
+        {Object.entries(showMovingAverages).map(([ma, isShown]) => {
+          if (!isShown) return null;
+          
+          const color = movingAverageColors[ma] || '#999';
+          const points = data
+            .map((item, index) => {
+              if (typeof item[ma] !== 'number' || item[ma] <= 0) return null;
+              const x = margin.left + (index + 0.5) * candleSpacing;
+              const y = priceToY(item[ma]);
+              return `${x},${y}`;
+            })
+            .filter(Boolean)
+            .join(' ');
+          
+          if (points) {
+            return (
+              <polyline
+                key={ma}
+                points={points}
+                fill="none"
+                stroke={color}
+                strokeWidth="1"
+                opacity="0.8"
+              />
+            );
+          }
+          return null;
+        })}
+
+        {/* 캔들스틱들 */}
+        {data.map((item, index) => {
+          if (!item.high || !item.low || !item.open || !item.close) return null;
+
+          const x = margin.left + (index + 0.5) * candleSpacing;
+          const isRising = item.close >= item.open;
+
+          // 정확한 Y좌표 계산
+          const highY = priceToY(item.high);
+          const lowY = priceToY(item.low);
+          const openY = priceToY(item.open);
+          const closeY = priceToY(item.close);
+
+          // 몸통 계산
+          const bodyTop = Math.min(openY, closeY);
+          const bodyBottom = Math.max(openY, closeY);
+          const bodyHeight = Math.max(bodyBottom - bodyTop, 1);
+
+          const color = isRising ? '#e74c3c' : '#2980b9';
+          const isHovered = hoveredCandle === index;
+
+          return (
+            <g key={index}>
+              {/* 상단 심지 (고가 → 몸통 상단) */}
+              <line
+                x1={x}
+                y1={highY}
+                x2={x}
+                y2={bodyTop}
+                stroke={color}
+                strokeWidth={isHovered ? "2" : "1.5"}
+                opacity="0.9"
+              />
+
+              {/* 하단 심지 (몸통 하단 → 저가) */}
+              <line
+                x1={x}
+                y1={bodyBottom}
+                x2={x}
+                y2={lowY}
+                stroke={color}
+                strokeWidth={isHovered ? "2" : "1.5"}
+                opacity="0.9"
+              />
+
+              {/* 캔들 몸통 */}
+              {bodyHeight <= 1 ? (
+                // 도지 (시가 ≈ 종가)
+                <line
+                  x1={x - candleWidth/2}
+                  y1={closeY}
+                  x2={x + candleWidth/2}
+                  y2={closeY}
+                  stroke={color}
+                  strokeWidth={isHovered ? "3" : "2"}
+                />
+              ) : (
+                // 일반 캔들
+                <rect
+                  x={x - candleWidth/2}
+                  y={bodyTop}
+                  width={candleWidth}
+                  height={bodyHeight}
+                  fill={isRising ? color : 'white'}
+                  stroke={color}
+                  strokeWidth={isHovered ? "2" : "1"}
+                  opacity={isHovered ? 1 : (isRising ? 0.8 : 1)}
+                />
+              )}
+              
+              {/* 최고/최저 마커 */}
+              {item.is_highest && (
+                <text
+                  x={x}
+                  y={highY - 5}
+                  textAnchor="middle"
+                  fontSize="10"
+                  fill="#e74c3c"
+                >
+                  📈
+                </text>
+              )}
+              {item.is_lowest && (
+                <text
+                  x={x}
+                  y={lowY + 15}
+                  textAnchor="middle"
+                  fontSize="10"
+                  fill="#2980b9"
+                >
+                  📉
+                </text>
+              )}
+
+              {/* 투명 호버 영역 */}
+              <rect
+                x={x - candleSpacing/2}
+                y={Math.min(highY, lowY) - 5}
+                width={candleSpacing}
+                height={Math.abs(highY - lowY) + 10}
+                fill="transparent"
+                style={{ cursor: 'pointer' }}
+                onMouseEnter={() => setHoveredCandle(index)}
+                onMouseLeave={() => setHoveredCandle(null)}
+              />
+            </g>
+          );
+        })}
+
+        {/* X축 날짜 라벨 */}
+        {dateLabels.map((label, i) => (
+          <text
+            key={`date-${i}`}
+            x={label.x}
+            y={margin.top + chartHeight + 15}
+            textAnchor="middle"
+            fontSize="12"
+            fill="#666"
+          >
+            {label.date}
+          </text>
+        ))}
+      </svg>
+
+      {/* 호버 툴팁 */}
+      {hoveredCandle !== null && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 30,
+            left: 20,
+            backgroundColor: 'white',
+            padding: '12px',
+            border: '1px solid #ddd',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+            fontSize: '12px',
+            pointerEvents: 'none',
+            zIndex: 10
+          }}
+        >
+          <div style={{ fontWeight: '600', marginBottom: '6px' }}>
+            {data[hoveredCandle].displayDate}
+          </div>
+          <div>시가: <span style={{ color: '#666' }}>{formatPrice(data[hoveredCandle].open)}</span></div>
+          <div>고가: <span style={{ color: '#e74c3c' }}>{formatPrice(data[hoveredCandle].high)}</span></div>
+          <div>저가: <span style={{ color: '#2980b9' }}>{formatPrice(data[hoveredCandle].low)}</span></div>
+          <div>종가: <span style={{ 
+            color: data[hoveredCandle].close >= data[hoveredCandle].open ? '#e74c3c' : '#2980b9' 
+          }}>
+            {formatPrice(data[hoveredCandle].close)}
+          </span></div>
+          {data[hoveredCandle].volume && (
+            <div>거래량: <span style={{ color: '#666' }}>{data[hoveredCandle].volume.toLocaleString()}</span></div>
+          )}
+          {data[hoveredCandle].is_highest && (
+            <div style={{ color: '#e74c3c', fontSize: '11px', marginTop: '4px' }}>
+              📈 기간 중 최고가
+            </div>
+          )}
+          {data[hoveredCandle].is_lowest && (
+            <div style={{ color: '#2980b9', fontSize: '11px', marginTop: '4px' }}>
+              📉 기간 중 최저가
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // 캔들스틱 커스텀 컴포넌트 - 간단한 Recharts 기준 계산 방식
 const CandlestickShape = (props) => {
   const { payload, x, y, width, height, yAxisMap } = props;
@@ -653,8 +1004,8 @@ const StockChart = ({ symbol, stockInfo }) => {
     const actualMax = Math.max(...prices);
     const priceRange = actualMax - actualMin;
     
-    // 캔들차트와 선차트에서 다른 여유공간 적용
-    const paddingPercent = chartType === 'candle' ? 0.08 : 0.05; // 캔들차트: 8%, 선차트: 5%
+    // 🔥 캔들차트 최적화: 더 넉넉한 여유공간으로 캔들이 중앙에 위치하고 적절한 크기 유지
+    const paddingPercent = chartType === 'candle' ? 0.15 : 0.08; // 캔들차트: 15%, 선차트: 8%
     const padding = priceRange * paddingPercent;
     
     const minDomain = Math.max(0, actualMin - padding);
@@ -818,15 +1169,21 @@ const StockChart = ({ symbol, stockInfo }) => {
             <div className="spinner"></div>
           </LoadingState>
         ) : chartData.length > 0 ? (
-          <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <>
+            <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* 메인 차트 (가격) */}
             <div style={{ height: '70%', marginBottom: '10px' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                {chartType === 'candle' ? (
+              {chartType === 'candle' ? (
+                <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart 
                     data={chartData}
                     margin={{ top: 40, right: 30, left: 20, bottom: 50 }}
                   >
+                    <defs>
+                      <filter id="candleShadow" x="-50%" y="-50%" width="200%" height="200%">
+                        <feDropShadow dx="0" dy="1" stdDeviation="1" floodColor="rgba(0,0,0,0.1)" />
+                      </filter>
+                    </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                     <XAxis 
                       dataKey="displayDate" 
@@ -845,12 +1202,117 @@ const StockChart = ({ symbol, stockInfo }) => {
                       }
                     />
                     <Tooltip content={<CandlestickTooltip />} />
-                    {/* 캔들스틱을 위한 커스텀 Bar - close를 기준으로 설정 */}
+                    {/* 🔥 개선된 캔들스틱 - 정확한 좌표 + 부드러운 UI */}
                     <Bar 
                       dataKey="close" 
                       fill="transparent"
-                      shape={(props) => <CandlestickShape {...props} />}
-                      maxBarSize={30}
+                      shape={(props) => {
+                        const { payload, x, y, width, height, yAxisMap } = props;
+                        
+                        if (!payload || typeof payload.open !== 'number' || typeof payload.close !== 'number' || 
+                            typeof payload.high !== 'number' || typeof payload.low !== 'number') {
+                          return null;
+                        }
+                        
+                        const { open, close, high, low } = payload;
+                        
+                        if (high < low || low <= 0 || high <= 0 || open <= 0 || close <= 0) {
+                          return null;
+                        }
+                        
+                        const isRising = close >= open;
+                        const bodyColor = isRising ? '#e74c3c' : '#2980b9';
+                        const fillColor = isRising ? '#e74c3c' : '#2980b9';
+                        
+                        const candleWidth = Math.min(width * 0.6, 12); // 너비 조정
+                        const wickWidth = 1.2;
+                        const centerX = x + width / 2;
+                        
+                        // 🔥 Y축 도메인을 사용한 정확한 좌표 계산
+                        const yDomain = getYAxisDomain();
+                        const minPrice = yDomain[0];
+                        const maxPrice = yDomain[1];
+                        const domainRange = maxPrice - minPrice;
+                        
+                        if (domainRange === 0) {
+                          return (
+                            <g>
+                              <line
+                                x1={centerX - candleWidth / 2}
+                                y1={y + height / 2}
+                                x2={centerX + candleWidth / 2}
+                                y2={y + height / 2}
+                                stroke={bodyColor}
+                                strokeWidth={2}
+                              />
+                            </g>
+                          );
+                        }
+                        
+                        // 차트 영역 내에서 각 가격의 정확한 Y 좌표 계산
+                        const highY = y + ((maxPrice - high) / domainRange) * height;
+                        const lowY = y + ((maxPrice - low) / domainRange) * height;
+                        const openY = y + ((maxPrice - open) / domainRange) * height;
+                        const closeY = y + ((maxPrice - close) / domainRange) * height;
+                        
+                        const bodyTop = Math.min(openY, closeY);
+                        const bodyBottom = Math.max(openY, closeY);
+                        const bodyHeight = Math.max(Math.abs(bodyBottom - bodyTop), 1);
+                        
+                        const isDoji = Math.abs(open - close) / Math.abs(high - low) < 0.02;
+                        
+                        return (
+                          <g>
+                            {/* 상단 심지 */}
+                            <line
+                              x1={centerX}
+                              y1={highY}
+                              x2={centerX}
+                              y2={bodyTop}
+                              stroke={bodyColor}
+                              strokeWidth={wickWidth}
+                              opacity={0.9}
+                            />
+                            
+                            {/* 하단 심지 */}
+                            <line
+                              x1={centerX}
+                              y1={bodyBottom}
+                              x2={centerX}
+                              y2={lowY}
+                              stroke={bodyColor}
+                              strokeWidth={wickWidth}
+                              opacity={0.9}
+                            />
+                            
+                            {/* 캔들 몸통 또는 도지 */}
+                            {isDoji ? (
+                              <line
+                                x1={centerX - candleWidth / 2}
+                                y1={closeY}
+                                x2={centerX + candleWidth / 2}
+                                y2={closeY}
+                                stroke={bodyColor}
+                                strokeWidth={2}
+                              />
+                            ) : (
+                              <rect
+                                x={centerX - candleWidth / 2}
+                                y={bodyTop}
+                                width={candleWidth}
+                                height={bodyHeight}
+                                fill={isRising ? fillColor : 'white'}
+                                stroke={bodyColor}
+                                strokeWidth={1}
+                                rx={0.5}
+                                ry={0.5}
+                                opacity={isRising ? 0.8 : 1}
+                              />
+                            )}
+                          </g>
+                        );
+                      }}
+                      maxBarSize={18}
                     />
                     
                     {/* 이동평균선들 */}
@@ -859,7 +1321,7 @@ const StockChart = ({ symbol, stockInfo }) => {
                         type="monotone"
                         dataKey="ma5"
                         stroke={movingAverageColors.ma5}
-                        strokeWidth={1}
+                        strokeWidth={1.2}
                         dot={false}
                         connectNulls={true}
                         activeDot={false}
@@ -870,7 +1332,7 @@ const StockChart = ({ symbol, stockInfo }) => {
                         type="monotone"
                         dataKey="ma20"
                         stroke={movingAverageColors.ma20}
-                        strokeWidth={1}
+                        strokeWidth={1.2}
                         dot={false}
                         connectNulls={true}
                         activeDot={false}
@@ -881,7 +1343,7 @@ const StockChart = ({ symbol, stockInfo }) => {
                         type="monotone"
                         dataKey="ma60"
                         stroke={movingAverageColors.ma60}
-                        strokeWidth={1}
+                        strokeWidth={1.2}
                         dot={false}
                         connectNulls={true}
                         activeDot={false}
@@ -892,14 +1354,16 @@ const StockChart = ({ symbol, stockInfo }) => {
                         type="monotone"
                         dataKey="ma120"
                         stroke={movingAverageColors.ma120}
-                        strokeWidth={1}
+                        strokeWidth={1.2}
                         dot={false}
                         connectNulls={true}
                         activeDot={false}
                       />
                     )}
                   </ComposedChart>
-                ) : (
+                </ResponsiveContainer>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
                   <LineChart 
                     data={chartData}
                     margin={{ top: 40, right: 30, left: 20, bottom: 50 }}
@@ -931,7 +1395,6 @@ const StockChart = ({ symbol, stockInfo }) => {
                       activeDot={{ r: 4 }}
                     />
                     
-                    {/* 이동평균선들 */}
                     {showMovingAverages.ma5 && (
                       <Line
                         type="monotone"
@@ -977,7 +1440,6 @@ const StockChart = ({ symbol, stockInfo }) => {
                       />
                     )}
                     
-                    {/* 최고점 표시 */}
                     <Line
                       dataKey={(data) => data.is_highest ? data.close : null}
                       stroke="#e74c3c"
@@ -986,7 +1448,6 @@ const StockChart = ({ symbol, stockInfo }) => {
                       activeDot={false}
                       connectNulls={false}
                     />
-                    {/* 최저점 표시 */}
                     <Line
                       dataKey={(data) => data.is_lowest ? data.close : null}
                       stroke="#3498db"
@@ -996,11 +1457,10 @@ const StockChart = ({ symbol, stockInfo }) => {
                       connectNulls={false}
                     />
                   </LineChart>
-                )}
-              </ResponsiveContainer>
+                </ResponsiveContainer>
+              )}
             </div>
             
-            {/* 거래량 차트 */}
             <div style={{ height: '25%' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart
@@ -1036,6 +1496,7 @@ const StockChart = ({ symbol, stockInfo }) => {
               </ResponsiveContainer>
             </div>
           </div>
+          </>
         ) : (
           <div style={{
             display: 'flex',
