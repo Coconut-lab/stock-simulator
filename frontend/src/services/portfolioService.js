@@ -47,6 +47,16 @@ export const portfolioService = {
     }
   },
 
+  // 전량매수 가능 수량 조회
+  getMaxBuyQuantity: async (symbol) => {
+    try {
+      const response = await api.get(`/portfolio/max-buy/${symbol}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { error: '전량매수 정보 조회에 실패했습니다.' };
+    }
+  },
+
   // 포트폴리오 요약 정보
   getPortfolioSummary: async () => {
     try {

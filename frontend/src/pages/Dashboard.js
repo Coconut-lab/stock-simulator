@@ -317,6 +317,40 @@ const Dashboard = () => {
       )}
 
       <ContentGrid>
+        {/* 시장 지수 카드 추가 */}
+        <Card>
+          <CardHeader>
+            <h2>주요 지수</h2>
+          </CardHeader>
+          <CardContent>
+            {marketData?.market_indices ? (
+              <StockList>
+                {marketData.market_indices.map((index) => (
+                  <StockItem key={index.symbol}>
+                    <StockInfo>
+                      <div className="symbol">{index.symbol}</div>
+                      <div className="name">{index.name}</div>
+                    </StockInfo>
+                    <StockPrice changeColor={getProfitColor(index.change)}>
+                      <div className="price">
+                        {formatNumber(index.value)}
+                      </div>
+                      {index.change !== undefined && (
+                        <div className="change">
+                          {index.change >= 0 ? '+' : ''}{formatNumber(index.change)} 
+                          ({index.change_percent >= 0 ? '+' : ''}{formatPercent(index.change_percent)})
+                        </div>
+                      )}
+                    </StockPrice>
+                  </StockItem>
+                ))}
+              </StockList>
+            ) : (
+              <div>시장 지수 데이터를 불러올 수 없습니다.</div>
+            )}
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <h2>한국 주식</h2>

@@ -8,7 +8,6 @@ import {
   formatPercent, 
   getProfitColor, 
   formatErrorMessage,
-  getMarketFromSymbol,
   validateQuantity,
   formatStockPrice,
   formatStockChange,
@@ -76,15 +75,16 @@ const StockHeader = styled.div`
 
 const StockInfo = styled.div`
   .symbol {
-    font-size: 32px;
-    font-weight: 700;
-    color: #333;
-    margin-bottom: 8px;
+    font-size: 18px;
+    font-weight: 600;
+    color: #666;
+    margin-bottom: 4px;
   }
   
   .name {
-    font-size: 18px;
-    color: #666;
+    font-size: 32px;
+    color: #333;
+    font-weight: 700;
     margin-bottom: 16px;
   }
   
@@ -313,6 +313,30 @@ const TradeInfo = styled.div`
   }
 `;
 
+const MaxBuyButton = styled.button`
+  width: 100%;
+  padding: 8px;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  color: #495057;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 8px;
+  
+  &:hover:not(:disabled) {
+    background: #e9ecef;
+    border-color: #adb5bd;
+  }
+  
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+`;
+
 const LoadingState = styled.div`
   display: flex;
   justify-content: center;
@@ -347,9 +371,30 @@ const StockDetail = () => {
   const [quantity, setQuantity] = useState('');
   const [trading, setTrading] = useState(false);
 
+  const [maxBuyData, setMaxBuyData] = useState(null);
+  const [loadingMaxBuy, setLoadingMaxBuy] = useState(false);
+
   useEffect(() => {
     loadStockData();
-  }, [symbol]);
+  }, [symbol]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (stockData && tradeType === 'buy') {
+      loadMaxBuyData();
+    }
+  }, [stockData, tradeType]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loadMaxBuyData = async () => {
+    try {
+      setLoadingMaxBuy(true);
+      const response = await portfolioService.getMaxBuyQuantity(symbol);
+      setMaxBuyData(response.data);
+    } catch (error) {
+      console.error('Max buy data loading error:', error);
+    } finally {
+      setLoadingMaxBuy(false);
+    }
+  };
 
   const loadStockData = async () => {
     try {
@@ -364,6 +409,12 @@ const StockDetail = () => {
       setError(formatErrorMessage(error));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleMaxBuy = () => {
+    if (maxBuyData && maxBuyData.max_quantity > 0) {
+      setQuantity(maxBuyData.max_quantity.toString());
     }
   };
 
@@ -485,8 +536,8 @@ const StockDetail = () => {
         <>
           <StockHeader>
             <StockInfo>
-              <div className="symbol">{stockData.symbol}</div>
               <div className="name">{stockData.name}</div>
+              <div className="symbol">{stockData.symbol}</div>
               <div className="price-container">
                 <span className="price">{formatStockPrice(stockData)}</span>
                 {isUSD && stockData.exchange_rate && (
@@ -560,6 +611,20 @@ const StockDetail = () => {
                       min="1"
                       required
                     />
+                    {tradeType === 'buy' && maxBuyData && (
+                      <MaxBuyButton
+                        type="button"
+                        onClick={handleMaxBuy}
+                        disabled={loadingMaxBuy || maxBuyData.max_quantity === 0}
+                      >
+                        {loadingMaxBuy 
+                          ? '계산중...' 
+                          : maxBuyData.max_quantity === 0
+                            ? '전량매수 불가 (잔액 부족)'
+                            : `전량매수 (${maxBuyData.max_quantity}주 - ₩${formatNumber(Math.round(maxBuyData.total_cost))})`
+                        }
+                      </MaxBuyButton>
+                    )}
                   </InputGroup>
 
                   {quantity && (

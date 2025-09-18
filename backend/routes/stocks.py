@@ -191,21 +191,26 @@ def get_us_stocks():
 
 @stocks_bp.route('/history/<symbol>', methods=['GET'])
 def get_stock_history(symbol):
-    """주식 이력 데이터 조회 (차트용)"""
+    """주식 이력 데이터 조회 (차트용) - 개선된 버전"""
     try:
         # 인증 검증
         user_data, error = verify_auth()
         if error:
             return jsonify({'error': error}), 401
         
-        # 기간 파라미터 받기 (기본 30일)
+        # 파라미터 받기
         period_days = request.args.get('period', 30, type=int)
+        interval = request.args.get('interval', 'daily')  # daily, weekly, monthly
         
-        # 최대 365일로 제한
-        if period_days > 365:
-            period_days = 365
+        # 최대 1095일(3년)로 제한
+        if period_days > 1095:
+            period_days = 1095
         
-        history_data = stock_service.get_stock_history(symbol, period_days)
+        # 간격 유효성 검사
+        if interval not in ['daily', 'weekly', 'monthly']:
+            interval = 'daily'
+        
+        history_data = stock_service.get_stock_history(symbol, period_days, interval)
         
         if not history_data:
             return jsonify({'error': '주식 이력 데이터를 찾을 수 없습니다.'}), 404
@@ -216,4 +221,23 @@ def get_stock_history(symbol):
         
     except Exception as e:
         logging.error(f"주식 이력 조회 에러: {e}")
+        return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
+
+@stocks_bp.route('/indices', methods=['GET'])
+def get_market_indices():
+    """시장 지수 정보 조회"""
+    try:
+        # 인증 검증
+        user_data, error = verify_auth()
+        if error:
+            return jsonify({'error': error}), 401
+        
+        indices = stock_service.get_market_indices()
+        
+        return jsonify({
+            'data': indices
+        }), 200
+        
+    except Exception as e:
+        logging.error(f"시장 지수 조회 에러: {e}")
         return jsonify({'error': '서버 에러가 발생했습니다.'}), 500

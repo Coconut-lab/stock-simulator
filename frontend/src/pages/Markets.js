@@ -96,7 +96,7 @@ const TabButton = styled.button`
   padding: 12px 24px;
   border: none;
   background: ${props => props.$active ? '#667eea' : 'white'};
-  color: ${props => props.active ? 'white' : '#666'};
+  color: ${props => props.$active ? 'white' : '#666'};
   border-radius: 8px;
   font-weight: 600;
   cursor: pointer;
@@ -104,7 +104,7 @@ const TabButton = styled.button`
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   
   &:hover {
-    background: ${props => props.active ? '#5a6fd8' : '#f8f9fa'};
+    background: ${props => props.$active ? '#5a6fd8' : '#f8f9fa'};
   }
 `;
 
@@ -137,16 +137,16 @@ const StockHeader = styled.div`
 
 const StockInfo = styled.div`
   .symbol {
-    font-size: 18px;
-    font-weight: 700;
-    color: #333;
-    margin-bottom: 4px;
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 8px;
   }
   
   .name {
-    font-size: 14px;
-    color: #666;
-    margin-bottom: 8px;
+      font-size: 18px;
+      font-weight: 700;
+      color: #333;
+      margin-bottom: 4px;
   }
   
   .market {
@@ -454,8 +454,8 @@ const Markets = () => {
             >
               <StockHeader>
                 <StockInfo>
-                  <div className="symbol">{stock.symbol}</div>
                   <div className="name">{stock.name}</div>
+                  <div className="symbol">{stock.symbol}</div>
                   <div className="market">
                     {getMarketFromSymbol(stock.symbol) === 'KRW' ? '한국' : '미국'} 주식
                   </div>
