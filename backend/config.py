@@ -5,7 +5,7 @@ load_dotenv()
 
 class Config:
     # MongoDB 설정
-    MONGODB_URI = "mongodb+srv://StockAdmin:bnm20941@financedata.vx5oqsk.mongodb.net/"
+    MONGODB_URI = os.getenv("DB_URL")
     DATABASE_NAME = "stock_trading"
     
     # JWT 설정
