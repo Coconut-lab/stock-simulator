@@ -1,102 +1,97 @@
-from flask import Blueprint, request, jsonify
+from fastapi import APIRouter, HTTPException, status, Depends
 from services.auth_service import auth_service
+from dependencies.auth import get_current_user
+from schemas import (
+    UserRegister,
+    UserLogin,
+    AuthResponse,
+    UserResponse,
+    MessageResponse,
+    TokenResponse
+)
 import logging
 
-auth_bp = Blueprint('auth', __name__, url_prefix='/api/auth')
+router = APIRouter()
 
-@auth_bp.route('/register', methods=['POST'])
-def register():
+
+@router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
+async def register(user_data: UserRegister):
     """사용자 등록"""
     try:
-        data = request.get_json()
+        # 필수 필드는 Pydantic이 자동으로 검증
         
-        if not data:
-            return jsonify({'error': '요청 데이터가 없습니다.'}), 400
-        
-        username = data.get('username')
-        email = data.get('email')
-        password = data.get('password')
-        
-        # 필수 필드 검증
-        if not username or not email or not password:
-            return jsonify({'error': '모든 필드를 입력해주세요.'}), 400
-        
-        # 비밀번호 길이 검증
-        if len(password) < 6:
-            return jsonify({'error': '비밀번호는 최소 6자 이상이어야 합니다.'}), 400
-        
-        result, error = auth_service.register(username, email, password)
+        result, error = auth_service.register(
+            user_data.username,
+            user_data.email,
+            user_data.password
+        )
         
         if error:
-            return jsonify({'error': error}), 400
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error
+            )
         
-        return jsonify({
-            'message': '회원가입이 완료되었습니다.',
-            'data': result
-        }), 201
+        return {
+            "message": "회원가입이 완료되었습니다.",
+            "data": result
+        }
         
+    except HTTPException:
+        raise
     except Exception as e:
         logging.error(f"회원가입 에러: {e}")
-        return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="서버 에러가 발생했습니다."
+        )
 
-@auth_bp.route('/login', methods=['POST'])
-def login():
+
+@router.post("/login", response_model=AuthResponse)
+async def login(credentials: UserLogin):
     """사용자 로그인"""
     try:
-        data = request.get_json()
-        
-        if not data:
-            return jsonify({'error': '요청 데이터가 없습니다.'}), 400
-        
-        email = data.get('email')
-        password = data.get('password')
-        
-        # 필수 필드 검증
-        if not email or not password:
-            return jsonify({'error': '이메일과 비밀번호를 입력해주세요.'}), 400
-        
-        result, error = auth_service.login(email, password)
+        result, error = auth_service.login(
+            credentials.email,
+            credentials.password
+        )
         
         if error:
-            return jsonify({'error': error}), 401
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=error
+            )
         
-        return jsonify({
-            'message': '로그인이 완료되었습니다.',
-            'data': result
-        }), 200
+        return {
+            "message": "로그인이 완료되었습니다.",
+            "data": result
+        }
         
+    except HTTPException:
+        raise
     except Exception as e:
         logging.error(f"로그인 에러: {e}")
-        return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="서버 에러가 발생했습니다."
+        )
 
-@auth_bp.route('/me', methods=['GET'])
-def get_current_user():
+
+@router.get("/me", response_model=dict)
+async def get_current_user_info(current_user: dict = Depends(get_current_user)):
     """현재 사용자 정보 조회"""
     try:
-        # Authorization 헤더에서 토큰 추출
-        auth_header = request.headers.get('Authorization')
-        
-        if not auth_header or not auth_header.startswith('Bearer '):
-            return jsonify({'error': '인증 토큰이 필요합니다.'}), 401
-        
-        token = auth_header.split(' ')[1]
-        
-        user_data, error = auth_service.get_current_user(token)
-        
-        if error:
-            return jsonify({'error': error}), 401
-        
-        return jsonify({
-            'data': user_data
-        }), 200
+        return {"data": current_user}
         
     except Exception as e:
         logging.error(f"사용자 정보 조회 에러: {e}")
-        return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="서버 에러가 발생했습니다."
+        )
 
-@auth_bp.route('/logout', methods=['POST'])
-def logout():
+
+@router.post("/logout", response_model=MessageResponse)
+async def logout():
     """사용자 로그아웃 (클라이언트에서 토큰 삭제)"""
-    return jsonify({
-        'message': '로그아웃이 완료되었습니다.'
-    }), 200
+    return {"message": "로그아웃이 완료되었습니다."}

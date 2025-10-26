@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 주식 거래 시스템 ERD (기본)</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 5px 15px;
+            background: #667eea;
+            color: white;
+            border-radius: 20px;
+            font-size: 12px;
+            margin: 0 5px;
+        }
+        .info-box {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .info-box h3 {
+            margin-top: 0;
+            color: #667eea;
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .legend-symbol {
+            font-weight: bold;
+            color: #667eea;
+        }
+        #erd-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            overflow-x: auto;
+        }
+        .mermaid {
+            display: flex;
+            justify-content: center;
+        }
+        .note {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .note strong {
+            color: #856404;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏦 가상 주식 거래 시스템 (기본)</h1>
+        <div class="subtitle">
+            <span class="badge">관계형 데이터베이스</span>
+            <span class="badge">ERD</span>
+            <span class="badge">기본 4개 테이블</span>
+        </div>
+
+        <div class="info-box">
+            <h3>📊 데이터베이스 개요</h3>
+            <ul>
+                <li><strong>데이터베이스명:</strong> stock_trading</li>
+                <li><strong>테이블 수:</strong> 4개 (users, portfolios, transactions, stock_cache)</li>
+                <li><strong>주요 기능:</strong> 사용자 관리, 포트폴리오 관리, 거래 내역 추적, 주식 가격 캐싱</li>
+            </ul>
+        </div>
+
+        <div class="legend">
+            <div class="legend-item">
+                <span class="legend-symbol">PK</span>
+                <span>Primary Key (기본키)</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-symbol">FK</span>
+                <span>Foreign Key (외래키)</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-symbol">UK</span>
+                <span>Unique Key (고유키)</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-symbol">1:N</span>
+                <span>One to Many (일대다 관계)</span>
+            </div>
+        </div>
+
+        <div id="erd-container">
+            <div class="mermaid">
+erDiagram
+    USERS ||--o{ PORTFOLIOS : "보유"
+    USERS ||--o{ TRANSACTIONS : "거래"
+    
+    USERS {
+        bigint id PK "사용자 ID"
+        varchar username UK "사용자명 (고유)"
+        varchar email UK "이메일 (고유)"
+        varchar password "암호화된 비밀번호"
+        decimal balance "보유 현금 (KRW)"
+        timestamp created_at "생성일시"
+        timestamp updated_at "수정일시"
+    }
+    
+    PORTFOLIOS {
+        bigint id PK "포트폴리오 ID"
+        bigint user_id FK "사용자 ID"
+        varchar symbol "주식 심볼"
+        int quantity "보유 수량"
+        decimal avg_price "평균 매수가 (KRW)"
+        varchar market "시장 (KRW/USD)"
+        timestamp created_at "최초 매수일"
+        timestamp updated_at "마지막 수정일"
+    }
+    
+    TRANSACTIONS {
+        bigint id PK "거래 ID"
+        bigint user_id FK "사용자 ID"
+        varchar symbol "주식 심볼"
+        varchar type "거래 유형 (buy/sell)"
+        int quantity "거래 수량"
+        decimal price "거래 단가 (KRW)"
+        decimal commission "거래 수수료"
+        decimal total_amount "총 거래금액"
+        varchar market "시장 (KRW/USD)"
+        timestamp timestamp "거래 시각"
+    }
+    
+    STOCK_CACHE {
+        bigint id PK "캐시 ID"
+        varchar symbol UK "주식 심볼 (고유)"
+        varchar name "회사명"
+        decimal current_price "현재가"
+        decimal previous_close "전일 종가"
+        decimal open_price "시가"
+        decimal high_price "고가"
+        decimal low_price "저가"
+        bigint volume "거래량"
+        decimal change "가격 변동"
+        decimal change_percent "변동률 (%)"
+        varchar market "시장 (KRW/USD)"
+        varchar currency "통화"
+        decimal exchange_rate "환율 (USD만)"
+        timestamp updated_at "업데이트 시각"
+    }
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h3>🔗 테이블 관계 설명</h3>
+            <ul>
+                <li><strong>USERS ↔ PORTFOLIOS (1:N)</strong>
+                    <br>→ 한 사용자는 여러 주식을 보유할 수 있음
+                    <br>→ portfolios.user_id가 users.id를 참조
+                </li>
+                <li><strong>USERS ↔ TRANSACTIONS (1:N)</strong>
+                    <br>→ 한 사용자는 여러 거래 내역을 가질 수 있음
+                    <br>→ transactions.user_id가 users.id를 참조
+                </li>
+                <li><strong>STOCK_CACHE (독립)</strong>
+                    <br>→ 다른 테이블과 관계 없이 독립적으로 존재
+                    <br>→ 주식 가격 정보를 캐싱하여 API 호출 최소화
+                </li>
+            </ul>
+        </div>
+
+        <div class="info-box">
+            <h3>📋 CREATE TABLE 스크립트</h3>
+            <pre>
+-- 1. USERS (사용자)
+CREATE TABLE users (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    username VARCHAR(50) NOT NULL,
+    email VARCHAR(100) NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    balance DECIMAL(15,2) NOT NULL DEFAULT 1000000.00,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_email (email),
+    UNIQUE KEY uk_username (username)
+);
+
+-- 2. PORTFOLIOS (포트폴리오)
+CREATE TABLE portfolios (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    symbol VARCHAR(20) NOT NULL,
+    quantity INT NOT NULL CHECK (quantity > 0),
+    avg_price DECIMAL(15,2) NOT NULL,
+    market VARCHAR(10) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY uk_user_symbol (user_id, symbol)
+);
+
+-- 3. TRANSACTIONS (거래 내역)
+CREATE TABLE transactions (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    symbol VARCHAR(20) NOT NULL,
+    type VARCHAR(10) NOT NULL CHECK (type IN ('buy', 'sell')),
+    quantity INT NOT NULL,
+    price DECIMAL(15,2) NOT NULL,
+    commission DECIMAL(15,2) NOT NULL,
+    total_amount DECIMAL(15,2) NOT NULL,
+    market VARCHAR(10) NOT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- 4. STOCK_CACHE (주식 캐시)
+CREATE TABLE stock_cache (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    symbol VARCHAR(20) NOT NULL,
+    name VARCHAR(200),
+    current_price DECIMAL(15,2) NOT NULL,
+    previous_close DECIMAL(15,2),
+    open_price DECIMAL(15,2),
+    high_price DECIMAL(15,2),
+    low_price DECIMAL(15,2),
+    volume BIGINT,
+    change DECIMAL(15,2),
+    change_percent DECIMAL(10,4),
+    market VARCHAR(10),
+    currency VARCHAR(10),
+    exchange_rate DECIMAL(10,4),
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_symbol (symbol)
+);
+            </pre>
+        </div>
+
+        <div class="info-box">
+            <h3>📋 인덱스 권장사항</h3>
+            <pre>
+-- USERS 테이블
+CREATE UNIQUE INDEX idx_users_email ON users(email);
+CREATE UNIQUE INDEX idx_users_username ON users(username);
+
+-- PORTFOLIOS 테이블
+CREATE UNIQUE INDEX idx_portfolios_user_symbol ON portfolios(user_id, symbol);
+CREATE INDEX idx_portfolios_user_id ON portfolios(user_id);
+CREATE INDEX idx_portfolios_symbol ON portfolios(symbol);
+
+-- TRANSACTIONS 테이블
+CREATE INDEX idx_transactions_user_id ON transactions(user_id);
+CREATE INDEX idx_transactions_symbol ON transactions(symbol);
+CREATE INDEX idx_transactions_timestamp ON transactions(timestamp DESC);
+CREATE INDEX idx_transactions_user_timestamp ON transactions(user_id, timestamp DESC);
+
+-- STOCK_CACHE 테이블
+CREATE UNIQUE INDEX idx_stock_cache_symbol ON stock_cache(symbol);
+CREATE INDEX idx_stock_cache_updated_at ON stock_cache(updated_at DESC);
+            </pre>
+        </div>
+
+        <div class="info-box">
+            <h3>💾 데이터 타입 정의 (PostgreSQL/MySQL)</h3>
+            <ul>
+                <li><strong>bigint:</strong> 큰 정수 (ID 값)</li>
+                <li><strong>varchar:</strong> 가변 길이 문자열</li>
+                <li><strong>decimal:</strong> 정확한 소수점 계산 (금액, 가격)</li>
+                <li><strong>int:</strong> 정수 (수량)</li>
+                <li><strong>timestamp:</strong> 날짜와 시간</li>
+            </ul>
+        </div>
+
+        <div class="note">
+            <strong>⚠️ 참고:</strong> 실제 구현은 MongoDB (NoSQL)를 사용하고 있습니다. 
+            이 ERD는 관계형 데이터베이스로 마이그레이션할 경우를 가정한 설계입니다.
+        </div>
+
+        <div class="info-box">
+            <h3>🔄 비즈니스 로직 흐름</h3>
+            <h4>1️⃣ 회원가입</h4>
+            <pre>INSERT INTO users (username, email, password, balance) 
+VALUES ('홍길동', 'hong@example.com', 'hashed_pwd', 1000000);</pre>
+            
+            <h4>2️⃣ 주식 매수</h4>
+            <pre>-- 1. 포트폴리오에 추가/업데이트
+INSERT INTO portfolios (user_id, symbol, quantity, avg_price, market)
+VALUES (1, '005930', 10, 70000, 'KRW')
+ON CONFLICT (user_id, symbol) 
+DO UPDATE SET quantity = portfolios.quantity + 10;
+
+-- 2. 거래 내역 기록
+INSERT INTO transactions (user_id, symbol, type, quantity, price, commission, total_amount, market)
+VALUES (1, '005930', 'buy', 10, 70000, 1050, 701050, 'KRW');
+
+-- 3. 잔액 차감
+UPDATE users SET balance = balance - 701050 WHERE id = 1;</pre>
+
+            <h4>3️⃣ 주식 매도</h4>
+            <pre>-- 1. 포트폴리오 수량 감소
+UPDATE portfolios 
+SET quantity = quantity - 5 
+WHERE user_id = 1 AND symbol = '005930';
+
+-- 2. 거래 내역 기록
+INSERT INTO transactions (user_id, symbol, type, quantity, price, commission, total_amount, market)
+VALUES (1, '005930', 'sell', 5, 71000, 532, 354468, 'KRW');
+
+-- 3. 잔액 증가
+UPDATE users SET balance = balance + 354468 WHERE id = 1;</pre>
+        </div>
+
+        <div class="info-box">
+            <h3>📊 주요 쿼리 예시</h3>
+            
+            <h4>사용자별 포트폴리오 조회</h4>
+            <pre>
+SELECT 
+    p.symbol,
+    p.quantity,
+    p.avg_price,
+    s.name,
+    s.current_price,
+    (s.current_price - p.avg_price) * p.quantity AS profit_loss,
+    ((s.current_price - p.avg_price) / p.avg_price * 100) AS profit_loss_percent
+FROM portfolios p
+JOIN stock_cache s ON p.symbol = s.symbol
+WHERE p.user_id = 1;
+            </pre>
+
+            <h4>거래 내역 조회</h4>
+            <pre>
+SELECT 
+    t.symbol,
+    t.type,
+    t.quantity,
+    t.price,
+    t.commission,
+    t.total_amount,
+    t.timestamp,
+    s.name
+FROM transactions t
+LEFT JOIN stock_cache s ON t.symbol = s.symbol
+WHERE t.user_id = 1
+ORDER BY t.timestamp DESC
+LIMIT 50;
+            </pre>
+
+            <h4>전체 자산 계산</h4>
+            <pre>
+SELECT 
+    u.balance AS cash,
+    COALESCE(SUM(p.quantity * s.current_price), 0) AS stock_value,
+    u.balance + COALESCE(SUM(p.quantity * s.current_price), 0) AS total_assets
+FROM users u
+LEFT JOIN portfolios p ON u.id = p.user_id
+LEFT JOIN stock_cache s ON p.symbol = s.symbol
+WHERE u.id = 1
+GROUP BY u.id, u.balance;
+            </pre>
+        </div>
+
+        <div class="info-box">
+            <h3>🎯 데이터 무결성 제약</h3>
+            <ul>
+                <li><strong>UNIQUE 제약:</strong> email, username 중복 불가</li>
+                <li><strong>UNIQUE 제약:</strong> (user_id, symbol) 조합 - 같은 종목 중복 보유 불가</li>
+                <li><strong>CHECK 제약:</strong> quantity > 0 (수량은 항상 양수)</li>
+                <li><strong>CHECK 제약:</strong> type IN ('buy', 'sell') (거래 유형 제한)</li>
+                <li><strong>CHECK 제약:</strong> balance >= 0 (잔액 음수 불가)</li>
+                <li><strong>ON DELETE CASCADE:</strong> 사용자 삭제 시 관련 데이터 자동 삭제</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            themeVariables: {
+                primaryColor: '#667eea',
+                primaryTextColor: '#fff',
+                primaryBorderColor: '#5568d3',
+                lineColor: '#5568d3',
+                secondaryColor: '#764ba2',
+                tertiaryColor: '#f8f9fa'
+            }
+        });
+    </script>
+</body>
+</html>
