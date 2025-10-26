@@ -33,7 +33,7 @@
 
 ### Backend
 - **Python 3.8+**
-- **Flask** - 웹 프레임워크
+- **FastAPI** - 웹 프레임워크
 - **MongoDB** - 데이터베이스
 - **FinanceDataReader** - 주식 데이터 API (대안: yfinance)
 - **JWT** - 인증 토큰
@@ -100,7 +100,7 @@ DEBUG=True
 #### Backend 서버 실행
 ```bash
 cd backend
-python app.py
+python main.py
 ```
 
 서버는 `http://localhost:5000`에서 실행됩니다.
@@ -115,7 +115,7 @@ npm install
 
 #### Frontend 개발 서버 실행
 ```bash
-npm start
+npm run start
 ```
 
 애플리케이션은 `http://localhost:3000`에서 실행됩니다.
@@ -178,11 +178,14 @@ npm start
 finace/
 ├── backend/                 # Flask 백엔드
 │   ├── models/             # 데이터 모델
+│   ├── dependencies/       # 의존성 주입
 │   ├── routes/             # API 라우트
 │   ├── services/           # 비즈니스 로직
+│   ├── schemas/            # Pydantic 스키마
 │   ├── utils/              # 유틸리티 함수
 │   ├── config.py           # 설정 파일
-│   └── app.py              # 메인 애플리케이션
+│   ├── requirements.txt    # Python 의존성
+│   └── main.py             # 메인 애플리케이션
 ├── frontend/               # React 프론트엔드
 │   ├── src/
 │   │   ├── components/     # 재사용 컴포넌트
@@ -192,7 +195,6 @@ finace/
 │   │   ├── hooks/          # 커스텀 훅
 │   │   └── utils/          # 유틸리티 함수
 │   └── public/
-├── requirements.txt        # Python 의존성
 └── README.md
 ```
 
