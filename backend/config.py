@@ -22,8 +22,8 @@ class Config:
     }
     
     # 주식 데이터 업데이트 간격 (초)
-    STOCK_UPDATE_INTERVAL = 300
+    STOCK_UPDATE_INTERVAL = 300  # 5분마다 업데이트 (rate limiting 방지)
     
-
+    # Flask 설정
     DEBUG = True
     TESTING = False
