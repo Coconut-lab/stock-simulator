@@ -1,0 +1,54 @@
+# Git
+.git
+.gitignore
+.github
+
+# IDE
+.idea
+.vscode
+.DS_Store
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info
+dist
+build
+venv
+env
+.venv
+
+# Node
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# 로그
+*.log
+
+# 테스트
+coverage
+.pytest_cache
+
+# 문서
+README.md
+DOCKER_README.md
+*.md
+
+# 기타
+.DS_Store
+test.py
+docker-compose.yml
+backend/Dockerfile
+frontend/Dockerfile

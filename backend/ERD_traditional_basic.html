@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 주식 거래 시스템 ER 다이어그램 (기본)</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 5px 15px;
+            background: #667eea;
+            color: white;
+            border-radius: 20px;
+            font-size: 12px;
+            margin: 0 5px;
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 20px 0 30px 0;
+            flex-wrap: wrap;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .legend-shape {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: #333;
+        }
+        .entity-box {
+            width: 80px;
+            height: 40px;
+            background: #ffb3ba;
+            border: 2px solid #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .relationship-diamond {
+            width: 60px;
+            height: 60px;
+            background: #ffdfba;
+            border: 2px solid #000;
+            transform: rotate(45deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .relationship-text {
+            transform: rotate(-45deg);
+            font-size: 11px;
+        }
+        .attribute-oval {
+            width: 70px;
+            height: 35px;
+            background: #ffffba;
+            border: 2px solid #000;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+        }
+        #diagram-container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+        .mermaid {
+            display: flex;
+            justify-content: center;
+        }
+        .info-box {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .info-box h3 {
+            margin-top: 0;
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏦 가상 주식 거래 시스템</h1>
+        <div class="subtitle">
+            <span class="badge">전통적 ER 다이어그램</span>
+            <span class="badge">4개 엔티티</span>
+            <span class="badge">Chen 표기법</span>
+        </div>
+
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-shape entity-box">엔티티</div>
+                <span>사각형: 개체(Entity)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-shape relationship-diamond">
+                    <span class="relationship-text">관계</span>
+                </div>
+                <span>마름모: 관계(Relationship)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-shape attribute-oval">속성</div>
+                <span>타원: 속성(Attribute)</span>
+            </div>
+            <div class="legend-item">
+                <span style="text-decoration: underline; font-weight: bold;">밑줄</span>
+                <span>: 기본키(Primary Key)</span>
+            </div>
+        </div>
+
+        <div id="diagram-container">
+            <div class="mermaid">
+graph TB
+    %% USERS 엔티티
+    USERS[USERS<br/>사용자]
+    
+    %% USERS 속성
+    U_ID(("<u>id</u>"))
+    U_USERNAME((username))
+    U_EMAIL((email))
+    U_PASSWORD((password))
+    U_BALANCE((balance<br/>잔액))
+    U_CREATED((created_at))
+    U_UPDATED((updated_at))
+    
+    %% PORTFOLIOS 엔티티
+    PORTFOLIOS[PORTFOLIOS<br/>포트폴리오]
+    
+    %% PORTFOLIOS 속성
+    P_ID(("<u>id</u>"))
+    P_SYMBOL((symbol<br/>종목코드))
+    P_QUANTITY((quantity<br/>수량))
+    P_AVG_PRICE((avg_price<br/>평균가))
+    P_MARKET((market<br/>시장))
+    P_CREATED((created_at))
+    P_UPDATED((updated_at))
+    
+    %% TRANSACTIONS 엔티티
+    TRANSACTIONS[TRANSACTIONS<br/>거래내역]
+    
+    %% TRANSACTIONS 속성
+    T_ID(("<u>id</u>"))
+    T_SYMBOL((symbol))
+    T_TYPE((type<br/>매수/매도))
+    T_QUANTITY((quantity))
+    T_PRICE((price))
+    T_COMMISSION((commission<br/>수수료))
+    T_TOTAL((total_amount))
+    T_MARKET((market))
+    T_TIMESTAMP((timestamp))
+    
+    %% STOCK_CACHE 엔티티
+    STOCK_CACHE[STOCK_CACHE<br/>주식캐시]
+    
+    %% STOCK_CACHE 속성
+    S_ID(("<u>id</u>"))
+    S_SYMBOL((symbol))
+    S_NAME((name<br/>회사명))
+    S_CURRENT((current_price))
+    S_PREV((previous_close))
+    S_OPEN((open_price))
+    S_HIGH((high_price))
+    S_LOW((low_price))
+    S_VOLUME((volume))
+    S_CHANGE((change))
+    S_PERCENT((change_percent))
+    S_MARKET((market))
+    S_CURRENCY((currency))
+    S_RATE((exchange_rate))
+    S_UPDATED((updated_at))
+    
+    %% 관계: 보유
+    HAS{보유<br/>HAS}
+    
+    %% 관계: 거래
+    TRADE{거래<br/>TRADE}
+    
+    %% USERS 속성 연결
+    U_ID --- USERS
+    U_USERNAME --- USERS
+    U_EMAIL --- USERS
+    U_PASSWORD --- USERS
+    U_BALANCE --- USERS
+    U_CREATED --- USERS
+    U_UPDATED --- USERS
+    
+    %% PORTFOLIOS 속성 연결
+    P_ID --- PORTFOLIOS
+    P_SYMBOL --- PORTFOLIOS
+    P_QUANTITY --- PORTFOLIOS
+    P_AVG_PRICE --- PORTFOLIOS
+    P_MARKET --- PORTFOLIOS
+    P_CREATED --- PORTFOLIOS
+    P_UPDATED --- PORTFOLIOS
+    
+    %% TRANSACTIONS 속성 연결
+    T_ID --- TRANSACTIONS
+    T_SYMBOL --- TRANSACTIONS
+    T_TYPE --- TRANSACTIONS
+    T_QUANTITY --- TRANSACTIONS
+    T_PRICE --- TRANSACTIONS
+    T_COMMISSION --- TRANSACTIONS
+    T_TOTAL --- TRANSACTIONS
+    T_MARKET --- TRANSACTIONS
+    T_TIMESTAMP --- TRANSACTIONS
+    
+    %% STOCK_CACHE 속성 연결
+    S_ID --- STOCK_CACHE
+    S_SYMBOL --- STOCK_CACHE
+    S_NAME --- STOCK_CACHE
+    S_CURRENT --- STOCK_CACHE
+    S_PREV --- STOCK_CACHE
+    S_OPEN --- STOCK_CACHE
+    S_HIGH --- STOCK_CACHE
+    S_LOW --- STOCK_CACHE
+    S_VOLUME --- STOCK_CACHE
+    S_CHANGE --- STOCK_CACHE
+    S_PERCENT --- STOCK_CACHE
+    S_MARKET --- STOCK_CACHE
+    S_CURRENCY --- STOCK_CACHE
+    S_RATE --- STOCK_CACHE
+    S_UPDATED --- STOCK_CACHE
+    
+    %% 관계 연결
+    USERS ---|1| HAS
+    HAS ---|N| PORTFOLIOS
+    
+    USERS ---|1| TRADE
+    TRADE ---|N| TRANSACTIONS
+    
+    %% 스타일 정의
+    classDef entityStyle fill:#ffb3ba,stroke:#333,stroke-width:3px,color:#000
+    classDef attrStyle fill:#ffffba,stroke:#333,stroke-width:2px,color:#000
+    classDef pkStyle fill:#baffc9,stroke:#333,stroke-width:2px,color:#000,text-decoration:underline
+    classDef relStyle fill:#ffdfba,stroke:#333,stroke-width:3px,color:#000
+    
+    class USERS,PORTFOLIOS,TRANSACTIONS,STOCK_CACHE entityStyle
+    class HAS,TRADE relStyle
+    class U_ID,P_ID,T_ID,S_ID pkStyle
+    class U_USERNAME,U_EMAIL,U_PASSWORD,U_BALANCE,U_CREATED,U_UPDATED attrStyle
+    class P_SYMBOL,P_QUANTITY,P_AVG_PRICE,P_MARKET,P_CREATED,P_UPDATED attrStyle
+    class T_SYMBOL,T_TYPE,T_QUANTITY,T_PRICE,T_COMMISSION,T_TOTAL,T_MARKET,T_TIMESTAMP attrStyle
+    class S_SYMBOL,S_NAME,S_CURRENT,S_PREV,S_OPEN,S_HIGH,S_LOW,S_VOLUME,S_CHANGE,S_PERCENT,S_MARKET,S_CURRENCY,S_RATE,S_UPDATED attrStyle
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h3>📊 엔티티 설명</h3>
+            <ul>
+                <li><strong>USERS (사용자):</strong> 시스템 사용자 정보</li>
+                <li><strong>PORTFOLIOS (포트폴리오):</strong> 사용자가 보유한 주식 정보</li>
+                <li><strong>TRANSACTIONS (거래내역):</strong> 모든 매수/매도 거래 기록</li>
+                <li><strong>STOCK_CACHE (주식캐시):</strong> 주식 가격 정보 (독립 엔티티)</li>
+            </ul>
+        </div>
+
+        <div class="info-box">
+            <h3>🔗 관계 설명</h3>
+            <ul>
+                <li><strong>보유 (HAS):</strong> 사용자(1) ↔ 포트폴리오(N) - 한 사용자는 여러 주식 보유</li>
+                <li><strong>거래 (TRADE):</strong> 사용자(1) ↔ 거래내역(N) - 한 사용자는 여러 거래 수행</li>
+                <li><strong>STOCK_CACHE:</strong> 독립 엔티티 (다른 엔티티와 관계 없음)</li>
+            </ul>
+        </div>
+
+        <div class="info-box">
+            <h3>🎨 색상 구분</h3>
+            <ul>
+                <li><strong style="color: #ff8a8a;">분홍색 사각형:</strong> 엔티티 (개체)</li>
+                <li><strong style="color: #ffb366;">주황색 마름모:</strong> 관계</li>
+                <li><strong style="color: #ffff66;">노란색 타원:</strong> 일반 속성</li>
+                <li><strong style="color: #66ff99;">초록색 타원:</strong> 기본키 (밑줄)</li>
+            </ul>
+        </div>
+
+        <div class="info-box">
+            <h3>📌 카디널리티 (Cardinality)</h3>
+            <ul>
+                <li><strong>1:N</strong> - 1대 다 관계</li>
+                <li>USERS(1) → HAS → PORTFOLIOS(N)</li>
+                <li>USERS(1) → TRADE → TRANSACTIONS(N)</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            }
+        });
+    </script>
+</body>
+</html>

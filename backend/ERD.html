@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 주식 거래 시스템 ERD (확장)</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 5px 15px;
+            background: #667eea;
+            color: white;
+            border-radius: 20px;
+            font-size: 12px;
+            margin: 0 5px;
+        }
+        .badge.new {
+            background: #28a745;
+        }
+        .info-box {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .info-box.new {
+            border-left-color: #28a745;
+            background: #f0fdf4;
+        }
+        .info-box h3 {
+            margin-top: 0;
+            color: #667eea;
+        }
+        .info-box.new h3 {
+            color: #28a745;
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .legend-symbol {
+            font-weight: bold;
+            color: #667eea;
+        }
+        #erd-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            overflow-x: auto;
+        }
+        .mermaid {
+            display: flex;
+            justify-content: center;
+        }
+        .note {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .note strong {
+            color: #856404;
+        }
+        .highlight {
+            background: #e7f3ff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+        .table-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .table-card {
+            background: #fff;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            transition: all 0.3s;
+        }
+        .table-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+        }
+        .table-card.new {
+            border-color: #28a745;
+            background: #f0fdf4;
+        }
+        .table-card h4 {
+            margin-top: 0;
+            color: #667eea;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .table-card.new h4 {
+            color: #28a745;
+        }
+        .table-card ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .table-card li {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏦 가상 주식 거래 시스템 (확장)</h1>
+        <div class="subtitle">
+            <span class="badge">관계형 데이터베이스</span>
+            <span class="badge">ERD</span>
+            <span class="badge new">5개 테이블 추가</span>
+        </div>
+
+        <div class="info-box">
+            <h3>📊 데이터베이스 개요</h3>
+            <ul>
+                <li><strong>데이터베이스명:</strong> stock_trading</li>
+                <li><strong>총 테이블 수:</strong> <span class="highlight">9개</span> (기존 4개 + 신규 5개)</li>
+                <li><strong>주요 기능:</strong> 사용자 관리, 포트폴리오 관리, 거래 내역 추적, 주식 가격 캐싱, 관심 종목, 가격 알림, 환율 이력, 알림 시스템, 배당 관리</li>
+            </ul>
+        </div>
+
+        <div class="legend">
+            <div class="legend-item">
+                <span class="legend-symbol">PK</span>
+                <span>Primary Key (기본키)</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-symbol">FK</span>
+                <span>Foreign Key (외래키)</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-symbol">UK</span>
+                <span>Unique Key (고유키)</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-symbol">1:N</span>
+                <span>One to Many (일대다 관계)</span>
+            </div>
+        </div>
+
+        <div id="erd-container">
+            <div class="mermaid">
+erDiagram
+    USERS ||--o{ PORTFOLIOS : "보유"
+    USERS ||--o{ TRANSACTIONS : "거래"
+    USERS ||--o{ WATCHLIST : "관심등록"
+    USERS ||--o{ STOCK_ALERTS : "알림설정"
+    USERS ||--o{ USER_NOTIFICATIONS : "알림받음"
+    USERS ||--o{ DIVIDEND_HISTORY : "배당받음"
+    
+    USERS {
+        bigint id PK "사용자 ID"
+        varchar username UK "사용자명"
+        varchar email UK "이메일"
+        varchar password "암호화된 비밀번호"
+        decimal balance "보유 현금"
+        timestamp created_at "생성일시"
+        timestamp updated_at "수정일시"
+    }
+    
+    PORTFOLIOS {
+        bigint id PK "포트폴리오 ID"
+        bigint user_id FK "사용자 ID"
+        varchar symbol "주식 심볼"
+        int quantity "보유 수량"
+        decimal avg_price "평균 매수가"
+        varchar market "시장 KRW/USD"
+        timestamp created_at "최초 매수일"
+        timestamp updated_at "마지막 수정일"
+    }
+    
+    TRANSACTIONS {
+        bigint id PK "거래 ID"
+        bigint user_id FK "사용자 ID"
+        varchar symbol "주식 심볼"
+        varchar type "거래유형 buy/sell"
+        int quantity "거래 수량"
+        decimal price "거래 단가"
+        decimal commission "거래 수수료"
+        decimal total_amount "총 거래금액"
+        varchar market "시장"
+        timestamp timestamp "거래 시각"
+    }
+    
+    STOCK_CACHE {
+        bigint id PK "캐시 ID"
+        varchar symbol UK "주식 심볼"
+        varchar name "회사명"
+        decimal current_price "현재가"
+        decimal previous_close "전일 종가"
+        decimal open_price "시가"
+        decimal high_price "고가"
+        decimal low_price "저가"
+        bigint volume "거래량"
+        decimal change "가격 변동"
+        decimal change_percent "변동률"
+        varchar market "시장"
+        varchar currency "통화"
+        decimal exchange_rate "환율"
+        timestamp updated_at "업데이트 시각"
+    }
+    
+    WATCHLIST {
+        bigint id PK "관심종목 ID"
+        bigint user_id FK "사용자 ID"
+        varchar symbol "주식 심볼"
+        varchar note "메모"
+        decimal target_price "목표가"
+        timestamp added_at "추가일시"
+    }
+    
+    STOCK_ALERTS {
+        bigint id PK "알림 ID"
+        bigint user_id FK "사용자 ID"
+        varchar symbol "주식 심볼"
+        varchar alert_type "알림유형 above/below"
+        decimal target_price "목표가"
+        boolean is_active "활성여부"
+        timestamp triggered_at "발동일시"
+        timestamp created_at "생성일시"
+    }
+    
+    USER_NOTIFICATIONS {
+        bigint id PK "알림 ID"
+        bigint user_id FK "사용자 ID"
+        varchar type "알림타입"
+        varchar title "제목"
+        text message "내용"
+        boolean is_read "읽음여부"
+        varchar related_symbol "관련종목"
+        timestamp created_at "생성일시"
+    }
+    
+    DIVIDEND_HISTORY {
+        bigint id PK "배당 ID"
+        bigint user_id FK "사용자 ID"
+        varchar symbol "주식 심볼"
+        decimal dividend_per_share "주당배당금"
+        int quantity "보유수량"
+        decimal total_dividend "총배당금"
+        date payment_date "지급일"
+        timestamp created_at "기록일시"
+    }
+    
+    EXCHANGE_RATES_HISTORY {
+        bigint id PK "환율 ID"
+        varchar currency_pair UK "통화쌍 USD/KRW"
+        decimal rate "환율"
+        timestamp recorded_at "기록일시"
+    }
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h3>🔗 테이블 관계 설명</h3>
+            <ul>
+                <li><strong>USERS → PORTFOLIOS (1:N)</strong> - 한 사용자는 여러 주식을 보유</li>
+                <li><strong>USERS → TRANSACTIONS (1:N)</strong> - 한 사용자는 여러 거래 내역</li>
+                <li><strong class="highlight">USERS → WATCHLIST (1:N)</strong> - 한 사용자는 여러 관심 종목 등록 🆕</li>
+                <li><strong class="highlight">USERS → STOCK_ALERTS (1:N)</strong> - 한 사용자는 여러 가격 알림 설정 🆕</li>
+                <li><strong class="highlight">USERS → USER_NOTIFICATIONS (1:N)</strong> - 한 사용자는 여러 알림 받음 🆕</li>
+                <li><strong class="highlight">USERS → DIVIDEND_HISTORY (1:N)</strong> - 한 사용자는 여러 배당 받음 🆕</li>
+                <li><strong>STOCK_CACHE (독립)</strong> - 주식 가격 정보 캐싱</li>
+                <li><strong class="highlight">EXCHANGE_RATES_HISTORY (독립)</strong> - 환율 이력 저장 🆕</li>
+            </ul>
+        </div>
+
+        <h2 style="text-align: center; color: #28a745; margin-top: 40px;">🆕 신규 테이블 상세 정보</h2>
+
+        <div class="table-grid">
+            <div class="table-card new">
+                <h4>
+                    <span>⭐ WATCHLIST</span>
+                    <span class="badge new">필수</span>
+                </h4>
+                <p><strong>용도:</strong> 사용자 관심 종목 저장</p>
+                <ul>
+                    <li><strong>PK:</strong> id (bigint)</li>
+                    <li><strong>FK:</strong> user_id → users.id</li>
+                    <li><strong>UK:</strong> (user_id, symbol)</li>
+                    <li>note: 메모 (최대 500자)</li>
+                    <li>target_price: 목표 매수가</li>
+                    <li>added_at: 추가 일시</li>
+                </ul>
+                <p><strong>사용 예:</strong> "삼성전자를 관심 종목에 추가하고 목표가 75,000원 설정"</p>
+            </div>
+
+            <div class="table-card new">
+                <h4>
+                    <span>🔔 STOCK_ALERTS</span>
+                    <span class="badge new">권장</span>
+                </h4>
+                <p><strong>용도:</strong> 주가 알림 설정</p>
+                <ul>
+                    <li><strong>PK:</strong> id (bigint)</li>
+                    <li><strong>FK:</strong> user_id → users.id</li>
+                    <li>symbol: 주식 심볼</li>
+                    <li>alert_type: 'above' 또는 'below'</li>
+                    <li>target_price: 알림 발동 가격</li>
+                    <li>is_active: 활성화 여부</li>
+                    <li>triggered_at: 알림 발동 시각</li>
+                </ul>
+                <p><strong>사용 예:</strong> "애플이 200달러 이상이면 알림"</p>
+            </div>
+
+            <div class="table-card new">
+                <h4>
+                    <span>📨 USER_NOTIFICATIONS</span>
+                    <span class="badge new">권장</span>
+                </h4>
+                <p><strong>용도:</strong> 통합 알림 시스템</p>
+                <ul>
+                    <li><strong>PK:</strong> id (bigint)</li>
+                    <li><strong>FK:</strong> user_id → users.id</li>
+                    <li>type: 알림 타입 (price_alert, trade_confirm, news)</li>
+                    <li>title: 알림 제목</li>
+                    <li>message: 알림 내용 (text)</li>
+                    <li>is_read: 읽음 여부</li>
+                    <li>related_symbol: 관련 종목</li>
+                </ul>
+                <p><strong>사용 예:</strong> "삼성전자가 목표가에 도달했습니다"</p>
+            </div>
+
+            <div class="table-card new">
+                <h4>
+                    <span>💰 DIVIDEND_HISTORY</span>
+                    <span class="badge">선택</span>
+                </h4>
+                <p><strong>용도:</strong> 배당금 수령 내역</p>
+                <ul>
+                    <li><strong>PK:</strong> id (bigint)</li>
+                    <li><strong>FK:</strong> user_id → users.id</li>
+                    <li>symbol: 주식 심볼</li>
+                    <li>dividend_per_share: 주당 배당금</li>
+                    <li>quantity: 보유 수량</li>
+                    <li>total_dividend: 총 배당금</li>
+                    <li>payment_date: 지급일</li>
+                </ul>
+                <p><strong>사용 예:</strong> "애플 주식 10주로 배당금 $5 수령"</p>
+            </div>
+
+            <div class="table-card new">
+                <h4>
+                    <span>💱 EXCHANGE_RATES_HISTORY</span>
+                    <span class="badge new">권장</span>
+                </h4>
+                <p><strong>용도:</strong> 환율 이력 추적</p>
+                <ul>
+                    <li><strong>PK:</strong> id (bigint)</li>
+                    <li>currency_pair: 통화쌍 (USD/KRW)</li>
+                    <li>rate: 환율</li>
+                    <li>recorded_at: 기록 시각</li>
+                    <li><strong>독립 테이블</strong> (외래키 없음)</li>
+                </ul>
+                <p><strong>사용 예:</strong> "2025년 1월의 USD/KRW 환율 변화 추이"</p>
+            </div>
+        </div>
+
+        <div class="info-box new">
+            <h3>✨ 신규 테이블 추가로 가능해지는 기능</h3>
+            <ul>
+                <li><strong>WATCHLIST:</strong> 관심 종목 관리, 매수 전 모니터링</li>
+                <li><strong>STOCK_ALERTS:</strong> 가격 알림, 자동 매매 준비</li>
+                <li><strong>USER_NOTIFICATIONS:</strong> 통합 알림함, 푸시 알림</li>
+                <li><strong>DIVIDEND_HISTORY:</strong> 배당 수익 추적, 세금 계산</li>
+                <li><strong>EXCHANGE_RATES_HISTORY:</strong> 환차익/환차손 계산, 환율 차트</li>
+            </ul>
+        </div>
+
+        <div class="info-box">
+            <h3>📋 CREATE TABLE 스크립트</h3>
+            <pre>
+-- 1. WATCHLIST (관심 종목)
+CREATE TABLE watchlist (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    symbol VARCHAR(20) NOT NULL,
+    note VARCHAR(500),
+    target_price DECIMAL(15,2),
+    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY uk_user_symbol (user_id, symbol)
+);
+
+-- 2. STOCK_ALERTS (가격 알림)
+CREATE TABLE stock_alerts (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    symbol VARCHAR(20) NOT NULL,
+    alert_type VARCHAR(20) NOT NULL CHECK (alert_type IN ('above', 'below')),
+    target_price DECIMAL(15,2) NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    triggered_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_user_active (user_id, is_active),
+    INDEX idx_symbol_active (symbol, is_active)
+);
+
+-- 3. USER_NOTIFICATIONS (알림)
+CREATE TABLE user_notifications (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    message TEXT,
+    is_read BOOLEAN DEFAULT FALSE,
+    related_symbol VARCHAR(20),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_user_unread (user_id, is_read, created_at)
+);
+
+-- 4. DIVIDEND_HISTORY (배당 이력)
+CREATE TABLE dividend_history (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    symbol VARCHAR(20) NOT NULL,
+    dividend_per_share DECIMAL(10,2) NOT NULL,
+    quantity INT NOT NULL,
+    total_dividend DECIMAL(15,2) NOT NULL,
+    payment_date DATE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_user_date (user_id, payment_date)
+);
+
+-- 5. EXCHANGE_RATES_HISTORY (환율 이력)
+CREATE TABLE exchange_rates_history (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    currency_pair VARCHAR(10) NOT NULL,
+    rate DECIMAL(10,4) NOT NULL,
+    recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_pair_time (currency_pair, recorded_at)
+);
+            </pre>
+        </div>
+
+        <div class="info-box">
+            <h3>🔍 인덱스 전체 목록</h3>
+            <pre>
+-- USERS
+CREATE UNIQUE INDEX idx_users_email ON users(email);
+CREATE UNIQUE INDEX idx_users_username ON users(username);
+
+-- PORTFOLIOS
+CREATE UNIQUE INDEX idx_portfolios_user_symbol ON portfolios(user_id, symbol);
+CREATE INDEX idx_portfolios_user_id ON portfolios(user_id);
+CREATE INDEX idx_portfolios_symbol ON portfolios(symbol);
+
+-- TRANSACTIONS
+CREATE INDEX idx_transactions_user_id ON transactions(user_id);
+CREATE INDEX idx_transactions_symbol ON transactions(symbol);
+CREATE INDEX idx_transactions_timestamp ON transactions(timestamp DESC);
+CREATE INDEX idx_transactions_user_timestamp ON transactions(user_id, timestamp DESC);
+
+-- STOCK_CACHE
+CREATE UNIQUE INDEX idx_stock_cache_symbol ON stock_cache(symbol);
+CREATE INDEX idx_stock_cache_updated_at ON stock_cache(updated_at DESC);
+
+-- WATCHLIST (신규)
+CREATE UNIQUE INDEX idx_watchlist_user_symbol ON watchlist(user_id, symbol);
+CREATE INDEX idx_watchlist_symbol ON watchlist(symbol);
+
+-- STOCK_ALERTS (신규)
+CREATE INDEX idx_alerts_user_active ON stock_alerts(user_id, is_active);
+CREATE INDEX idx_alerts_symbol_active ON stock_alerts(symbol, is_active);
+
+-- USER_NOTIFICATIONS (신규)
+CREATE INDEX idx_notif_user_unread ON user_notifications(user_id, is_read, created_at);
+CREATE INDEX idx_notif_symbol ON user_notifications(related_symbol);
+
+-- DIVIDEND_HISTORY (신규)
+CREATE INDEX idx_dividend_user_date ON dividend_history(user_id, payment_date);
+CREATE INDEX idx_dividend_symbol ON dividend_history(symbol);
+
+-- EXCHANGE_RATES_HISTORY (신규)
+CREATE INDEX idx_exchange_pair_time ON exchange_rates_history(currency_pair, recorded_at);
+            </pre>
+        </div>
+
+        <div class="info-box">
+            <h3>💡 사용 예시 쿼리</h3>
+            
+            <h4>1️⃣ 관심 종목 조회 (현재가 포함)</h4>
+            <pre>
+SELECT 
+    w.symbol,
+    w.note,
+    w.target_price,
+    s.name,
+    s.current_price,
+    s.change_percent,
+    CASE 
+        WHEN s.current_price >= w.target_price THEN '목표가 도달'
+        ELSE '목표가 미도달'
+    END as status
+FROM watchlist w
+JOIN stock_cache s ON w.symbol = s.symbol
+WHERE w.user_id = 1
+ORDER BY w.added_at DESC;
+            </pre>
+
+            <h4>2️⃣ 활성 알림 체크 (백그라운드 작업)</h4>
+            <pre>
+SELECT 
+    sa.id,
+    sa.user_id,
+    sa.symbol,
+    sa.alert_type,
+    sa.target_price,
+    sc.current_price
+FROM stock_alerts sa
+JOIN stock_cache sc ON sa.symbol = sc.symbol
+WHERE sa.is_active = TRUE
+  AND (
+      (sa.alert_type = 'above' AND sc.current_price >= sa.target_price) OR
+      (sa.alert_type = 'below' AND sc.current_price <= sa.target_price)
+  );
+            </pre>
+
+            <h4>3️⃣ 읽지 않은 알림 조회</h4>
+            <pre>
+SELECT 
+    type,
+    title,
+    message,
+    related_symbol,
+    created_at
+FROM user_notifications
+WHERE user_id = 1 
+  AND is_read = FALSE
+ORDER BY created_at DESC
+LIMIT 20;
+            </pre>
+
+            <h4>4️⃣ 총 배당금 수령액 계산</h4>
+            <pre>
+SELECT 
+    YEAR(payment_date) as year,
+    SUM(total_dividend) as total_received,
+    COUNT(*) as payment_count
+FROM dividend_history
+WHERE user_id = 1
+GROUP BY YEAR(payment_date)
+ORDER BY year DESC;
+            </pre>
+
+            <h4>5️⃣ 환율 변동 추이 (최근 30일)</h4>
+            <pre>
+SELECT 
+    DATE(recorded_at) as date,
+    AVG(rate) as avg_rate,
+    MIN(rate) as min_rate,
+    MAX(rate) as max_rate
+FROM exchange_rates_history
+WHERE currency_pair = 'USD/KRW'
+  AND recorded_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+GROUP BY DATE(recorded_at)
+ORDER BY date;
+            </pre>
+        </div>
+
+        <div class="note">
+            <strong>⚠️ 참고:</strong> 이 ERD는 관계형 데이터베이스(MySQL/PostgreSQL) 기준으로 설계되었습니다. 
+            실제 구현은 MongoDB를 사용하고 있으며, 필요시 이 구조로 마이그레이션할 수 있습니다.
+        </div>
+
+        <div class="info-box">
+            <h3>📈 구현 우선순위</h3>
+            <ol>
+                <li><strong>WATCHLIST</strong> ⭐⭐⭐ - 빠른 구현, 높은 효용, 2-3시간</li>
+                <li><strong>STOCK_ALERTS</strong> ⭐⭐ - 사용자 참여도 향상, 5-8시간</li>
+                <li><strong>EXCHANGE_RATES_HISTORY</strong> ⭐⭐ - 미국 주식 정확도, 2-3시간</li>
+                <li><strong>USER_NOTIFICATIONS</strong> ⭐ - 통합 알림 시스템, 8-12시간</li>
+                <li><strong>DIVIDEND_HISTORY</strong> ⭐ - 고급 기능, 4-6시간</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            themeVariables: {
+                primaryColor: '#667eea',
+                primaryTextColor: '#fff',
+                primaryBorderColor: '#5568d3',
+                lineColor: '#5568d3',
+                secondaryColor: '#764ba2',
+                tertiaryColor: '#f8f9fa'
+            }
+        });
+    </script>
+</body>
+</html>

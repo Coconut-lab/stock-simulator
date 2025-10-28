@@ -9,7 +9,7 @@ class Config:
     DATABASE_NAME = "stock_trading"
     
     # JWT 설정
-    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'your-secret-key-here')
+    JWT_SECRET_KEY = os.environ['JWT_SECRET_KEY']
     JWT_ACCESS_TOKEN_EXPIRES = 86400  # 24시간
     
     # 초기 자금 설정
