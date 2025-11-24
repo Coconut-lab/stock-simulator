@@ -1,11 +1,11 @@
 import jwt
 from datetime import datetime, timedelta
 from config import Config
-from models.user import User
+from models.user import UserModel
 
 class AuthService:
     def __init__(self):
-        self.user_model = User()
+        self.user_model = UserModel()
     
     def generate_token(self, user_id):
         """JWT 토큰 생성"""
@@ -63,8 +63,10 @@ class AuthService:
         if not self.user_model.verify_password(password, user['password']):
             return None, "비밀번호가 올바르지 않습니다."
         
-        token = self.generate_token(user['_id'])
-        user_data = self.user_model.get_user_stats(str(user['_id']))
+        # MySQL에서는 user_id 사용
+        user_id = user.get('user_id') or user.get('_id')
+        token = self.generate_token(user_id)
+        user_data = self.user_model.get_user_stats(str(user_id))
         
         return {
             'token': token,

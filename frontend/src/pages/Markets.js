@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { stockService } from '../services/stockService';
+import { marketService } from '../services/marketService';
 import { 
   formatNumber, 
   formatPercent, 
@@ -55,6 +56,59 @@ const ExchangeRateInfo = styled.div`
   .rate {
     font-size: 18px;
     font-weight: 700;
+  }
+`;
+
+const MarketStatusGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+`;
+
+const MarketStatusCard = styled.div`
+  background: white;
+  padding: 16px 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  border-left: 4px solid ${props => props.$isOpen ? '#10b981' : '#ef4444'};
+  
+  .market-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 8px;
+  }
+  
+  .status {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    background: ${props => props.$isOpen ? '#d1fae5' : '#fee2e2'};
+    color: ${props => props.$isOpen ? '#065f46' : '#991b1b'};
+    margin-bottom: 12px;
+  }
+  
+  .time-info {
+    font-size: 13px;
+    color: #666;
+    line-height: 1.6;
+    
+    .label {
+      font-weight: 600;
+      color: #333;
+      margin-right: 4px;
+    }
+  }
+  
+  .current-time {
+    font-size: 12px;
+    color: #999;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #eee;
   }
 `;
 
@@ -271,9 +325,11 @@ const Markets = () => {
   const [loading, setLoading] = useState(true);
   const [searchLoading, setSearchLoading] = useState(false);
   const [error, setError] = useState('');
+  const [marketStatus, setMarketStatus] = useState([]);
 
   useEffect(() => {
     loadMarketData();
+    loadMarketStatus();
   }, []);
 
   useEffect(() => {
@@ -297,6 +353,15 @@ const Markets = () => {
       setError(formatErrorMessage(error));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMarketStatus = async () => {
+    try {
+      const response = await marketService.getMarketStatus();
+      setMarketStatus(response.data.data || []);
+    } catch (error) {
+      console.error('Market status loading error:', error);
     }
   };
 
@@ -404,6 +469,36 @@ const Markets = () => {
           <div className="title">현재 환율 (USD/KRW)</div>
           <div className="rate">1 USD = ₩{formatNumber(marketData.exchange_rate)}</div>
         </ExchangeRateInfo>
+      )}
+
+      {marketStatus.length > 0 && (
+        <MarketStatusGrid>
+          {marketStatus.map((market) => (
+            <MarketStatusCard key={market.market} $isOpen={market.is_open}>
+              <div className="market-name">
+                {market.market === 'KRW' ? '한국 증시' : '미국 증시'}
+              </div>
+              <div className="status">
+                {market.is_open ? '✅ 거래 가능' : '🔒 장 마감'}
+              </div>
+              <div className="time-info">
+                <div>
+                  <span className="label">운영시간:</span>
+                  {market.open_time} ~ {market.close_time}
+                </div>
+                <div>
+                  <span className="label">타임존:</span>
+                  {market.timezone}
+                </div>
+              </div>
+              {market.current_time && (
+                <div className="current-time">
+                  현재 시간: {market.current_time}
+                </div>
+              )}
+            </MarketStatusCard>
+          ))}
+        </MarketStatusGrid>
       )}
 
       {error && <ErrorMessage>{error}</ErrorMessage>}

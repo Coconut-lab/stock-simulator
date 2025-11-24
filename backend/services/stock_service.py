@@ -5,14 +5,14 @@ import logging
 import random
 import requests
 from datetime import datetime, timedelta
-from utils.db import get_collection
+from flask import current_app
 
 class StockService:
     def __init__(self):
-        self.stock_cache = {}
-        self.cache_collection = get_collection('stock_cache')
+        self.stock_cache = {}  # 메모리 캐시
         self.update_thread = None
         self.is_running = False
+        self._app = None  # Flask 앱 참조
         
         # 환율 정보 저장
         self.exchange_rate = 1350  # 기본 환율 (USD/KRW)
@@ -155,6 +155,38 @@ class StockService:
         
         # 모든 주식 목록
         self.all_stocks = self.kr_stocks + self.us_stocks
+    
+    def init_app(self, app):
+        """Flask 앱 초기화"""
+        self._app = app
+    
+    def _save_to_db(self, symbol, data):
+        """MySQL에 캐시 데이터 저장"""
+        if not self._app:
+            return
+        
+        try:
+            with self._app.app_context():
+                from models.stock import StockCache
+                StockCache.upsert(symbol, data)
+        except Exception as e:
+            logging.error(f"MySQL 캐시 저장 실패 {symbol}: {e}")
+    
+    def _load_from_db(self, symbol):
+        """MySQL에서 캐시 데이터 로드"""
+        if not self._app:
+            return None
+        
+        try:
+            with self._app.app_context():
+                from models.stock import StockCache
+                cache = StockCache.query.filter_by(symbol=symbol).first()
+                if cache:
+                    return cache.to_dict()
+        except Exception as e:
+            logging.error(f"MySQL 캐시 로드 실패 {symbol}: {e}")
+        
+        return None
     
     def update_exchange_rate(self):
         """실시간 환율 업데이트"""
@@ -466,10 +498,6 @@ class StockService:
             
         return result
     
-    def search_stocks(self, query):
-        """주식 검색 (확장된 버전 사용)"""
-        return self.search_stocks_extended(query)
-    
     def get_stock_history(self, symbol, period_days=30, interval='daily'):
         """주식 이력 데이터 조회 (차트용) - 개선된 버전"""
         try:
@@ -623,19 +651,12 @@ class StockService:
                     if fallback_data:
                         all_results[symbol] = fallback_data
             
-            # 캐시 업데이트
+            # 메모리 캐시 업데이트
             self.stock_cache.update(all_results)
             
-            # MongoDB에 저장
+            # MySQL에 저장
             for symbol, data in all_results.items():
-                try:
-                    self.cache_collection.replace_one(
-                        {'symbol': symbol},
-                        data,
-                        upsert=True
-                    )
-                except Exception as e:
-                    logging.error(f"MongoDB 저장 실패 {symbol}: {e}")
+                self._save_to_db(symbol, data)
             
             logging.info(f"주식 캐시 업데이트 완료: {len(all_results)}개 종목")
         
@@ -662,14 +683,10 @@ class StockService:
         if symbol in self.stock_cache:
             return self.stock_cache[symbol]
         
-        # MongoDB 캐시 확인
-        try:
-            cached_data = self.cache_collection.find_one({'symbol': symbol})
-            if cached_data:
-                cached_data.pop('_id', None)  # MongoDB ObjectId 제거
-                return cached_data
-        except Exception as e:
-            logging.error(f"캐시 조회 실패 {symbol}: {e}")
+        # MySQL 캐시 확인
+        cached_data = self._load_from_db(symbol)
+        if cached_data:
+            return cached_data
         
         return None
     

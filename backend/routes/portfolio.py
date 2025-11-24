@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from services.auth_service import auth_service
 from services.stock_service import stock_service
 from models.portfolio import Portfolio
-from models.user import User
+from models.user import UserModel
 from config import Config
 import logging
 
@@ -182,7 +182,7 @@ def buy_stock():
         
         # 거래 실행
         portfolio_model = Portfolio()
-        user_model = User()
+        user_model = UserModel()
         
         # 기존 보유 종목 확인
         existing_holding = portfolio_model.get_holding(user_id, symbol)
@@ -286,7 +286,7 @@ def sell_stock():
         net_amount = total_amount - commission
         
         # 거래 실행
-        user_model = User()
+        user_model = UserModel()
         
         # 보유 수량 업데이트
         new_quantity = holding['quantity'] - quantity
@@ -336,11 +336,6 @@ def get_transactions():
         
         portfolio_model = Portfolio()
         transactions = portfolio_model.get_user_transactions(user_id, limit)
-        
-        # ObjectId를 문자열로 변환
-        for transaction in transactions:
-            transaction['_id'] = str(transaction['_id'])
-            transaction['user_id'] = str(transaction['user_id'])
         
         return jsonify({
             'data': transactions
