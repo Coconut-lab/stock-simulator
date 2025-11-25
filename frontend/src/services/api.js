@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // API 기본 설정
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://port-0-flask-test-ysl2blowfnha3.sel5.cloudtype.app/api';
 
 // axios 인스턴스 생성
 const api = axios.create({
