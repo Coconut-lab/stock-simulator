@@ -31,7 +31,7 @@ def create_app():
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
-    
+
     # MySQL 데이터베이스 초기화
     init_db(app)
     logging.info("MySQL 데이터베이스 연결 완료")
@@ -63,7 +63,7 @@ def create_app():
             db_status = 'connected'
         except Exception as e:
             db_status = f'error: {str(e)}'
-        
+
         return jsonify({
             'status': 'healthy',
             'services': {

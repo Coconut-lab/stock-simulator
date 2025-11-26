@@ -11,3 +11,4 @@ Requests>=2.32.5
 SQLAlchemy>=2.0.23
 yfinance>=0.2.18
 finance-datareader>=0.9.96
+PyMySQL==
