@@ -270,8 +270,8 @@ const Transactions = () => {
   };
 
   const getTransactionStats = () => {
-    const buyTransactions = transactions.filter(t => t.type === 'buy');
-    const sellTransactions = transactions.filter(t => t.type === 'sell');
+    const buyTransactions = transactions.filter(t => t.type === 'BUY');
+    const sellTransactions = transactions.filter(t => t.type === 'SELL');
     
     return {
       totalTransactions: transactions.length,
@@ -364,8 +364,8 @@ const Transactions = () => {
           <FilterSection>
             <Select value={filter} onChange={(e) => setFilter(e.target.value)}>
               <option value="all">전체</option>
-              <option value="buy">매수만</option>
-              <option value="sell">매도만</option>
+              <option value="BUY">매수만</option>
+              <option value="SELL">매도만</option>
             </Select>
             <Select value={limit} onChange={(e) => setLimit(parseInt(e.target.value))}>
               <option value={20}>최근 20건</option>
@@ -397,7 +397,7 @@ const Transactions = () => {
                       <td className="symbol">{transaction.symbol}</td>
                       <td>
                         <Badge className={transaction.type}>
-                          {transaction.type === 'buy' ? '매수' : '매도'}
+                          {transaction.type === 'BUY' ? '매수' : '매도'}
                         </Badge>
                       </td>
                       <td>{formatNumber(transaction.quantity)}</td>
