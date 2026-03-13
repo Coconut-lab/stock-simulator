@@ -5,6 +5,12 @@ export const authService = {
   register: async (userData) => {
     try {
       const response = await api.post('/auth/register', userData);
+      const { data } = response.data;
+
+      // 토큰과 사용자 정보를 로컬 스토리지에 저장
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+
       return response.data;
     } catch (error) {
       throw error.response?.data || { error: '회원가입에 실패했습니다.' };
