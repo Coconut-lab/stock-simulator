@@ -17,43 +17,19 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        // 로컬 스토리지에서 토큰 확인
-        if (authService.isAuthenticated()) {
-          const storedUser = authService.getStoredUser();
-          if (storedUser) {
-            setUser(storedUser);
-            setIsAuthenticated(true);
-          }
-
-          // 서버에서 최신 사용자 정보 조회
-          try {
-            const userData = await authService.getCurrentUser();
-            console.log('[AuthContext] /api/auth/me success:', userData);
-            setUser(userData.data);
-            setIsAuthenticated(true);
-          } catch (error) {
-            console.error('[AuthContext] /api/auth/me failed:', error);
-            // 토큰이 유효하지 않은 경우 - localStorage만 정리 (API 호출 안함)
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            setUser(null);
-            setIsAuthenticated(false);
-          }
-        }
-      } catch (error) {
-        console.error('Auth initialization error:', error);
+    // 로컬 스토리지에서 토큰과 유저 정보만 확인 (서버 호출 안함)
+    if (authService.isAuthenticated()) {
+      const storedUser = authService.getStoredUser();
+      if (storedUser) {
+        setUser(storedUser);
+        setIsAuthenticated(true);
+      } else {
+        // 토큰은 있는데 유저 정보가 없으면 정리
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        setUser(null);
-        setIsAuthenticated(false);
-      } finally {
-        setLoading(false);
       }
-    };
-
-    initializeAuth();
+    }
+    setLoading(false);
   }, []);
 
   const handleLogin = async (credentials) => {
