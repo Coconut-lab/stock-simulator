@@ -1,7 +1,6 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { authService } from '../services/authService';
 import styled from 'styled-components';
 
 const NavContainer = styled.nav`
@@ -101,30 +100,8 @@ const LogoutButton = styled.button`
 `;
 
 const Navigation = () => {
-  const { user, logout, isAuthenticated, updateUser } = useAuth();
+  const { user, logout, isAuthenticated } = useAuth();
   const location = useLocation();
-
-  // 주기적으로 사용자 정보 업데이트 (잠액 동기화)
-  useEffect(() => {
-    if (isAuthenticated) {
-      const updateUserInfo = async () => {
-        try {
-          const userData = await authService.getCurrentUser();
-          updateUser(userData.data);
-        } catch (error) {
-          console.error('사용자 정보 업데이트 실패:', error);
-        }
-      };
-
-      // 초기 로드
-      updateUserInfo();
-
-      // 30초마다 업데이트
-      const interval = setInterval(updateUserInfo, 30000);
-
-      return () => clearInterval(interval);
-    }
-  }, [isAuthenticated, updateUser]);
 
   const handleLogout = async () => {
     try {
