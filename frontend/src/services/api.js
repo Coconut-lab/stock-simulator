@@ -34,16 +34,8 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    console.log('[API] Error response:', error.response?.status, error.response?.data);
-    if (error.response?.status === 401) {
-      // 로그인/회원가입 요청의 401은 리다이렉트하지 않음
-      const url = error.config?.url || '';
-      if (!url.includes('/auth/login') && !url.includes('/auth/register')) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
-      }
-    }
+    console.log('[API] Error response:', error.response?.status, error.config?.url, error.response?.data);
+    // 401 시 리다이렉트 하지 않음 (AuthContext에서 처리)
     return Promise.reject(error);
   }
 );

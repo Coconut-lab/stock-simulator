@@ -26,20 +26,28 @@ export const AuthProvider = ({ children }) => {
             setUser(storedUser);
             setIsAuthenticated(true);
           }
-          
+
           // 서버에서 최신 사용자 정보 조회
           try {
             const userData = await authService.getCurrentUser();
+            console.log('[AuthContext] /api/auth/me success:', userData);
             setUser(userData.data);
             setIsAuthenticated(true);
           } catch (error) {
-            // 토큰이 유효하지 않은 경우
-            handleLogout();
+            console.error('[AuthContext] /api/auth/me failed:', error);
+            // 토큰이 유효하지 않은 경우 - localStorage만 정리 (API 호출 안함)
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            setUser(null);
+            setIsAuthenticated(false);
           }
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
-        handleLogout();
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setUser(null);
+        setIsAuthenticated(false);
       } finally {
         setLoading(false);
       }
