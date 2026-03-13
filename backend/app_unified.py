@@ -35,10 +35,10 @@ def create_app():
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     
-    # API 라우트 등록
-    app.register_blueprint(auth_bp, url_prefix='/api')
-    app.register_blueprint(stocks_bp, url_prefix='/api')
-    app.register_blueprint(portfolio_bp, url_prefix='/api')
+    # API 라우트 등록 (Blueprint에 이미 /api 프리픽스 포함)
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(stocks_bp)
+    app.register_blueprint(portfolio_bp)
     
     # API 헬스체크
     @app.route('/api/health')

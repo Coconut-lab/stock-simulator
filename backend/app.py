@@ -21,8 +21,8 @@ def create_app():
     # 설정 로드
     app.config.from_object(Config)
     
-    # CORS 설정 (React 프론트엔드와 통신)
-    CORS(app, origins=["http://localhost:3000"])
+    # CORS 설정 (모든 도메인 허용)
+    CORS(app, origins="*")
     
     # 로깅 설정
     logging.basicConfig(
