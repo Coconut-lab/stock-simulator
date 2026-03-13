@@ -28,7 +28,8 @@ services:
       - "5000:5000"
     environment:
       - FLASK_ENV=development
-      - MONGODB_URI=mongodb://admin:admin123@mongodb:27017/stock_simulator?authSource=admin
+      - DB_URL=mongodb://admin:admin123@mongodb:27017/stock_simulator?authSource=admin
+      - JWT_SECRET_KEY=stock-simulator-secret-key-2024
     volumes:
       - ./backend:/app
       - /app/__pycache__

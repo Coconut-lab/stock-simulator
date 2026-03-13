@@ -5,11 +5,11 @@ load_dotenv()
 
 class Config:
     # MongoDB 설정
-    MONGODB_URI = os.getenv("DB_URL")
+    MONGODB_URI = os.getenv("DB_URL") or os.getenv("MONGODB_URI", "mongodb://localhost:27017/stock_trading")
     DATABASE_NAME = "stock_trading"
-    
+
     # JWT 설정
-    JWT_SECRET_KEY = os.environ['JWT_SECRET_KEY']
+    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "default-secret-key-change-in-production")
     JWT_ACCESS_TOKEN_EXPIRES = 86400  # 24시간
     
     # 초기 자금 설정
