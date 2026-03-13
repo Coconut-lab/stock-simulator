@@ -5,11 +5,18 @@ export const authService = {
   register: async (userData) => {
     try {
       const response = await api.post('/auth/register', userData);
+      console.log('[AUTH] Register response.data:', JSON.stringify(response.data));
       const { data } = response.data;
+      console.log('[AUTH] Extracted data:', JSON.stringify(data));
+      console.log('[AUTH] Token to save:', data?.token ? `${data.token.substring(0, 20)}... (length: ${data.token.length})` : 'UNDEFINED/NULL');
 
       // 토큰과 사용자 정보를 로컬 스토리지에 저장
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
+      if (data?.token) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+      } else {
+        console.error('[AUTH] No token in register response!');
+      }
 
       return response.data;
     } catch (error) {
@@ -21,12 +28,18 @@ export const authService = {
   login: async (credentials) => {
     try {
       const response = await api.post('/auth/login', credentials);
+      console.log('[AUTH] Login response.data:', JSON.stringify(response.data));
       const { data } = response.data;
-      
+      console.log('[AUTH] Token to save:', data?.token ? `${data.token.substring(0, 20)}... (length: ${data.token.length})` : 'UNDEFINED/NULL');
+
       // 토큰과 사용자 정보를 로컬 스토리지에 저장
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      
+      if (data?.token) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+      } else {
+        console.error('[AUTH] No token in login response!');
+      }
+
       return response.data;
     } catch (error) {
       throw error.response?.data || { error: '로그인에 실패했습니다.' };

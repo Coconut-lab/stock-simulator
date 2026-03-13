@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify, send_from_directory, make_response
 from flask_cors import CORS
 import logging
 import time
@@ -26,8 +26,10 @@ def create_app():
     # 설정 로드
     app.config.from_object(Config)
     
-    # CORS 설정
-    CORS(app)
+    # CORS 설정 (Authorization 헤더 명시적 허용)
+    CORS(app, origins="*",
+         allow_headers=["Content-Type", "Authorization", "Accept"],
+         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
     
     # 로깅 설정
     logging.basicConfig(
@@ -62,7 +64,12 @@ def create_app():
         if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
             return send_from_directory(app.static_folder, path)
         else:
-            return send_from_directory(app.static_folder, 'index.html')
+            # index.html은 캐시하지 않도록 설정 (배포 후 최신 버전 보장)
+            response = make_response(send_from_directory(app.static_folder, 'index.html'))
+            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+            return response
     
     # 에러 핸들러
     @app.errorhandler(404)

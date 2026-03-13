@@ -16,6 +16,8 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
+    console.log('[API] Request:', config.method?.toUpperCase(), config.baseURL + config.url);
+    console.log('[API] Token in localStorage:', token ? `${token.substring(0, 20)}... (length: ${token.length})` : 'NONE');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -32,11 +34,15 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
+    console.log('[API] Error response:', error.response?.status, error.response?.data);
     if (error.response?.status === 401) {
-      // 토큰이 만료되거나 유효하지 않은 경우
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      // 로그인/회원가입 요청의 401은 리다이렉트하지 않음
+      const url = error.config?.url || '';
+      if (!url.includes('/auth/login') && !url.includes('/auth/register')) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
