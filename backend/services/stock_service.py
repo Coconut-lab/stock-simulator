@@ -788,19 +788,23 @@ class StockService:
         """시장 요약 정보"""
         kr_stocks_data = []
         us_stocks_data = []
-        
+
         # 주요 한국 주식 10개
         for symbol in self.kr_stocks[:10]:
             data = self.get_cached_stock_data(symbol)
+            if not data:
+                data = self.get_fallback_data(symbol, is_korean=True)
             if data:
                 kr_stocks_data.append(data)
-        
+
         # 주요 미국 주식 10개
         for symbol in self.us_stocks[:10]:
             data = self.get_cached_stock_data(symbol)
+            if not data:
+                data = self.get_fallback_data(symbol, is_korean=False)
             if data:
                 us_stocks_data.append(data)
-        
+
         return {
             'korean_market': kr_stocks_data,
             'us_market': us_stocks_data,

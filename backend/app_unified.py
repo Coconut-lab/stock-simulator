@@ -52,10 +52,13 @@ def create_app():
             'timestamp': datetime.utcnow().isoformat()
         })
     
-    # React 앱 서빙 (모든 API가 아닌 경로)
+    # React 앱 서빙 (API가 아닌 경로만)
     @app.route('/', defaults={'path': ''})
     @app.route('/<path:path>')
     def serve_react(path):
+        # /api/ 경로는 React로 보내지 않음
+        if path.startswith('api/'):
+            return jsonify({'error': '요청한 리소스를 찾을 수 없습니다.'}), 404
         if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
             return send_from_directory(app.static_folder, path)
         else:
