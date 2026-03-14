@@ -1438,7 +1438,7 @@ const StockChart = ({ symbol, stockInfo }) => {
                     )}
                     
                     <Line
-                      dataKey={(data) => data.is_highest ? data.close : null}
+                      dataKey={(data) => data.is_highest ? data.high : null}
                       stroke="#e74c3c"
                       strokeWidth={0}
                       dot={(props) => {
@@ -1460,7 +1460,7 @@ const StockChart = ({ symbol, stockInfo }) => {
                       connectNulls={false}
                     />
                     <Line
-                      dataKey={(data) => data.is_lowest ? data.close : null}
+                      dataKey={(data) => data.is_lowest ? data.low : null}
                       stroke="#3498db"
                       strokeWidth={0}
                       dot={(props) => {
