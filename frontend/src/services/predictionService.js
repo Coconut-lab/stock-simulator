@@ -41,7 +41,7 @@ export const predictionService = {
   // 관리자
   createPrediction: async (data) => {
     try {
-      const response = await api.post('/predictions/', data);
+      const response = await api.post('/predictions/create', data);
       return response.data;
     } catch (error) {
       throw error.response?.data || { error: '예측 생성에 실패했습니다.' };

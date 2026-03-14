@@ -57,42 +57,44 @@ def admin_get_all():
 
 # ── 유저 엔드포인트 ──
 
-@prediction_bp.route('/', methods=['GET', 'POST'])
-def predictions_root():
-    if request.method == 'GET':
-        user_data, error = verify_auth()
-        if error:
-            return jsonify({'error': error}), 401
-        try:
-            status = request.args.get('status')
-            predictions = prediction_service.get_predictions(status)
-            return jsonify({'data': predictions}), 200
-        except Exception as e:
-            logging.error(f"예측 목록 조회 에러: {e}")
-            return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
-    else:
-        user_data, error = verify_admin()
-        if error:
-            return jsonify({'error': error}), 403
-        try:
-            data = request.get_json()
-            if not data:
-                return jsonify({'error': '요청 데이터가 필요합니다.'}), 400
+@prediction_bp.route('/', methods=['GET'])
+def get_predictions():
+    user_data, error = verify_auth()
+    if error:
+        return jsonify({'error': error}), 401
+    try:
+        status = request.args.get('status')
+        predictions = prediction_service.get_predictions(status)
+        return jsonify({'data': predictions}), 200
+    except Exception as e:
+        logging.error(f"예측 목록 조회 에러: {e}")
+        return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
 
-            pred_id, err = prediction_service.create_prediction(
-                title=data.get('title'),
-                description=data.get('description', ''),
-                deadline_str=data.get('deadline'),
-                admin_user_id=user_data['user_id'],
-                odds=data.get('odds')
-            )
-            if err:
-                return jsonify({'error': err}), 400
 
-            return jsonify({'message': '예측이 생성되었습니다.', 'data': {'id': pred_id}}), 201
-        except Exception as e:
-            logging.error(f"예측 생성 에러: {e}")
-            return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
+@prediction_bp.route('/create', methods=['POST'])
+def create_prediction():
+    user_data, error = verify_admin()
+    if error:
+        return jsonify({'error': error}), 403
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': '요청 데이터가 필요합니다.'}), 400
+
+        pred_id, err = prediction_service.create_prediction(
+            title=data.get('title'),
+            description=data.get('description', ''),
+            deadline_str=data.get('deadline'),
+            admin_user_id=user_data['user_id'],
+            odds=data.get('odds')
+        )
+        if err:
+            return jsonify({'error': err}), 400
+
+        return jsonify({'message': '예측이 생성되었습니다.', 'data': {'id': pred_id}}), 201
+    except Exception as e:
+        logging.error(f"예측 생성 에러: {e}")
+        return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
 
 
 # ── 동적 경로 ──
