@@ -28,11 +28,13 @@ services:
       - "5000:5000"
     environment:
       - FLASK_ENV=development
+      - FLASK_DEBUG=1
       - DB_URL=mongodb://admin:admin123@mongodb:27017/stock_simulator?authSource=admin
       - JWT_SECRET_KEY=stock-simulator-secret-key-2024
       - PYTHONDONTWRITEBYTECODE=1
     volumes:
       - ./backend:/app
+    command: ["python", "-u", "app.py"]
     depends_on:
       - mongodb
     networks:
