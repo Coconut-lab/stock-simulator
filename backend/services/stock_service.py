@@ -520,98 +520,97 @@ class StockService:
         return self.search_stocks_extended(query)
     
     def search_stocks_extended(self, query):
-        """확장된 주식 검색 - 캐시/fallback 우선으로 빠르게 응답"""
-        results = []
+        """확장된 주식 검색 - 실시간 가격 일괄 조회"""
         found_symbols = set()
         query_upper = query.upper()
         query_lower = query.lower()
 
+        # 매칭된 종목을 (symbol, name, market) 형태로 수집
+        matches = []
+
         # 모든 이름 매핑 통합
         all_names = {**self.kr_stock_names, **self.us_stock_names, **self.hk_stock_names, **self.eu_stock_names}
 
-        # 1) 등록된 주식 목록에서 이름/심볼 매칭 (즉시 응답)
+        # 1) 등록된 주식 목록에서 이름/심볼 매칭
         for symbol in self.all_stocks:
             stock_name = all_names.get(symbol, '')
             if (query_upper in symbol.upper() or
                 query_lower in stock_name.lower()):
-                stock_data = self.get_cached_stock_data(symbol)
-                if not stock_data:
-                    market = self.get_stock_market(symbol)
-                    if market in ('HKD', 'EUR'):
-                        stock_data = self.get_fallback_data(symbol, market=market)
-                    else:
-                        stock_data = self.get_fallback_data(symbol, is_korean=(market == 'KRW'))
-                if stock_data:
-                    if not stock_data.get('name') or stock_data['name'] == symbol:
-                        stock_data['name'] = stock_name or symbol
-                    results.append(stock_data)
-                    found_symbols.add(symbol)
+                market = self.get_stock_market(symbol)
+                matches.append((symbol, stock_name or symbol, market))
+                found_symbols.add(symbol)
 
-        # 2) KRX 전체 종목에서 추가 검색 (메모리 캐시, API 호출 없음)
-        if len(results) < 20 and self.krx_listing:
+        # 2) KRX 전체 종목에서 추가 검색
+        if len(matches) < 20 and self.krx_listing:
             for code, name in self.krx_listing.items():
                 if code in found_symbols:
                     continue
                 if (query_upper in code or query_lower in name.lower()):
-                    stock_data = self.get_cached_stock_data(code)
-                    if not stock_data:
-                        stock_data = self.get_fallback_data(code, is_korean=True)
-                    if stock_data:
-                        stock_data['name'] = name
-                        results.append(stock_data)
-                        found_symbols.add(code)
-                    if len(results) >= 20:
+                    matches.append((code, name, 'KRW'))
+                    found_symbols.add(code)
+                    if len(matches) >= 20:
                         break
 
         # 3) US 전체 종목에서 추가 검색
-        if len(results) < 20 and self.us_listing:
+        if len(matches) < 20 and self.us_listing:
             for symbol, name in self.us_listing.items():
                 if symbol in found_symbols:
                     continue
                 if (query_upper in symbol.upper() or query_lower in name.lower()):
-                    stock_data = self.get_cached_stock_data(symbol)
-                    if not stock_data:
-                        stock_data = self.get_fallback_data(symbol, is_korean=False)
-                    if stock_data:
-                        stock_data['name'] = name
-                        results.append(stock_data)
-                        found_symbols.add(symbol)
-                    if len(results) >= 20:
+                    matches.append((symbol, name, 'USD'))
+                    found_symbols.add(symbol)
+                    if len(matches) >= 20:
                         break
 
         # 4) HKEX 전체 종목에서 추가 검색
-        if len(results) < 20 and self.hk_listing:
+        if len(matches) < 20 and self.hk_listing:
             for code, name in self.hk_listing.items():
                 if code in found_symbols:
                     continue
                 if (query_upper in code or query_lower in name.lower()):
-                    stock_data = self.get_cached_stock_data(code)
-                    if not stock_data:
-                        stock_data = self.get_fallback_data(code, market='HKD')
-                    if stock_data:
-                        stock_data['name'] = name
-                        results.append(stock_data)
-                        found_symbols.add(code)
-                    if len(results) >= 20:
+                    matches.append((code, name, 'HKD'))
+                    found_symbols.add(code)
+                    if len(matches) >= 20:
                         break
 
         # 5) 유럽 전체 종목에서 추가 검색
-        if len(results) < 20 and self.eu_listing:
+        if len(matches) < 20 and getattr(self, 'eu_listing', None):
             for symbol, name in self.eu_listing.items():
                 if symbol in found_symbols:
                     continue
                 if (query_upper in symbol.upper() or query_lower in name.lower()):
-                    stock_data = self.get_cached_stock_data(symbol)
-                    if not stock_data:
-                        stock_data = self.get_fallback_data(symbol, market='EUR')
-                    if stock_data:
-                        stock_data['name'] = name
-                        results.append(stock_data)
-                        found_symbols.add(symbol)
-                    if len(results) >= 20:
+                    matches.append((symbol, name, 'EUR'))
+                    found_symbols.add(symbol)
+                    if len(matches) >= 20:
                         break
 
-        return results[:20]
+        matches = matches[:20]
+
+        # 캐시에 없는 종목을 시장별로 분류하여 일괄 조회
+        uncached_by_market = {}
+        for symbol, name, market in matches:
+            if not self.get_cached_stock_data(symbol):
+                uncached_by_market.setdefault(market, []).append(symbol)
+
+        for market, symbols in uncached_by_market.items():
+            self._batch_fetch_page(symbols, market)
+
+        # 결과 조립
+        results = []
+        for symbol, name, market in matches:
+            stock_data = self.get_cached_stock_data(symbol)
+            if not stock_data:
+                # 배치 조회도 실패한 경우에만 fallback
+                if market in ('HKD', 'EUR'):
+                    stock_data = self.get_fallback_data(symbol, market=market)
+                else:
+                    stock_data = self.get_fallback_data(symbol, is_korean=(market == 'KRW'))
+            if stock_data:
+                if not stock_data.get('name') or stock_data['name'] == symbol:
+                    stock_data['name'] = name
+                results.append(stock_data)
+
+        return results
     
     def get_kr_stock_info(self, symbol, max_retries=3):
         """한국 주식 정보 조회 (FinanceDataReader 사용)"""
