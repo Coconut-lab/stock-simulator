@@ -526,10 +526,10 @@ const StockDetail = () => {
     if (currency !== 'KRW' && stockData.exchange_rate) {
       const convertedPrice = value * stockData.exchange_rate;
       return (
-        <>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
           <span>₩{formatNumber(Math.round(convertedPrice))}</span>
-          <span className="original-price">{priceSym}{formatNumber(value)}</span>
-        </>
+          <span className="original-price" style={{ marginLeft: 0 }}>{priceSym}{formatNumber(value)}</span>
+        </div>
       );
     }
     return `₩${formatNumber(value)}`;

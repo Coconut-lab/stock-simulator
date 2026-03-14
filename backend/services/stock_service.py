@@ -1299,20 +1299,31 @@ class StockService:
         return results
     
     def get_cached_stock_data(self, symbol):
-        """캐시된 주식 데이터 조회"""
+        """캐시된 주식 데이터 조회 (시장 정보 검증 포함)"""
+        expected_market = self.get_stock_market(symbol)
+
         # 메모리 캐시 먼저 확인
         if symbol in self.stock_cache:
-            return self.stock_cache[symbol]
-        
+            data = self.stock_cache[symbol]
+            if data.get('market') == expected_market:
+                return data
+            # 시장이 다르면 캐시 무효화 (이전에 잘못 저장된 데이터)
+            del self.stock_cache[symbol]
+
         # MongoDB 캐시 확인
         try:
             cached_data = self.cache_collection.find_one({'symbol': symbol})
             if cached_data:
-                cached_data.pop('_id', None)  # MongoDB ObjectId 제거
-                return cached_data
+                cached_data.pop('_id', None)
+                if cached_data.get('market') == expected_market:
+                    self.stock_cache[symbol] = cached_data
+                    return cached_data
+                # 시장이 다르면 MongoDB에서도 제거
+                self.cache_collection.delete_one({'symbol': symbol})
+                logging.info(f"캐시 시장 불일치 제거: {symbol} (캐시: {cached_data.get('market')}, 예상: {expected_market})")
         except Exception as e:
             logging.error(f"캐시 조회 실패 {symbol}: {e}")
-        
+
         return None
     
     def get_cached_price(self, symbol):
