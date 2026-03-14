@@ -1039,7 +1039,18 @@ const StockChart = ({ symbol, stockInfo }) => {
   };
 
   const stats = getChartStats();
-  
+
+  // 라인 차트용: close 기준 최고/최저 인덱스 미리 계산
+  let lineHighIdx = 0, lineLowIdx = 0;
+  if (chartData.length > 0) {
+    chartData.forEach((d, i) => {
+      if (d.close > chartData[lineHighIdx].close) lineHighIdx = i;
+      if (d.close < chartData[lineLowIdx].close) lineLowIdx = i;
+    });
+  }
+  const lineHighClose = chartData[lineHighIdx]?.close;
+  const lineLowClose = chartData[lineLowIdx]?.close;
+
   const formatPrice = (price) => {
     return isKorean 
       ? `${Math.round(price).toLocaleString()}원` 
@@ -1383,73 +1394,59 @@ const StockChart = ({ symbol, stockInfo }) => {
                       }
                     />
                     <Tooltip content={<LineTooltip />} />
-                    {/* 라인 차트: close 기준 최고/최저 */}
-                    {(() => {
-                      let hIdx = 0, lIdx = 0;
-                      chartData.forEach((d, i) => {
-                        if (d.close > chartData[hIdx].close) hIdx = i;
-                        if (d.close < chartData[lIdx].close) lIdx = i;
-                      });
-                      const hVal = chartData[hIdx]?.close;
-                      const lVal = chartData[lIdx]?.close;
-                      const lineHighIdx = hIdx;
-                      const lineLowIdx = lIdx;
-                      return (
-                        <>
-                          {typeof hVal === 'number' && (
-                            <ReferenceLine
-                              y={hVal}
-                              stroke="#e74c3c"
-                              strokeDasharray="4 3"
-                              strokeWidth={1}
-                              label={{
-                                value: isKorean
-                                  ? `최고 ${Math.round(hVal).toLocaleString()}`
-                                  : `High $${hVal.toFixed(2)}`,
-                                position: 'right',
-                                fontSize: 10,
-                                fill: '#e74c3c',
-                                fontWeight: 600
-                              }}
-                            />
-                          )}
-                          {typeof lVal === 'number' && (
-                            <ReferenceLine
-                              y={lVal}
-                              stroke="#3498db"
-                              strokeDasharray="4 3"
-                              strokeWidth={1}
-                              label={{
-                                value: isKorean
-                                  ? `최저 ${Math.round(lVal).toLocaleString()}`
-                                  : `Low $${lVal.toFixed(2)}`,
-                                position: 'right',
-                                fontSize: 10,
-                                fill: '#3498db',
-                                fontWeight: 600
-                              }}
-                            />
-                          )}
-                          <Line
-                            type="monotone"
-                            dataKey="close"
-                            stroke="#667eea"
-                            strokeWidth={2}
-                            dot={(props) => {
-                              const { cx, cy, index } = props;
-                              if (index === lineHighIdx) {
-                                return <circle cx={cx} cy={cy} r={5} fill="#e74c3c" stroke="white" strokeWidth={2} />;
-                              }
-                              if (index === lineLowIdx) {
-                                return <circle cx={cx} cy={cy} r={5} fill="#3498db" stroke="white" strokeWidth={2} />;
-                              }
-                              return null;
-                            }}
-                            activeDot={{ r: 4 }}
-                          />
-                        </>
-                      );
-                    })()}
+                    <Line
+                      type="monotone"
+                      dataKey="close"
+                      stroke="#667eea"
+                      strokeWidth={2}
+                      dot={(props) => {
+                        const { cx, cy, index } = props;
+                        if (index === lineHighIdx) {
+                          return <circle cx={cx} cy={cy} r={5} fill="#e74c3c" stroke="white" strokeWidth={2} />;
+                        }
+                        if (index === lineLowIdx) {
+                          return <circle cx={cx} cy={cy} r={5} fill="#3498db" stroke="white" strokeWidth={2} />;
+                        }
+                        return null;
+                      }}
+                      activeDot={{ r: 4 }}
+                    />
+
+                    {/* close 기준 최고/최저 수평선 */}
+                    {typeof lineHighClose === 'number' && (
+                      <ReferenceLine
+                        y={lineHighClose}
+                        stroke="#e74c3c"
+                        strokeDasharray="4 3"
+                        strokeWidth={1}
+                        label={{
+                          value: isKorean
+                            ? `최고 ${Math.round(lineHighClose).toLocaleString()}`
+                            : `High $${lineHighClose.toFixed(2)}`,
+                          position: 'right',
+                          fontSize: 10,
+                          fill: '#e74c3c',
+                          fontWeight: 600
+                        }}
+                      />
+                    )}
+                    {typeof lineLowClose === 'number' && (
+                      <ReferenceLine
+                        y={lineLowClose}
+                        stroke="#3498db"
+                        strokeDasharray="4 3"
+                        strokeWidth={1}
+                        label={{
+                          value: isKorean
+                            ? `최저 ${Math.round(lineLowClose).toLocaleString()}`
+                            : `Low $${lineLowClose.toFixed(2)}`,
+                          position: 'right',
+                          fontSize: 10,
+                          fill: '#3498db',
+                          fontWeight: 600
+                        }}
+                      />
+                    )}
 
                     {showMovingAverages.ma5 && (
                       <Line
