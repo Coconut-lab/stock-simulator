@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  Area, AreaChart, ComposedChart, Bar, Cell, ReferenceLine, ReferenceDot
+  Area, AreaChart, ComposedChart, Bar, Cell, ReferenceLine
 } from 'recharts';
 import { stockService } from '../services/stockService';
 import { formatCurrency, formatErrorMessage, getMarketFromSymbol } from '../utils/helpers';
@@ -1391,7 +1391,51 @@ const StockChart = ({ symbol, stockInfo }) => {
                       dot={false}
                       activeDot={{ r: 4 }}
                     />
-                    
+
+                    {/* 기간 중 최고가/최저가 수평선 */}
+                    {(() => {
+                      const highestItem = chartData.find(d => d.is_highest);
+                      const lowestItem = chartData.find(d => d.is_lowest);
+                      return (
+                        <>
+                          {highestItem && typeof highestItem.high === 'number' && (
+                            <ReferenceLine
+                              y={highestItem.high}
+                              stroke="#e74c3c"
+                              strokeDasharray="4 3"
+                              strokeWidth={1}
+                              label={{
+                                value: isKorean
+                                  ? `최고 ${Math.round(highestItem.high).toLocaleString()}`
+                                  : `High $${highestItem.high.toFixed(2)}`,
+                                position: 'right',
+                                fontSize: 10,
+                                fill: '#e74c3c',
+                                fontWeight: 600
+                              }}
+                            />
+                          )}
+                          {lowestItem && typeof lowestItem.low === 'number' && (
+                            <ReferenceLine
+                              y={lowestItem.low}
+                              stroke="#3498db"
+                              strokeDasharray="4 3"
+                              strokeWidth={1}
+                              label={{
+                                value: isKorean
+                                  ? `최저 ${Math.round(lowestItem.low).toLocaleString()}`
+                                  : `Low $${lowestItem.low.toFixed(2)}`,
+                                position: 'right',
+                                fontSize: 10,
+                                fill: '#3498db',
+                                fontWeight: 600
+                              }}
+                            />
+                          )}
+                        </>
+                      );
+                    })()}
+
                     {showMovingAverages.ma5 && (
                       <Line
                         type="monotone"
@@ -1437,52 +1481,6 @@ const StockChart = ({ symbol, stockInfo }) => {
                       />
                     )}
                     
-                    {(() => {
-                      const highestItem = chartData.find(d => d.is_highest);
-                      const lowestItem = chartData.find(d => d.is_lowest);
-                      return (
-                        <>
-                          {highestItem && (
-                            <ReferenceDot
-                              x={highestItem.displayDate}
-                              y={highestItem.high}
-                              r={4}
-                              fill="#e74c3c"
-                              stroke="#e74c3c"
-                              label={{
-                                value: isKorean
-                                  ? `최고 ${Math.round(highestItem.high).toLocaleString()}`
-                                  : `High $${highestItem.high.toFixed(2)}`,
-                                position: 'top',
-                                fontSize: 10,
-                                fill: '#e74c3c',
-                                fontWeight: 600,
-                                offset: 8
-                              }}
-                            />
-                          )}
-                          {lowestItem && (
-                            <ReferenceDot
-                              x={lowestItem.displayDate}
-                              y={lowestItem.low}
-                              r={4}
-                              fill="#3498db"
-                              stroke="#3498db"
-                              label={{
-                                value: isKorean
-                                  ? `최저 ${Math.round(lowestItem.low).toLocaleString()}`
-                                  : `Low $${lowestItem.low.toFixed(2)}`,
-                                position: 'bottom',
-                                fontSize: 10,
-                                fill: '#3498db',
-                                fontWeight: 600,
-                                offset: 8
-                              }}
-                            />
-                          )}
-                        </>
-                      );
-                    })()}
                   </LineChart>
                 </ResponsiveContainer>
               )}
