@@ -406,6 +406,16 @@ const Markets = () => {
   };
 
   const renderStockPrice = (stock) => {
+    if (stock.is_estimated) {
+      return (
+        <StockPrice $changeColor="#999">
+          <div style={{ fontSize: '14px', color: '#667eea', fontWeight: 600 }}>
+            클릭하여 시세 조회
+          </div>
+        </StockPrice>
+      );
+    }
+
     const market = stock.market || getMarketFromSymbol(stock.symbol);
     const currencySymbols = { USD: '$', HKD: 'HK$', EUR: '€', GBP: '£' };
     const priceSym = currencySymbols[stock.price_currency] || currencySymbols[market] || '';
@@ -431,6 +441,10 @@ const Markets = () => {
   };
 
   const renderStatValue = (stock, field) => {
+    if (stock.is_estimated) {
+      return <div className="value" style={{ color: '#aaa', fontSize: '12px' }}>-</div>;
+    }
+
     const market = stock.market || getMarketFromSymbol(stock.symbol);
     const value = stock[field] || stock.current_price;
     const currencySymbols = { USD: '$', HKD: 'HK$', EUR: '€', GBP: '£' };

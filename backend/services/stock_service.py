@@ -520,13 +520,11 @@ class StockService:
         return self.search_stocks_extended(query)
     
     def search_stocks_extended(self, query):
-        """확장된 주식 검색 - 실시간 가격 일괄 조회"""
+        """확장된 주식 검색 - 캐시 우선으로 빠르게 응답"""
+        results = []
         found_symbols = set()
         query_upper = query.upper()
         query_lower = query.lower()
-
-        # 매칭된 종목을 (symbol, name, market) 형태로 수집
-        matches = []
 
         # 모든 이름 매핑 통합
         all_names = {**self.kr_stock_names, **self.us_stock_names, **self.hk_stock_names, **self.eu_stock_names}
@@ -536,81 +534,84 @@ class StockService:
             stock_name = all_names.get(symbol, '')
             if (query_upper in symbol.upper() or
                 query_lower in stock_name.lower()):
-                market = self.get_stock_market(symbol)
-                matches.append((symbol, stock_name or symbol, market))
-                found_symbols.add(symbol)
+                stock_data = self.get_cached_stock_data(symbol)
+                if not stock_data:
+                    market = self.get_stock_market(symbol)
+                    if market in ('HKD', 'EUR'):
+                        stock_data = self.get_fallback_data(symbol, market=market)
+                    else:
+                        stock_data = self.get_fallback_data(symbol, is_korean=(market == 'KRW'))
+                if stock_data:
+                    if not stock_data.get('name') or stock_data['name'] == symbol:
+                        stock_data['name'] = stock_name or symbol
+                    results.append(stock_data)
+                    found_symbols.add(symbol)
 
         # 2) KRX 전체 종목에서 추가 검색
-        if len(matches) < 20 and self.krx_listing:
+        if len(results) < 20 and self.krx_listing:
             for code, name in self.krx_listing.items():
                 if code in found_symbols:
                     continue
                 if (query_upper in code or query_lower in name.lower()):
-                    matches.append((code, name, 'KRW'))
-                    found_symbols.add(code)
-                    if len(matches) >= 20:
+                    stock_data = self.get_cached_stock_data(code)
+                    if not stock_data:
+                        stock_data = self.get_fallback_data(code, is_korean=True)
+                    if stock_data:
+                        stock_data['name'] = name
+                        results.append(stock_data)
+                        found_symbols.add(code)
+                    if len(results) >= 20:
                         break
 
         # 3) US 전체 종목에서 추가 검색
-        if len(matches) < 20 and self.us_listing:
+        if len(results) < 20 and self.us_listing:
             for symbol, name in self.us_listing.items():
                 if symbol in found_symbols:
                     continue
                 if (query_upper in symbol.upper() or query_lower in name.lower()):
-                    matches.append((symbol, name, 'USD'))
-                    found_symbols.add(symbol)
-                    if len(matches) >= 20:
+                    stock_data = self.get_cached_stock_data(symbol)
+                    if not stock_data:
+                        stock_data = self.get_fallback_data(symbol, is_korean=False)
+                    if stock_data:
+                        stock_data['name'] = name
+                        results.append(stock_data)
+                        found_symbols.add(symbol)
+                    if len(results) >= 20:
                         break
 
         # 4) HKEX 전체 종목에서 추가 검색
-        if len(matches) < 20 and self.hk_listing:
+        if len(results) < 20 and self.hk_listing:
             for code, name in self.hk_listing.items():
                 if code in found_symbols:
                     continue
                 if (query_upper in code or query_lower in name.lower()):
-                    matches.append((code, name, 'HKD'))
-                    found_symbols.add(code)
-                    if len(matches) >= 20:
+                    stock_data = self.get_cached_stock_data(code)
+                    if not stock_data:
+                        stock_data = self.get_fallback_data(code, market='HKD')
+                    if stock_data:
+                        stock_data['name'] = name
+                        results.append(stock_data)
+                        found_symbols.add(code)
+                    if len(results) >= 20:
                         break
 
         # 5) 유럽 전체 종목에서 추가 검색
-        if len(matches) < 20 and getattr(self, 'eu_listing', None):
+        if len(results) < 20 and getattr(self, 'eu_listing', None):
             for symbol, name in self.eu_listing.items():
                 if symbol in found_symbols:
                     continue
                 if (query_upper in symbol.upper() or query_lower in name.lower()):
-                    matches.append((symbol, name, 'EUR'))
-                    found_symbols.add(symbol)
-                    if len(matches) >= 20:
+                    stock_data = self.get_cached_stock_data(symbol)
+                    if not stock_data:
+                        stock_data = self.get_fallback_data(symbol, market='EUR')
+                    if stock_data:
+                        stock_data['name'] = name
+                        results.append(stock_data)
+                        found_symbols.add(symbol)
+                    if len(results) >= 20:
                         break
 
-        matches = matches[:20]
-
-        # 캐시에 없는 종목을 시장별로 분류하여 일괄 조회
-        uncached_by_market = {}
-        for symbol, name, market in matches:
-            if not self.get_cached_stock_data(symbol):
-                uncached_by_market.setdefault(market, []).append(symbol)
-
-        for market, symbols in uncached_by_market.items():
-            self._batch_fetch_page(symbols, market)
-
-        # 결과 조립
-        results = []
-        for symbol, name, market in matches:
-            stock_data = self.get_cached_stock_data(symbol)
-            if not stock_data:
-                # 배치 조회도 실패한 경우에만 fallback
-                if market in ('HKD', 'EUR'):
-                    stock_data = self.get_fallback_data(symbol, market=market)
-                else:
-                    stock_data = self.get_fallback_data(symbol, is_korean=(market == 'KRW'))
-            if stock_data:
-                if not stock_data.get('name') or stock_data['name'] == symbol:
-                    stock_data['name'] = name
-                results.append(stock_data)
-
-        return results
+        return results[:20]
     
     def get_kr_stock_info(self, symbol, max_retries=3):
         """한국 주식 정보 조회 (FinanceDataReader 사용)"""
@@ -947,6 +948,7 @@ class StockService:
                 'change_percent': (current_price - previous_close) / previous_close * 100 if previous_close > 0 else 0,
                 'market': 'HKD', 'currency': 'HKD',
                 'exchange_rate': self.get_exchange_rate('HKD'),
+                'is_estimated': True,
                 'updated_at': datetime.utcnow()
             }
         elif market == 'EUR':
@@ -972,6 +974,7 @@ class StockService:
                 'change_percent': (current_price - previous_close) / previous_close * 100 if previous_close > 0 else 0,
                 'market': 'EUR', 'currency': 'EUR', 'price_currency': price_currency,
                 'exchange_rate': self.get_exchange_rate(price_currency),
+                'is_estimated': True,
                 'updated_at': datetime.utcnow()
             }
         if is_korean:
@@ -1024,7 +1027,7 @@ class StockService:
         result = {
             'symbol': symbol,
             'name': stock_name,
-            'current_price': current_price,  # USD 주식은 USD 가격 그대로
+            'current_price': current_price,
             'previous_close': previous_close,
             'open_price': current_price * random.uniform(0.995, 1.005),
             'high_price': current_price * random.uniform(1.0, 1.02),
@@ -1034,6 +1037,7 @@ class StockService:
             'change_percent': (current_price - previous_close) / previous_close * 100 if previous_close > 0 else 0,
             'market': market,
             'currency': market,
+            'is_estimated': True,
             'updated_at': datetime.utcnow()
         }
         
@@ -1485,137 +1489,6 @@ class StockService:
         }
         return self._clean_nan(result)
     
-    def _batch_fetch_page(self, symbols, market):
-        """페이지 단위로 실시간 주식 데이터 일괄 조회 (yfinance batch download)"""
-        try:
-            import yfinance as yf
-
-            # 심볼을 yfinance 형식으로 변환
-            yf_map = {}
-            for s in symbols:
-                if market == 'KRW':
-                    yf_map[f"{s}.KS"] = s
-                elif market == 'HKD':
-                    yf_map[self._hk_yf_symbol(s)] = s
-                else:
-                    yf_map[s] = s
-
-            yf_list = list(yf_map.keys())
-            if not yf_list:
-                return
-
-            df = yf.download(yf_list, period='5d', progress=False, group_by='ticker')
-            if df.empty:
-                return
-
-            single = len(yf_list) == 1
-
-            for yf_s, orig_s in yf_map.items():
-                try:
-                    if single:
-                        ticker_df = df
-                    else:
-                        try:
-                            ticker_df = df[yf_s]
-                        except KeyError:
-                            continue
-
-                    ticker_df = ticker_df.dropna(subset=['Close'])
-                    if ticker_df.empty:
-                        continue
-
-                    latest = ticker_df.iloc[-1]
-                    current_price = safe_float(latest['Close'])
-                    if current_price <= 0:
-                        continue
-
-                    previous_close = safe_float(ticker_df.iloc[-2]['Close']) if len(ticker_df) >= 2 else current_price * 0.99
-
-                    # 종목명 조회
-                    name = orig_s
-                    names_dicts = {
-                        'KRW': [self.kr_stock_names, self.krx_listing or {}],
-                        'USD': [self.us_stock_names, self.us_listing or {}],
-                        'HKD': [self.hk_stock_names, self.hk_listing or {}],
-                        'EUR': [self.eu_stock_names, getattr(self, 'eu_listing', {}) or {}],
-                    }
-                    for src in names_dicts.get(market, []):
-                        if src.get(orig_s) and src[orig_s] != orig_s:
-                            name = src[orig_s]
-                            break
-
-                    stock_data = {
-                        'symbol': orig_s, 'name': name,
-                        'current_price': current_price,
-                        'previous_close': previous_close,
-                        'open_price': safe_float(latest.get('Open', current_price)),
-                        'high_price': safe_float(latest.get('High', current_price)),
-                        'low_price': safe_float(latest.get('Low', current_price)),
-                        'volume': int(safe_float(latest.get('Volume', 0))),
-                        'change': current_price - previous_close,
-                        'change_percent': (current_price - previous_close) / previous_close * 100 if previous_close > 0 else 0,
-                        'market': market, 'currency': market,
-                        'updated_at': datetime.utcnow()
-                    }
-
-                    # 외화 주식 환율/통화 정보 추가
-                    if market == 'USD':
-                        stock_data['exchange_rate'] = self.get_exchange_rate()
-                    elif market == 'HKD':
-                        stock_data['exchange_rate'] = self.get_exchange_rate('HKD')
-                    elif market == 'EUR':
-                        pc = 'GBP' if orig_s.endswith('.L') else 'EUR'
-                        stock_data['price_currency'] = pc
-                        stock_data['exchange_rate'] = self.get_exchange_rate(pc)
-
-                    self._save_to_cache(orig_s, stock_data)
-
-                except Exception as e:
-                    logging.debug(f"배치 파싱 실패 {orig_s}: {e}")
-
-            # KRW: .KS로 못 가져온 종목을 .KQ(코스닥)로 재시도
-            if market == 'KRW':
-                failed = [s for s in symbols if s not in self.stock_cache]
-                if failed:
-                    try:
-                        kq_map = {f"{s}.KQ": s for s in failed}
-                        kq_list = list(kq_map.keys())
-                        df2 = yf.download(kq_list, period='5d', progress=False, group_by='ticker')
-                        if not df2.empty:
-                            single2 = len(kq_list) == 1
-                            for yf_s2, orig_s2 in kq_map.items():
-                                try:
-                                    tdf = df2 if single2 else df2[yf_s2]
-                                    tdf = tdf.dropna(subset=['Close'])
-                                    if tdf.empty:
-                                        continue
-                                    lat = tdf.iloc[-1]
-                                    cp = safe_float(lat['Close'])
-                                    if cp <= 0:
-                                        continue
-                                    pc2 = safe_float(tdf.iloc[-2]['Close']) if len(tdf) >= 2 else cp * 0.99
-                                    sn = self.kr_stock_names.get(orig_s2) or (self.krx_listing or {}).get(orig_s2) or orig_s2
-                                    sd = {
-                                        'symbol': orig_s2, 'name': sn,
-                                        'current_price': cp, 'previous_close': pc2,
-                                        'open_price': safe_float(lat.get('Open', cp)),
-                                        'high_price': safe_float(lat.get('High', cp)),
-                                        'low_price': safe_float(lat.get('Low', cp)),
-                                        'volume': int(safe_float(lat.get('Volume', 0))),
-                                        'change': cp - pc2,
-                                        'change_percent': (cp - pc2) / pc2 * 100 if pc2 > 0 else 0,
-                                        'market': 'KRW', 'currency': 'KRW',
-                                        'updated_at': datetime.utcnow()
-                                    }
-                                    self._save_to_cache(orig_s2, sd)
-                                except Exception:
-                                    pass
-                    except Exception as e:
-                        logging.debug(f"코스닥 배치 조회 실패: {e}")
-
-        except Exception as e:
-            logging.warning(f"배치 조회 실패 ({market}): {e}")
-
     def get_market_list(self, market, page=1, per_page=30):
         """시장별 전체 종목 리스트 (페이지네이션)"""
         # 시장별 listing 선택
@@ -1639,16 +1512,10 @@ class StockService:
         end = start + per_page
         page_symbols = all_symbols[start:end]
 
-        # 캐시에 없는 종목을 yfinance로 일괄 조회
-        uncached = [s for s in page_symbols if not self.get_cached_stock_data(s)]
-        if uncached:
-            self._batch_fetch_page(uncached, market)
-
         stocks = []
         for symbol in page_symbols:
             data = self.get_cached_stock_data(symbol)
             if not data:
-                # 배치 조회도 실패한 경우에만 fallback
                 if market == 'KRW':
                     data = self.get_fallback_data(symbol, is_korean=True)
                 elif market == 'USD':
