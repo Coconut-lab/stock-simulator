@@ -1388,7 +1388,17 @@ const StockChart = ({ symbol, stockInfo }) => {
                       dataKey="close"
                       stroke="#667eea"
                       strokeWidth={2}
-                      dot={false}
+                      dot={(props) => {
+                        const { cx, cy, payload } = props;
+                        if (!payload) return null;
+                        if (payload.is_highest) {
+                          return <circle cx={cx} cy={cy} r={5} fill="#e74c3c" stroke="white" strokeWidth={2} />;
+                        }
+                        if (payload.is_lowest) {
+                          return <circle cx={cx} cy={cy} r={5} fill="#3498db" stroke="white" strokeWidth={2} />;
+                        }
+                        return null;
+                      }}
                       activeDot={{ r: 4 }}
                     />
 
