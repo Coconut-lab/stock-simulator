@@ -3,9 +3,20 @@ import threading
 import time
 import logging
 import random
+import math
 import requests
 from datetime import datetime, timedelta
 from utils.db import get_collection
+
+def safe_float(value, default=0.0):
+    """NaN/Inf를 안전하게 처리하여 JSON 직렬화 가능한 값 반환"""
+    try:
+        f = float(value)
+        if math.isnan(f) or math.isinf(f):
+            return default
+        return f
+    except (TypeError, ValueError):
+        return default
 
 class StockService:
     def __init__(self):
@@ -699,9 +710,9 @@ class StockService:
                 indices.append({
                     'name': '코스피',
                     'symbol': 'KOSPI',
-                    'value': float(latest['Close']),
-                    'change': float(latest['Close'] - prev['Close']),
-                    'change_percent': float((latest['Close'] - prev['Close']) / prev['Close'] * 100)
+                    'value': safe_float(latest['Close']),
+                    'change': safe_float(latest['Close'] - prev['Close']),
+                    'change_percent': safe_float((latest['Close'] - prev['Close']) / prev['Close'] * 100)
                 })
         except Exception as e:
             logging.debug(f"코스피 지수 조회 실패: {e}")
@@ -722,9 +733,9 @@ class StockService:
                 indices.append({
                     'name': '코스닥',
                     'symbol': 'KOSDAQ',
-                    'value': float(latest['Close']),
-                    'change': float(latest['Close'] - prev['Close']),
-                    'change_percent': float((latest['Close'] - prev['Close']) / prev['Close'] * 100)
+                    'value': safe_float(latest['Close']),
+                    'change': safe_float(latest['Close'] - prev['Close']),
+                    'change_percent': safe_float((latest['Close'] - prev['Close']) / prev['Close'] * 100)
                 })
         except Exception as e:
             logging.debug(f"코스닥 지수 조회 실패: {e}")
@@ -745,9 +756,9 @@ class StockService:
                 indices.append({
                     'name': 'S&P 500',
                     'symbol': 'SP500',
-                    'value': float(latest['Close']),
-                    'change': float(latest['Close'] - prev['Close']),
-                    'change_percent': float((latest['Close'] - prev['Close']) / prev['Close'] * 100)
+                    'value': safe_float(latest['Close']),
+                    'change': safe_float(latest['Close'] - prev['Close']),
+                    'change_percent': safe_float((latest['Close'] - prev['Close']) / prev['Close'] * 100)
                 })
         except Exception as e:
             logging.debug(f"S&P 500 지수 조회 실패: {e}")
@@ -768,9 +779,9 @@ class StockService:
                 indices.append({
                     'name': '나스닥',
                     'symbol': 'NASDAQ',
-                    'value': float(latest['Close']),
-                    'change': float(latest['Close'] - prev['Close']),
-                    'change_percent': float((latest['Close'] - prev['Close']) / prev['Close'] * 100)
+                    'value': safe_float(latest['Close']),
+                    'change': safe_float(latest['Close'] - prev['Close']),
+                    'change_percent': safe_float((latest['Close'] - prev['Close']) / prev['Close'] * 100)
                 })
         except Exception as e:
             logging.debug(f"나스닥 지수 조회 실패: {e}")
@@ -784,6 +795,17 @@ class StockService:
         
         return indices
     
+    @staticmethod
+    def _clean_nan(obj):
+        """재귀적으로 NaN/Inf 값을 0으로 변환 (JSON 직렬화 오류 방지)"""
+        if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
+            return 0.0
+        elif isinstance(obj, dict):
+            return {k: StockService._clean_nan(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [StockService._clean_nan(item) for item in obj]
+        return obj
+
     def get_market_summary(self):
         """시장 요약 정보"""
         kr_stocks_data = []
@@ -805,13 +827,14 @@ class StockService:
             if data:
                 us_stocks_data.append(data)
 
-        return {
+        result = {
             'korean_market': kr_stocks_data,
             'us_market': us_stocks_data,
             'market_indices': self.get_market_indices(),
             'exchange_rate': self.get_exchange_rate(),
             'updated_at': datetime.utcnow()
         }
+        return self._clean_nan(result)
     
     def start_auto_update(self, interval=600):  # 10분으로 증가
         """자동 업데이트 시작 (429 에러 방지를 위해 간격 증가)"""
