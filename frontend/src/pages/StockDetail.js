@@ -559,12 +559,12 @@ const StockDetail = () => {
               marginLeft: '8px', padding: '2px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 600,
               background: currentMarketStatus.is_open ? '#27ae60' : '#e74c3c', color: 'white'
             }}>
-              {currentMarketStatus.is_open ? '개장' : '폐장'}
+              {currentMarketStatus.is_open ? '개장' : currentMarketStatus.is_weekend ? '주말 휴장' : '폐장'}
             </span>
           </div>
           <div style={{ fontSize: '13px', color: '#666' }}>
             장시간: {currentMarketStatus.open_time_kst || currentMarketStatus.open_time} ~ {currentMarketStatus.close_time_kst || currentMarketStatus.close_time} (KST)
-            {!currentMarketStatus.is_open && (
+            {!currentMarketStatus.is_open && !currentMarketStatus.is_weekend && (
               <span style={{ color: '#e74c3c', marginLeft: '8px', fontWeight: 600 }}>
                 시간외 수수료 적용 (x{currentMarketStatus.after_hours_multiplier})
               </span>

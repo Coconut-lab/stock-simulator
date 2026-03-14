@@ -367,10 +367,12 @@ class StockService:
 
             # 현지 개장/폐장 시간을 KST로 변환
             hour_diff = 9 - info['utc_offset']  # KST와의 시차
-            open_hour_kst = info['open_hour'] + hour_diff
-            open_min_kst = info['open_min']
-            close_hour_kst = info['close_hour'] + hour_diff
-            close_min_kst = info['close_min']
+            open_total_min = (info['open_hour'] + hour_diff) * 60 + info['open_min']
+            close_total_min = (info['close_hour'] + hour_diff) * 60 + info['close_min']
+            open_hour_kst = (open_total_min // 60) % 24
+            open_min_kst = open_total_min % 60
+            close_hour_kst = (close_total_min // 60) % 24
+            close_min_kst = close_total_min % 60
 
             commission_rate = Config.COMMISSION_RATE.get(market, 0.001)
             multiplier = Config.AFTER_HOURS_COMMISSION_MULTIPLIER if not is_open else 1
@@ -380,6 +382,7 @@ class StockService:
             result[market] = {
                 'name': info['name'],
                 'is_open': is_open,
+                'is_weekend': is_weekend,
                 'local_time': local_now.strftime('%H:%M'),
                 'kst_time': kst_now.strftime('%H:%M'),
                 'open_time': f"{info['open_hour']:02d}:{info['open_min']:02d}",

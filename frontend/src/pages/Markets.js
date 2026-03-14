@@ -495,12 +495,12 @@ const Markets = () => {
                     marginLeft: '6px', padding: '1px 6px', borderRadius: '3px', fontSize: '11px',
                     background: status.is_open ? '#27ae60' : '#999', color: 'white', fontWeight: 600
                   }}>
-                    {status.is_open ? '개장' : '폐장'}
+                    {status.is_open ? '개장' : status.is_weekend ? '주말 휴장' : '폐장'}
                   </span>
                 </div>
                 <div style={{ color: '#666' }}>
                   {status.open_time_kst || status.open_time}~{status.close_time_kst || status.close_time} (KST) | 수수료 {status.current_commission_percent}
-                  {!status.is_open && ` (x${status.after_hours_multiplier})`}
+                  {!status.is_open && !status.is_weekend && ` (x${status.after_hours_multiplier})`}
                 </div>
               </div>
             ))}
