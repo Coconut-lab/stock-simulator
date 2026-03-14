@@ -252,10 +252,10 @@ class StockService:
             logging.error(f"KRX 종목 리스트 로드 실패: {e}")
             self.krx_listing = {}
 
-        # US (NASDAQ + S&P500)
+        # US (NASDAQ + NYSE + S&P500)
         try:
             self.us_listing = {}
-            for market in ['NASDAQ', 'S&P500']:
+            for market in ['NASDAQ', 'NYSE', 'S&P500']:
                 try:
                     df = fdr.StockListing(market)
                     for _, row in df.iterrows():
@@ -283,6 +283,38 @@ class StockService:
         except Exception as e:
             logging.error(f"HKEX 종목 리스트 로드 실패: {e}")
             self.hk_listing = {}
+
+        # 유럽 주요 종목 리스트 (FDR에 없으므로 직접 등록)
+        self.eu_listing = {
+            # LSE (런던) - .L
+            'AZN.L': 'AstraZeneca', 'SHEL.L': 'Shell plc', 'HSBA.L': 'HSBC Holdings',
+            'ULVR.L': 'Unilever plc', 'BP.L': 'BP plc', 'GSK.L': 'GSK plc',
+            'RIO.L': 'Rio Tinto', 'BATS.L': 'British American Tobacco', 'DGE.L': 'Diageo',
+            'LSEG.L': 'London Stock Exchange', 'REL.L': 'RELX plc', 'NG.L': 'National Grid',
+            'VOD.L': 'Vodafone Group', 'LLOY.L': 'Lloyds Banking', 'BARC.L': 'Barclays',
+            'RKT.L': 'Reckitt Benckiser', 'CPG.L': 'Compass Group', 'AAL.L': 'Anglo American',
+            'ABF.L': 'Associated British Foods', 'ANTO.L': 'Antofagasta',
+            'GLEN.L': 'Glencore', 'PRU.L': 'Prudential', 'SMT.L': 'Scottish Mortgage',
+            'BA.L': 'BAE Systems', 'RR.L': 'Rolls-Royce', 'TSCO.L': 'Tesco',
+            'BT-A.L': 'BT Group', 'IMB.L': 'Imperial Brands', 'STAN.L': 'Standard Chartered',
+            'EXPN.L': 'Experian',
+            # Frankfurt (독일) - .DE
+            'SAP.DE': 'SAP SE', 'SIE.DE': 'Siemens AG', 'ALV.DE': 'Allianz SE',
+            'BMW.DE': 'BMW AG', 'BAS.DE': 'BASF SE', 'MBG.DE': 'Mercedes-Benz',
+            'DTE.DE': 'Deutsche Telekom', 'MUV2.DE': 'Munich Re', 'ADS.DE': 'Adidas AG',
+            'IFX.DE': 'Infineon Technologies', 'DB1.DE': 'Deutsche Boerse',
+            'VOW3.DE': 'Volkswagen AG', 'DBK.DE': 'Deutsche Bank', 'HEN3.DE': 'Henkel',
+            'AIR.DE': 'Airbus SE', 'RWE.DE': 'RWE AG', 'FRE.DE': 'Fresenius',
+            'BEI.DE': 'Beiersdorf', 'HEI.DE': 'HeidelbergCement', 'CON.DE': 'Continental',
+            # Paris (프랑스) - .PA
+            'MC.PA': 'LVMH', 'OR.PA': "L'Oreal", 'TTE.PA': 'TotalEnergies',
+            'SAN.PA': 'Sanofi', 'AI.PA': 'Air Liquide', 'SU.PA': 'Schneider Electric',
+            'BNP.PA': 'BNP Paribas', 'KER.PA': 'Kering', 'RI.PA': 'Pernod Ricard',
+            'CAP.PA': 'Capgemini', 'DSY.PA': 'Dassault Systemes', 'HO.PA': 'Thales',
+            'CS.PA': 'AXA', 'DG.PA': 'Vinci', 'SGO.PA': 'Saint-Gobain',
+            'EL.PA': 'EssilorLuxottica', 'EN.PA': 'Bouygues', 'GLE.PA': 'Societe Generale',
+        }
+        logging.info(f"EU 종목 리스트 등록 완료: {len(self.eu_listing)}개")
 
         self.listing_loaded = True
 
@@ -479,6 +511,22 @@ class StockService:
                     if len(results) >= 20:
                         break
 
+        # 5) 유럽 전체 종목에서 추가 검색
+        if len(results) < 20 and self.eu_listing:
+            for symbol, name in self.eu_listing.items():
+                if symbol in found_symbols:
+                    continue
+                if (query_upper in symbol.upper() or query_lower in name.lower()):
+                    stock_data = self.get_cached_stock_data(symbol)
+                    if not stock_data:
+                        stock_data = self.get_fallback_data(symbol, market='EUR')
+                    if stock_data:
+                        stock_data['name'] = name
+                        results.append(stock_data)
+                        found_symbols.add(symbol)
+                    if len(results) >= 20:
+                        break
+
         return results[:20]
     
     def get_kr_stock_info(self, symbol, max_retries=3):
@@ -509,8 +557,8 @@ class StockService:
                 else:
                     previous_close = current_price * 0.99  # 1% 하락으로 가정
                 
-                stock_name = self.kr_stock_names.get(symbol, symbol)
-                
+                stock_name = self.kr_stock_names.get(symbol) or (self.krx_listing or {}).get(symbol) or symbol
+
                 stock_data = {
                     'symbol': symbol,
                     'name': stock_name,
@@ -526,7 +574,7 @@ class StockService:
                     'currency': 'KRW',
                     'updated_at': datetime.utcnow()
                 }
-                
+
                 logging.info(f"한국 주식 데이터 성공 조회: {symbol} - ₩{current_price:,.0f}")
                 return stock_data
                 
@@ -568,8 +616,16 @@ class StockService:
                 else:
                     previous_close = current_price * 0.99
                 
-                stock_name = self.us_stock_names.get(symbol, symbol)
-                
+                stock_name = self.us_stock_names.get(symbol) or (self.us_listing or {}).get(symbol)
+                if not stock_name or stock_name == symbol:
+                    try:
+                        import yfinance as yf
+                        t = yf.Ticker(symbol)
+                        t_info = t.info
+                        stock_name = t_info.get('shortName') or t_info.get('longName') or symbol
+                    except Exception:
+                        stock_name = symbol
+
                 stock_data = {
                     'symbol': symbol,
                     'name': stock_name,
@@ -622,6 +678,8 @@ class StockService:
     def is_eu_stock(self, symbol):
         """유럽 주식인지 확인"""
         if symbol in self.eu_stocks:
+            return True
+        if hasattr(self, 'eu_listing') and symbol in self.eu_listing:
             return True
         if symbol.endswith('.L') or symbol.endswith('.DE') or symbol.endswith('.PA'):
             return True
@@ -676,7 +734,13 @@ class StockService:
                 current_price = float(latest_data['Close'])
                 previous_close = float(df.iloc[-2]['Close']) if len(df) >= 2 else current_price * 0.99
 
-                stock_name = self.hk_stock_names.get(symbol, symbol)
+                stock_name = self.hk_stock_names.get(symbol) or (self.hk_listing or {}).get(symbol)
+                if not stock_name or stock_name == symbol:
+                    try:
+                        info = ticker.info
+                        stock_name = info.get('shortName') or info.get('longName') or symbol
+                    except Exception:
+                        stock_name = symbol
 
                 return {
                     'symbol': symbol,
@@ -719,7 +783,13 @@ class StockService:
                 current_price = float(latest_data['Close'])
                 previous_close = float(df.iloc[-2]['Close']) if len(df) >= 2 else current_price * 0.99
 
-                stock_name = self.eu_stock_names.get(symbol, symbol)
+                stock_name = self.eu_stock_names.get(symbol)
+                if not stock_name or stock_name == symbol:
+                    try:
+                        info = ticker.info
+                        stock_name = info.get('shortName') or info.get('longName') or symbol
+                    except Exception:
+                        stock_name = symbol
                 # GBP(.L) vs EUR(.DE, .PA) 구분
                 if symbol.endswith('.L'):
                     price_currency = 'GBP'
@@ -754,7 +824,7 @@ class StockService:
         """fallback 데이터 생성"""
         # market이 명시되면 그걸 사용
         if market == 'HKD':
-            stock_name = self.hk_stock_names.get(symbol, symbol)
+            stock_name = self.hk_stock_names.get(symbol) or (self.hk_listing or {}).get(symbol) or symbol
             base_prices = {
                 '0700': 350, '9988': 80, '0005': 60, '1299': 70, '0388': 250,
                 '0941': 60, '2318': 40, '0883': 10, '1810': 15, '3690': 120,
@@ -778,7 +848,7 @@ class StockService:
                 'updated_at': datetime.utcnow()
             }
         elif market == 'EUR':
-            stock_name = self.eu_stock_names.get(symbol, symbol)
+            stock_name = self.eu_stock_names.get(symbol) or symbol
             base_prices = {
                 'AZN.L': 11000, 'SHEL.L': 2500, 'HSBA.L': 650, 'ULVR.L': 4000, 'BP.L': 450,
                 'SAP.DE': 200, 'SIE.DE': 170, 'ALV.DE': 260, 'BMW.DE': 80, 'BAS.DE': 45,
@@ -810,7 +880,7 @@ class StockService:
                 '373220': 400000, '005490': 300000, '000270': 80000,
                 '105560': 60000, '055550': 35000, '032830': 70000,
             }
-            stock_name = self.kr_stock_names.get(symbol, symbol)
+            stock_name = self.kr_stock_names.get(symbol) or (self.krx_listing or {}).get(symbol) or symbol
             market = 'KRW'
             default_price = 50000
         else:
@@ -820,7 +890,7 @@ class StockService:
                 'META': 350, 'NVDA': 800, 'NFLX': 450, 'AMD': 140, 'INTC': 25,
                 'JPM': 150, 'V': 250, 'JNJ': 160, 'WMT': 150, 'PG': 150,
             }
-            stock_name = self.us_stock_names.get(symbol, symbol)
+            stock_name = self.us_stock_names.get(symbol) or (self.us_listing or {}).get(symbol) or symbol
             market = 'USD'
             default_price = 100
         

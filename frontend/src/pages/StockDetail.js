@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { stockService } from '../services/stockService';
 import { portfolioService } from '../services/portfolioService';
 import StockChart from '../components/StockChart';
@@ -361,6 +362,7 @@ const LoadingState = styled.div`
 const StockDetail = () => {
   const { symbol } = useParams();
   const navigate = useNavigate();
+  const { user, updateUser } = useAuth();
   
   const [stockData, setStockData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -453,7 +455,12 @@ const StockDetail = () => {
       
       setSuccessMessage(response.message);
       setQuantity('');
-      
+
+      // 상단 잔고 업데이트
+      if (response.data?.remaining_balance !== undefined && user) {
+        updateUser({ ...user, balance: response.data.remaining_balance });
+      }
+
       // 주식 데이터 새로고침
       await loadStockData();
       
