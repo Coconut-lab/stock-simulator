@@ -39,6 +39,25 @@ def get_market_summary():
         logging.error(f"시장 요약 조회 에러: {e}")
         return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
 
+@stocks_bp.route('/market-list/<market>', methods=['GET'])
+def get_market_list(market):
+    """시장별 전체 종목 리스트 (페이지네이션)"""
+    try:
+        user_data, error = verify_auth()
+        if error:
+            return jsonify({'error': error}), 401
+
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 30, type=int)
+        per_page = min(per_page, 100)  # 최대 100개
+
+        result = stock_service.get_market_list(market, page, per_page)
+        return jsonify({'data': result}), 200
+
+    except Exception as e:
+        logging.error(f"시장 목록 조회 에러: {e}")
+        return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
+
 @stocks_bp.route('/search', methods=['GET'])
 def search_stocks():
     """주식 검색"""

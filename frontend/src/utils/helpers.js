@@ -94,8 +94,8 @@ export const getMarketFromSymbol = (symbol) => {
   if (symbol.endsWith('.KS') || symbol.endsWith('.KQ')) return 'KRW';
   // 홍콩 주식 (4자리 이하 숫자 또는 .HK)
   if (symbol.match(/^\d{1,4}$/) || symbol.endsWith('.HK')) return 'HKD';
-  // 유럽 주식 (.L=런던, .DE=프랑크푸르트, .PA=파리)
-  if (symbol.endsWith('.L') || symbol.endsWith('.DE') || symbol.endsWith('.PA')) return 'EUR';
+  // 유럽 주식
+  if (['.L','.DE','.PA','.AS','.MI','.MC','.SW','.ST','.CO','.BR','.LS','.OL','.HE','.VI'].some(s => symbol.endsWith(s))) return 'EUR';
   return 'USD';
 };
 

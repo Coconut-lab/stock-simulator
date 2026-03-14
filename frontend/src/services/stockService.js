@@ -99,5 +99,17 @@ export const stockService = {
     } catch (error) {
       throw error.response?.data || { error: '장시간 정보 조회에 실패했습니다.' };
     }
+  },
+
+  // 시장별 전체 종목 리스트 (페이지네이션)
+  getMarketList: async (market, page = 1, perPage = 30) => {
+    try {
+      const response = await api.get(`/stocks/market-list/${market}`, {
+        params: { page, per_page: perPage }
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { error: '시장 목록 조회에 실패했습니다.' };
+    }
   }
 };

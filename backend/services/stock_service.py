@@ -278,45 +278,129 @@ class StockService:
                 code = str(row.get('Code', row.get('Symbol', ''))).strip()
                 name = str(row.get('Name', '')).strip()
                 if code and name:
-                    self.hk_listing[code] = name
+                    # 5자리 코드(00700)를 앱에서 쓰는 형식으로 정규화
+                    # 80xxx, 89xxx 등 특수 코드는 제외
+                    if code.isdigit() and not code.startswith('8'):
+                        code = code.lstrip('0') or '0'  # 00700 → 700, 00005 → 5
+                        code = code.zfill(4)  # 700 → 0700, 5 → 0005
+                    if code not in self.hk_listing:
+                        self.hk_listing[code] = name
             logging.info(f"HKEX 종목 리스트 로드 완료: {len(self.hk_listing)}개")
         except Exception as e:
             logging.error(f"HKEX 종목 리스트 로드 실패: {e}")
             self.hk_listing = {}
 
-        # 유럽 주요 종목 리스트 (FDR에 없으므로 직접 등록)
-        self.eu_listing = {
-            # LSE (런던) - .L
-            'AZN.L': 'AstraZeneca', 'SHEL.L': 'Shell plc', 'HSBA.L': 'HSBC Holdings',
-            'ULVR.L': 'Unilever plc', 'BP.L': 'BP plc', 'GSK.L': 'GSK plc',
-            'RIO.L': 'Rio Tinto', 'BATS.L': 'British American Tobacco', 'DGE.L': 'Diageo',
-            'LSEG.L': 'London Stock Exchange', 'REL.L': 'RELX plc', 'NG.L': 'National Grid',
-            'VOD.L': 'Vodafone Group', 'LLOY.L': 'Lloyds Banking', 'BARC.L': 'Barclays',
-            'RKT.L': 'Reckitt Benckiser', 'CPG.L': 'Compass Group', 'AAL.L': 'Anglo American',
-            'ABF.L': 'Associated British Foods', 'ANTO.L': 'Antofagasta',
-            'GLEN.L': 'Glencore', 'PRU.L': 'Prudential', 'SMT.L': 'Scottish Mortgage',
-            'BA.L': 'BAE Systems', 'RR.L': 'Rolls-Royce', 'TSCO.L': 'Tesco',
-            'BT-A.L': 'BT Group', 'IMB.L': 'Imperial Brands', 'STAN.L': 'Standard Chartered',
-            'EXPN.L': 'Experian',
-            # Frankfurt (독일) - .DE
-            'SAP.DE': 'SAP SE', 'SIE.DE': 'Siemens AG', 'ALV.DE': 'Allianz SE',
-            'BMW.DE': 'BMW AG', 'BAS.DE': 'BASF SE', 'MBG.DE': 'Mercedes-Benz',
-            'DTE.DE': 'Deutsche Telekom', 'MUV2.DE': 'Munich Re', 'ADS.DE': 'Adidas AG',
-            'IFX.DE': 'Infineon Technologies', 'DB1.DE': 'Deutsche Boerse',
-            'VOW3.DE': 'Volkswagen AG', 'DBK.DE': 'Deutsche Bank', 'HEN3.DE': 'Henkel',
-            'AIR.DE': 'Airbus SE', 'RWE.DE': 'RWE AG', 'FRE.DE': 'Fresenius',
-            'BEI.DE': 'Beiersdorf', 'HEI.DE': 'HeidelbergCement', 'CON.DE': 'Continental',
-            # Paris (프랑스) - .PA
-            'MC.PA': 'LVMH', 'OR.PA': "L'Oreal", 'TTE.PA': 'TotalEnergies',
-            'SAN.PA': 'Sanofi', 'AI.PA': 'Air Liquide', 'SU.PA': 'Schneider Electric',
-            'BNP.PA': 'BNP Paribas', 'KER.PA': 'Kering', 'RI.PA': 'Pernod Ricard',
-            'CAP.PA': 'Capgemini', 'DSY.PA': 'Dassault Systemes', 'HO.PA': 'Thales',
-            'CS.PA': 'AXA', 'DG.PA': 'Vinci', 'SGO.PA': 'Saint-Gobain',
-            'EL.PA': 'EssilorLuxottica', 'EN.PA': 'Bouygues', 'GLE.PA': 'Societe Generale',
-        }
-        logging.info(f"EU 종목 리스트 등록 완료: {len(self.eu_listing)}개")
+        # 유럽 종목: Wikipedia 지수 구성종목 자동 로드 + 수동 fallback
+        self.eu_listing = {}
+        self._load_eu_listings()
+        logging.info(f"EU 종목 리스트 로드 완료: {len(self.eu_listing)}개")
 
         self.listing_loaded = True
+
+    def _load_eu_listings(self):
+        """유럽 주요 지수 구성 종목을 Wikipedia에서 자동 로드"""
+        import pandas as pd
+
+        wiki_indices = {
+            # (URL, suffix for tickers without exchange suffix)
+            # 대형주 지수
+            'FTSE100': ('https://en.wikipedia.org/wiki/FTSE_100_Index', '.L'),
+            'FTSE250': ('https://en.wikipedia.org/wiki/FTSE_250_Index', '.L'),
+            'DAX': ('https://en.wikipedia.org/wiki/DAX', ''),
+            'MDAX': ('https://en.wikipedia.org/wiki/MDAX', '.DE'),
+            'CAC40': ('https://en.wikipedia.org/wiki/CAC_40', ''),
+            'AEX': ('https://en.wikipedia.org/wiki/AEX_index', ''),
+            'SMI': ('https://en.wikipedia.org/wiki/Swiss_Market_Index', ''),
+            'FTSE_MIB': ('https://en.wikipedia.org/wiki/FTSE_MIB', ''),
+            'IBEX35': ('https://en.wikipedia.org/wiki/IBEX_35', ''),
+            'OMX30': ('https://en.wikipedia.org/wiki/OMX_Stockholm_30', ''),
+            # 소국 지수
+            'BEL20': ('https://en.wikipedia.org/wiki/BEL_20', '.BR'),
+            'PSI20': ('https://en.wikipedia.org/wiki/PSI-20', '.LS'),
+            'OBX': ('https://en.wikipedia.org/wiki/OBX_Index', '.OL'),
+            'OMXC25': ('https://en.wikipedia.org/wiki/OMX_Copenhagen_25', '.CO'),
+            'OMXH25': ('https://en.wikipedia.org/wiki/OMX_Helsinki_25', ''),
+        }
+
+        headers = {'User-Agent': 'Mozilla/5.0 (compatible; StockSimulator/1.0)'}
+        eu_suffixes = ('.L', '.DE', '.PA', '.AS', '.MI', '.MC', '.SW', '.ST', '.CO',
+                       '.BR', '.LS', '.OL', '.HE', '.VI')
+
+        for index_name, (url, suffix) in wiki_indices.items():
+            try:
+                html = requests.get(url, headers=headers, timeout=10).text
+                tables = pd.read_html(html)
+
+                for table in tables:
+                    cols_lower = {str(c).lower(): c for c in table.columns}
+                    # ticker/symbol 컬럼 찾기
+                    tk_col = None
+                    nm_col = None
+                    for key, orig in cols_lower.items():
+                        if 'ticker' in key or 'symbol' in key:
+                            tk_col = orig
+                        if 'company' in key or 'name' in key:
+                            nm_col = orig
+
+                    if tk_col is None:
+                        continue
+
+                    count = 0
+                    for _, row in table.iterrows():
+                        ticker = str(row.get(tk_col, '')).strip()
+                        company = str(row.get(nm_col, '')).strip() if nm_col else ''
+
+                        if not ticker or ticker == 'nan':
+                            continue
+
+                        # "Euronext Brussels: ABI" → "ABI", "OSE: AKRBP" → "AKRBP"
+                        if ':' in ticker:
+                            ticker = ticker.split(':')[-1].strip()
+                        # 공백이 있으면 첫 단어만 (예: "MAERSK B" → "MAERSK-B")
+                        if ' ' in ticker:
+                            ticker = ticker.replace(' ', '-')
+
+                        # 거래소 suffix가 없으면 추가
+                        if suffix and not any(ticker.endswith(s) for s in eu_suffixes):
+                            ticker = ticker + suffix
+
+                        if ticker not in self.eu_listing:
+                            self.eu_listing[ticker] = company if company and company != 'nan' else ticker
+                            count += 1
+
+                    logging.info(f"{index_name} 종목 {count}개 로드 완료")
+                    break  # 올바른 테이블을 찾았으면 다음 지수로
+
+            except Exception as e:
+                logging.warning(f"{index_name} 종목 로드 실패: {e}")
+
+        # fallback: Wikipedia 로드 실패 시 수동 목록 보충
+        fallback = {
+            'AZN.L': 'AstraZeneca', 'SHEL.L': 'Shell plc', 'HSBA.L': 'HSBC Holdings',
+            'ULVR.L': 'Unilever plc', 'BP.L': 'BP plc', 'GSK.L': 'GSK plc',
+            'RIO.L': 'Rio Tinto', 'BA.L': 'BAE Systems', 'RR.L': 'Rolls-Royce',
+            'GLEN.L': 'Glencore', 'BARC.L': 'Barclays', 'LLOY.L': 'Lloyds Banking',
+            'VOD.L': 'Vodafone Group', 'DGE.L': 'Diageo', 'LSEG.L': 'London Stock Exchange',
+            'SAP.DE': 'SAP SE', 'SIE.DE': 'Siemens AG', 'ALV.DE': 'Allianz SE',
+            'BMW.DE': 'BMW AG', 'BAS.DE': 'BASF SE', 'MBG.DE': 'Mercedes-Benz',
+            'RHM.DE': 'Rheinmetall AG', 'DTE.DE': 'Deutsche Telekom', 'ADS.DE': 'Adidas AG',
+            'VOW3.DE': 'Volkswagen AG', 'IFX.DE': 'Infineon Technologies',
+            'DBK.DE': 'Deutsche Bank', 'ENR.DE': 'Siemens Energy', 'MTX.DE': 'MTU Aero Engines',
+            'MC.PA': 'LVMH', 'OR.PA': "L'Oreal", 'TTE.PA': 'TotalEnergies',
+            'SAN.PA': 'Sanofi', 'AI.PA': 'Air Liquide', 'BNP.PA': 'BNP Paribas',
+            'SAF.PA': 'Safran', 'HO.PA': 'Thales', 'AIR.PA': 'Airbus SE',
+            'ASML.AS': 'ASML Holding', 'PHIA.AS': 'Philips', 'INGA.AS': 'ING Group',
+            'NESN.SW': 'Nestle', 'ROG.SW': 'Roche', 'NOVN.SW': 'Novartis',
+            'UBSG.SW': 'UBS Group', 'ABBN.SW': 'ABB Ltd',
+            'RACE.MI': 'Ferrari', 'ENI.MI': 'Eni SpA', 'ENEL.MI': 'Enel SpA',
+            'UCG.MI': 'UniCredit', 'ISP.MI': 'Intesa Sanpaolo',
+            'SAN.MC': 'Banco Santander', 'ITX.MC': 'Inditex', 'IBE.MC': 'Iberdrola',
+            'NOVO-B.CO': 'Novo Nordisk', 'MAERSK-B.CO': 'Maersk',
+            'VOLV-B.ST': 'Volvo', 'ERIC-B.ST': 'Ericsson',
+        }
+        for ticker, name in fallback.items():
+            if ticker not in self.eu_listing:
+                self.eu_listing[ticker] = name
 
     def update_exchange_rate(self):
         """실시간 환율 업데이트 (USD, HKD, EUR, GBP → KRW)"""
@@ -681,7 +765,9 @@ class StockService:
             return True
         if hasattr(self, 'eu_listing') and symbol in self.eu_listing:
             return True
-        if symbol.endswith('.L') or symbol.endswith('.DE') or symbol.endswith('.PA'):
+        eu_suffixes = ('.L', '.DE', '.PA', '.AS', '.MI', '.MC', '.SW', '.ST', '.CO',
+                       '.BR', '.LS', '.OL', '.HE', '.VI')
+        if any(symbol.endswith(s) for s in eu_suffixes):
             return True
         return False
 
@@ -1393,6 +1479,57 @@ class StockService:
         }
         return self._clean_nan(result)
     
+    def get_market_list(self, market, page=1, per_page=30):
+        """시장별 전체 종목 리스트 (페이지네이션)"""
+        # 시장별 listing 선택
+        if market == 'KRW':
+            listing = self.krx_listing or {}
+            is_korean = True
+        elif market == 'USD':
+            listing = self.us_listing or {}
+            is_korean = False
+        elif market == 'HKD':
+            listing = self.hk_listing or {}
+            is_korean = False
+        elif market == 'EUR':
+            listing = getattr(self, 'eu_listing', {}) or {}
+            is_korean = False
+        else:
+            return {'stocks': [], 'total': 0, 'page': page, 'total_pages': 0}
+
+        all_symbols = list(listing.keys())
+        total = len(all_symbols)
+        total_pages = max(1, (total + per_page - 1) // per_page)
+        page = max(1, min(page, total_pages))
+
+        start = (page - 1) * per_page
+        end = start + per_page
+        page_symbols = all_symbols[start:end]
+
+        stocks = []
+        for symbol in page_symbols:
+            data = self.get_cached_stock_data(symbol)
+            if not data:
+                if market == 'KRW':
+                    data = self.get_fallback_data(symbol, is_korean=True)
+                elif market == 'USD':
+                    data = self.get_fallback_data(symbol, is_korean=False)
+                else:
+                    data = self.get_fallback_data(symbol, market=market)
+            if data:
+                name = listing.get(symbol, symbol)
+                if not data.get('name') or data['name'] == symbol:
+                    data['name'] = name
+                stocks.append(data)
+
+        return self._clean_nan({
+            'stocks': stocks,
+            'total': total,
+            'page': page,
+            'per_page': per_page,
+            'total_pages': total_pages,
+        })
+
     def start_auto_update(self, interval=600):  # 10분으로 증가
         """자동 업데이트 시작 (429 에러 방지를 위해 간격 증가)"""
         if self.is_running:
