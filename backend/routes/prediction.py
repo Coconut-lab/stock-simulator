@@ -99,7 +99,7 @@ def create_prediction():
 
 # ── 동적 경로 ──
 
-@prediction_bp.route('/<prediction_id>', methods=['GET', 'DELETE'])
+@prediction_bp.route('/<oid:prediction_id>', methods=['GET', 'DELETE'])
 def prediction_detail(prediction_id):
     if request.method == 'GET':
         user_data, error = verify_auth()
@@ -127,7 +127,7 @@ def prediction_detail(prediction_id):
             return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
 
 
-@prediction_bp.route('/<prediction_id>/bet', methods=['POST'])
+@prediction_bp.route('/<oid:prediction_id>/bet', methods=['POST'])
 def place_bet(prediction_id):
     user_data, error = verify_auth()
     if error:
@@ -154,7 +154,7 @@ def place_bet(prediction_id):
         return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
 
 
-@prediction_bp.route('/<prediction_id>/close', methods=['PUT'])
+@prediction_bp.route('/<oid:prediction_id>/close', methods=['PUT'])
 def close_prediction(prediction_id):
     user_data, error = verify_admin()
     if error:
@@ -169,7 +169,7 @@ def close_prediction(prediction_id):
         return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
 
 
-@prediction_bp.route('/<prediction_id>/settle', methods=['PUT'])
+@prediction_bp.route('/<oid:prediction_id>/settle', methods=['PUT'])
 def settle_prediction(prediction_id):
     user_data, error = verify_admin()
     if error:

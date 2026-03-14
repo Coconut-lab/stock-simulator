@@ -1,11 +1,22 @@
-$ python -c "from app import create_app; app = create_app(); c = app.test_client(); r = c.post('/api/predictions/create', json={'title':'test'}); print(r.status_code, r.get_json())"
+$ python -c "import urllib.request,json; req=urllib.request.Request('http://localhost:5000/api/predictions/create',data=json.dumps({'title':'t'}).encode(),headers={'Content-Type':'application/json'},method='POST'); print(urllib.request.urlopen(req).status)" 2>&1 || true
 Traceback (most recent call last):
 File "<string>", line 1, in <module>
-File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 950, in test_client
-return cls(  # type: ignore
-^^^^^^^^^^^^^^^^^^^^
-File "/usr/local/lib/python3.11/site-packages/flask/testing.py", line 118, in __init__
-"HTTP_USER_AGENT": f"werkzeug/{werkzeug.__version__}",
-^^^^^^^^^^^^^^^^^^^^
-AttributeError: module 'werkzeug' has no attribute '__version__'
+File "/usr/local/lib/python3.11/urllib/request.py", line 216, in urlopen
+return opener.open(url, data, timeout)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "/usr/local/lib/python3.11/urllib/request.py", line 525, in open
+response = meth(req, response)
+^^^^^^^^^^^^^^^^^^^
+File "/usr/local/lib/python3.11/urllib/request.py", line 634, in http_response
+response = self.parent.error(
+^^^^^^^^^^^^^^^^^^
+File "/usr/local/lib/python3.11/urllib/request.py", line 563, in error
+return self._call_chain(*args)
+^^^^^^^^^^^^^^^^^^^^^^^
+File "/usr/local/lib/python3.11/urllib/request.py", line 496, in _call_chain
+result = func(*args)
+^^^^^^^^^^^
+File "/usr/local/lib/python3.11/urllib/request.py", line 643, in http_error_default
+raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 405: METHOD NOT ALLOWED
 $ 
