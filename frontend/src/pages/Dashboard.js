@@ -416,6 +416,71 @@ const Dashboard = () => {
             )}
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader>
+            <h2>홍콩 주식</h2>
+          </CardHeader>
+          <CardContent>
+            {marketData?.hk_market ? (
+              <StockList>
+                {marketData.hk_market.slice(0, 5).map((stock) => (
+                  <StockItem key={stock.symbol}>
+                    <StockInfo>
+                      <div className="symbol">{stock.symbol}</div>
+                      <div className="name">{stock.name}</div>
+                    </StockInfo>
+                    <StockPrice changeColor={getProfitColor(stock.change)}>
+                      <div className="price">
+                        HK${formatNumber(stock.current_price)}
+                      </div>
+                      {stock.change !== undefined && (
+                        <div className="change">
+                          {stock.change >= 0 ? '+' : ''}HK${formatNumber(stock.change)}
+                          ({stock.change_percent >= 0 ? '+' : ''}{formatPercent(stock.change_percent)})
+                        </div>
+                      )}
+                    </StockPrice>
+                  </StockItem>
+                ))}
+              </StockList>
+            ) : (
+              <div>홍콩 주식 데이터를 불러올 수 없습니다.</div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <h2>유럽 주식</h2>
+          </CardHeader>
+          <CardContent>
+            {marketData?.eu_market ? (
+              <StockList>
+                {marketData.eu_market.slice(0, 5).map((stock) => (
+                  <StockItem key={stock.symbol}>
+                    <StockInfo>
+                      <div className="symbol">{stock.symbol}</div>
+                      <div className="name">{stock.name}</div>
+                    </StockInfo>
+                    <StockPrice changeColor={getProfitColor(stock.change)}>
+                      <div className="price">
+                        {stock.symbol?.endsWith('.L') ? '£' : '€'}{formatNumber(stock.current_price)}
+                      </div>
+                      {stock.change !== undefined && (
+                        <div className="change">
+                          {stock.change >= 0 ? '+' : ''}{stock.symbol?.endsWith('.L') ? '£' : '€'}{formatNumber(stock.change)}
+                          ({stock.change_percent >= 0 ? '+' : ''}{formatPercent(stock.change_percent)})
+                        </div>
+                      )}
+                    </StockPrice>
+                  </StockItem>
+                ))}
+              </StockList>
+            ) : (
+              <div>유럽 주식 데이터를 불러올 수 없습니다.</div>
+            )}
+          </CardContent>
+        </Card>
       </ContentGrid>
     </Container>
   );

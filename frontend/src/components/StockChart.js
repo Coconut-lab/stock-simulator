@@ -1441,7 +1441,21 @@ const StockChart = ({ symbol, stockInfo }) => {
                       dataKey={(data) => data.is_highest ? data.close : null}
                       stroke="#e74c3c"
                       strokeWidth={0}
-                      dot={{ fill: '#e74c3c', r: 4 }}
+                      dot={(props) => {
+                        const { cx, cy, payload } = props;
+                        if (!payload?.is_highest) return null;
+                        const label = isKorean
+                          ? `최고 ${Math.round(payload.high).toLocaleString()}`
+                          : `High $${payload.high.toFixed(2)}`;
+                        return (
+                          <g>
+                            <circle cx={cx} cy={cy} r={4} fill="#e74c3c" />
+                            <text x={cx} y={cy - 10} textAnchor="middle" fontSize={10} fill="#e74c3c" fontWeight="600">
+                              {label}
+                            </text>
+                          </g>
+                        );
+                      }}
                       activeDot={false}
                       connectNulls={false}
                     />
@@ -1449,7 +1463,21 @@ const StockChart = ({ symbol, stockInfo }) => {
                       dataKey={(data) => data.is_lowest ? data.close : null}
                       stroke="#3498db"
                       strokeWidth={0}
-                      dot={{ fill: '#3498db', r: 4 }}
+                      dot={(props) => {
+                        const { cx, cy, payload } = props;
+                        if (!payload?.is_lowest) return null;
+                        const label = isKorean
+                          ? `최저 ${Math.round(payload.low).toLocaleString()}`
+                          : `Low $${payload.low.toFixed(2)}`;
+                        return (
+                          <g>
+                            <circle cx={cx} cy={cy} r={4} fill="#3498db" />
+                            <text x={cx} y={cy + 16} textAnchor="middle" fontSize={10} fill="#3498db" fontWeight="600">
+                              {label}
+                            </text>
+                          </g>
+                        );
+                      }}
                       activeDot={false}
                       connectNulls={false}
                     />

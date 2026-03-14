@@ -267,7 +267,7 @@ const Markets = () => {
   const [marketData, setMarketData] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
-  const [activeTab, setActiveTab] = useState('all'); // all, korean, us
+  const [activeTab, setActiveTab] = useState('all'); // all, korean, us, hk, eu
   const [loading, setLoading] = useState(true);
   const [searchLoading, setSearchLoading] = useState(false);
   const [error, setError] = useState('');
@@ -278,7 +278,10 @@ const Markets = () => {
 
   useEffect(() => {
     if (searchQuery.length > 1) {
-      searchStocks();
+      const timer = setTimeout(() => {
+        searchStocks();
+      }, 300);
+      return () => clearTimeout(timer);
     } else {
       setSearchResults([]);
     }
@@ -325,8 +328,17 @@ const Markets = () => {
         return marketData.korean_market || [];
       case 'us':
         return marketData.us_market || [];
+      case 'hk':
+        return marketData.hk_market || [];
+      case 'eu':
+        return marketData.eu_market || [];
       default:
-        return [...(marketData.korean_market || []), ...(marketData.us_market || [])];
+        return [
+          ...(marketData.korean_market || []),
+          ...(marketData.us_market || []),
+          ...(marketData.hk_market || []),
+          ...(marketData.eu_market || []),
+        ];
     }
   };
 
@@ -336,16 +348,18 @@ const Markets = () => {
   };
 
   const renderStockPrice = (stock) => {
-    const isUSD = getMarketFromSymbol(stock.symbol) === 'USD';
-    
+    const market = stock.market || getMarketFromSymbol(stock.symbol);
+    const currencySymbols = { USD: '$', HKD: 'HK$', EUR: '€', GBP: '£' };
+    const priceSym = currencySymbols[stock.price_currency] || currencySymbols[market] || '';
+
     return (
       <StockPrice $changeColor={getProfitColor(stock.change || 0)}>
         <div className="current-price">
           {formatStockPrice(stock)}
         </div>
-        {isUSD && stock.exchange_rate && (
+        {market !== 'KRW' && stock.exchange_rate && (
           <div className="original-price">
-            ${formatNumber(stock.current_price)}
+            {priceSym}{formatNumber(stock.current_price)}
           </div>
         )}
         {stock.change !== undefined && (
@@ -359,15 +373,17 @@ const Markets = () => {
   };
 
   const renderStatValue = (stock, field) => {
-    const isUSD = getMarketFromSymbol(stock.symbol) === 'USD';
+    const market = stock.market || getMarketFromSymbol(stock.symbol);
     const value = stock[field] || stock.current_price;
-    
-    if (isUSD && stock.exchange_rate) {
+    const currencySymbols = { USD: '$', HKD: 'HK$', EUR: '€', GBP: '£' };
+    const priceSym = currencySymbols[stock.price_currency] || currencySymbols[market] || '';
+
+    if (market !== 'KRW' && stock.exchange_rate) {
       const converted = value * stock.exchange_rate;
       return (
         <>
           <div className="value">₩{formatNumber(Math.round(converted))}</div>
-          <div className="original-value">${formatNumber(value)}</div>
+          <div className="original-value">{priceSym}{formatNumber(value)}</div>
         </>
       );
     } else {
@@ -399,10 +415,15 @@ const Markets = () => {
         <p>실시간 주식 시장 정보를 확인하세요.</p>
       </Header>
 
-      {marketData?.exchange_rate && (
+      {marketData?.exchange_rates && (
         <ExchangeRateInfo>
-          <div className="title">현재 환율 (USD/KRW)</div>
-          <div className="rate">1 USD = ₩{formatNumber(marketData.exchange_rate)}</div>
+          <div className="title">현재 환율</div>
+          <div className="rate" style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+            <span>1 USD = ₩{formatNumber(Math.round(marketData.exchange_rates.USD))}</span>
+            <span>1 HKD = ₩{formatNumber(Math.round(marketData.exchange_rates.HKD))}</span>
+            <span>1 EUR = ₩{formatNumber(Math.round(marketData.exchange_rates.EUR))}</span>
+            <span>1 GBP = ₩{formatNumber(Math.round(marketData.exchange_rates.GBP))}</span>
+          </div>
         </ExchangeRateInfo>
       )}
 
@@ -424,25 +445,67 @@ const Markets = () => {
 
       {!searchQuery && (
         <MarketTabs>
-          <TabButton 
+          <TabButton
             $active={activeTab === 'all'}
             onClick={() => setActiveTab('all')}
           >
             전체
           </TabButton>
-          <TabButton 
+          <TabButton
             $active={activeTab === 'korean'}
             onClick={() => setActiveTab('korean')}
           >
-            한국 주식
+            한국
           </TabButton>
-          <TabButton 
+          <TabButton
             $active={activeTab === 'us'}
             onClick={() => setActiveTab('us')}
           >
-            미국 주식
+            미국
+          </TabButton>
+          <TabButton
+            $active={activeTab === 'hk'}
+            onClick={() => setActiveTab('hk')}
+          >
+            홍콩
+          </TabButton>
+          <TabButton
+            $active={activeTab === 'eu'}
+            onClick={() => setActiveTab('eu')}
+          >
+            유럽
           </TabButton>
         </MarketTabs>
+
+        {/* 장시간 정보 */}
+        {marketData?.market_status && (
+          <div style={{
+            display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px'
+          }}>
+            {Object.entries(marketData.market_status).map(([key, status]) => (
+              <div key={key} style={{
+                flex: '1 1 200px', padding: '10px 14px', borderRadius: '8px',
+                background: status.is_open ? '#eafaf1' : '#f9f9f9',
+                border: `1px solid ${status.is_open ? '#27ae60' : '#ddd'}`,
+                fontSize: '13px'
+              }}>
+                <div style={{ fontWeight: 600, marginBottom: '4px', color: '#333' }}>
+                  {status.name}
+                  <span style={{
+                    marginLeft: '6px', padding: '1px 6px', borderRadius: '3px', fontSize: '11px',
+                    background: status.is_open ? '#27ae60' : '#999', color: 'white', fontWeight: 600
+                  }}>
+                    {status.is_open ? '개장' : '폐장'}
+                  </span>
+                </div>
+                <div style={{ color: '#666' }}>
+                  {status.open_time}~{status.close_time} | 수수료 {status.current_commission_percent}
+                  {!status.is_open && ` (x${status.after_hours_multiplier})`}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       )}
 
       {displayStocks.length > 0 ? (
@@ -457,7 +520,7 @@ const Markets = () => {
                   <div className="name">{stock.name}</div>
                   <div className="symbol">{stock.symbol}</div>
                   <div className="market">
-                    {getMarketFromSymbol(stock.symbol) === 'KRW' ? '한국' : '미국'} 주식
+                    {{ KRW: '한국', USD: '미국', HKD: '홍콩', EUR: '유럽' }[stock.market || getMarketFromSymbol(stock.symbol)] || '기타'} 주식
                   </div>
                 </StockInfo>
                 {renderStockPrice(stock)}

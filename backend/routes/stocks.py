@@ -223,6 +223,24 @@ def get_stock_history(symbol):
         logging.error(f"주식 이력 조회 에러: {e}")
         return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
 
+@stocks_bp.route('/market-hours', methods=['GET'])
+def get_market_hours():
+    """각 시장의 장시간 및 현재 상태 조회"""
+    try:
+        user_data, error = verify_auth()
+        if error:
+            return jsonify({'error': error}), 401
+
+        market_status = stock_service.get_all_market_status()
+
+        return jsonify({
+            'data': market_status
+        }), 200
+
+    except Exception as e:
+        logging.error(f"장시간 조회 에러: {e}")
+        return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
+
 @stocks_bp.route('/indices', methods=['GET'])
 def get_market_indices():
     """시장 지수 정보 조회"""

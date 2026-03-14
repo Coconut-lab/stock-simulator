@@ -373,9 +373,11 @@ const StockDetail = () => {
 
   const [maxBuyData, setMaxBuyData] = useState(null);
   const [loadingMaxBuy, setLoadingMaxBuy] = useState(false);
+  const [marketStatus, setMarketStatus] = useState(null);
 
   useEffect(() => {
     loadStockData();
+    loadMarketStatus();
   }, [symbol]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -393,6 +395,15 @@ const StockDetail = () => {
       console.error('Max buy data loading error:', error);
     } finally {
       setLoadingMaxBuy(false);
+    }
+  };
+
+  const loadMarketStatus = async () => {
+    try {
+      const response = await stockService.getMarketHours();
+      setMarketStatus(response.data);
+    } catch (err) {
+      console.error('Market hours loading error:', err);
     }
   };
 
@@ -457,43 +468,50 @@ const StockDetail = () => {
     if (!stockData || !quantity) return 0;
     const currency = getCurrencyFromStock(stockData);
     const price = stockData.current_price;
-    
-    // 미국 주식이고 환율 정보가 있으면 원화로 계산
-    if (currency === 'USD' && stockData.exchange_rate) {
+
+    // 외화 주식이고 환율 정보가 있으면 원화로 계산
+    if (currency !== 'KRW' && stockData.exchange_rate) {
       return price * stockData.exchange_rate * parseInt(quantity || 0);
     }
     return price * parseInt(quantity || 0);
   };
 
+  const getCommissionInfo = () => {
+    const market = stockData?.market || getCurrencyFromStock(stockData);
+    const rates = { KRW: 0.00015, USD: 0.00005, HKD: 0.0001, EUR: 0.0001 };
+    const mins = { KRW: 1000, USD: 1350, HKD: 1000, EUR: 1500 };
+    const baseRate = rates[market] || 0.001;
+    const status = marketStatus?.[market];
+    const isAfterHours = status ? status.is_after_hours : false;
+    const multiplier = isAfterHours ? 3 : 1;
+    const effectiveRate = baseRate * multiplier;
+    return { baseRate, effectiveRate, isAfterHours, multiplier, minCommission: mins[market] || 1000, market };
+  };
+
   const calculateCommission = () => {
     const amount = calculateTradeAmount();
-    const currency = getCurrencyFromStock(stockData);
-    const isUSD = currency === 'USD';
-    const commissionRate = isUSD ? 0.00005 : 0.00015;
-    const commission = amount * commissionRate;
-    const minCommission = isUSD ? 1 : 1000;
-    return Math.max(commission, minCommission);
+    const { effectiveRate, minCommission } = getCommissionInfo();
+    return Math.max(amount * effectiveRate, minCommission);
   };
 
   const renderPrice = (price, field = 'current_price') => {
     if (!stockData) return '';
-    
+
     const currency = getCurrencyFromStock(stockData);
     const value = stockData[field] || price;
-    
-    if (currency === 'USD' && stockData.exchange_rate) {
+    const currencySymbols = { USD: '$', HKD: 'HK$', EUR: '€', GBP: '£' };
+    const priceSym = currencySymbols[stockData.price_currency] || currencySymbols[currency] || '';
+
+    if (currency !== 'KRW' && stockData.exchange_rate) {
       const convertedPrice = value * stockData.exchange_rate;
       return (
         <>
           <span>₩{formatNumber(Math.round(convertedPrice))}</span>
-          <span className="original-price">${formatNumber(value)}</span>
+          <span className="original-price">{priceSym}{formatNumber(value)}</span>
         </>
       );
-    } else if (currency === 'KRW') {
-      return `₩${formatNumber(value)}`;
-    } else {
-      return `$${formatNumber(value)}`;
     }
+    return `₩${formatNumber(value)}`;
   };
 
   if (loading) {
@@ -516,19 +534,49 @@ const StockDetail = () => {
   }
 
   const currency = getCurrencyFromStock(stockData);
-  const isUSD = currency === 'USD';
+  const isForeign = currency !== 'KRW';
+  const priceCurrSym = { USD: '$', HKD: 'HK$', EUR: '€', GBP: '£' }[stockData?.price_currency || currency] || '';
   const tradeAmount = calculateTradeAmount();
   const commission = calculateCommission();
   const totalAmount = tradeType === 'buy' ? tradeAmount + commission : tradeAmount - commission;
+  const commissionInfo = getCommissionInfo();
+  const currentMarketStatus = marketStatus?.[commissionInfo.market];
 
   return (
     <Container>
       <BackButton onClick={() => navigate('/markets')}>← 시장으로 돌아가기</BackButton>
 
-      {isUSD && stockData?.exchange_rate && (
+      {currentMarketStatus && (
+        <div style={{
+          background: currentMarketStatus.is_open ? '#eafaf1' : '#fdf2f2',
+          border: `1px solid ${currentMarketStatus.is_open ? '#27ae60' : '#e74c3c'}`,
+          borderRadius: '8px', padding: '12px 16px', marginBottom: '16px',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px'
+        }}>
+          <div>
+            <span style={{ fontWeight: 600, color: '#333' }}>{currentMarketStatus.name}</span>
+            <span style={{
+              marginLeft: '8px', padding: '2px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 600,
+              background: currentMarketStatus.is_open ? '#27ae60' : '#e74c3c', color: 'white'
+            }}>
+              {currentMarketStatus.is_open ? '개장' : '폐장'}
+            </span>
+          </div>
+          <div style={{ fontSize: '13px', color: '#666' }}>
+            장시간: {currentMarketStatus.open_time} ~ {currentMarketStatus.close_time} (현지 {currentMarketStatus.local_time})
+            {!currentMarketStatus.is_open && (
+              <span style={{ color: '#e74c3c', marginLeft: '8px', fontWeight: 600 }}>
+                시간외 수수료 적용 (x{currentMarketStatus.after_hours_multiplier})
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {currency !== 'KRW' && stockData?.exchange_rate && (
         <ExchangeRateInfo>
-          <div className="title">현재 환율 (USD/KRW)</div>
-          <div className="rate">1 USD = ₩{formatNumber(stockData.exchange_rate)}</div>
+          <div className="title">현재 환율</div>
+          <div className="rate">1 {stockData.price_currency || currency} = ₩{formatNumber(Math.round(stockData.exchange_rate))}</div>
         </ExchangeRateInfo>
       )}
 
@@ -540,8 +588,8 @@ const StockDetail = () => {
               <div className="symbol">{stockData.symbol}</div>
               <div className="price-container">
                 <span className="price">{formatStockPrice(stockData)}</span>
-                {isUSD && stockData.exchange_rate && (
-                  <span className="original-price">${formatNumber(stockData.current_price)}</span>
+                {isForeign && stockData.exchange_rate && (
+                  <span className="original-price">{priceCurrSym}{formatNumber(stockData.current_price)}</span>
                 )}
               </div>
               <div className="change" style={{ color: getProfitColor(stockData.change) }}>
@@ -637,15 +685,22 @@ const StockDetail = () => {
                         <span>거래금액:</span>
                         <span>
                           ₩{formatNumber(Math.round(tradeAmount))}
-                          {isUSD && stockData.exchange_rate && (
+                          {isForeign && stockData.exchange_rate && (
                             <span className="original-amount">
-                              (${formatNumber(stockData.current_price * parseInt(quantity || 0))})
+                              ({priceCurrSym}{formatNumber(stockData.current_price * parseInt(quantity || 0))})
                             </span>
                           )}
                         </span>
                       </div>
                       <div className="row">
-                        <span>수수료:</span>
+                        <span>
+                          수수료 ({(commissionInfo.effectiveRate * 100).toFixed(3)}%)
+                          {commissionInfo.isAfterHours && (
+                            <span style={{ color: '#e74c3c', fontSize: '11px', marginLeft: '4px' }}>
+                              (시간외 x{commissionInfo.multiplier})
+                            </span>
+                          )}:
+                        </span>
                         <span>₩{formatNumber(Math.round(commission))}</span>
                       </div>
                       <div className="row">

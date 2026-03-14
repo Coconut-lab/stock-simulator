@@ -89,5 +89,15 @@ export const stockService = {
     } catch (error) {
       throw error.response?.data || { error: '시장 지수 정보 조회에 실패했습니다.' };
     }
+  },
+
+  // 시장 장시간 정보 조회
+  getMarketHours: async () => {
+    try {
+      const response = await api.get('/stocks/market-hours');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { error: '장시간 정보 조회에 실패했습니다.' };
+    }
   }
 };

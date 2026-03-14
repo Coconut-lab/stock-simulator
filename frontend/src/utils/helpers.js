@@ -88,64 +88,75 @@ export const formatRelativeTime = (date) => {
 
 // 주식 심볼에서 시장 구분
 export const getMarketFromSymbol = (symbol) => {
+  if (!symbol) return 'KRW';
   // 숫자 6자리는 한국 주식
   if (symbol.match(/^\d{6}$/)) return 'KRW';
-  // .KS, .KQ로 끝나는 경우도 한국 주식
   if (symbol.endsWith('.KS') || symbol.endsWith('.KQ')) return 'KRW';
+  // 홍콩 주식 (4자리 이하 숫자 또는 .HK)
+  if (symbol.match(/^\d{1,4}$/) || symbol.endsWith('.HK')) return 'HKD';
+  // 유럽 주식 (.L=런던, .DE=프랑크푸르트, .PA=파리)
+  if (symbol.endsWith('.L') || symbol.endsWith('.DE') || symbol.endsWith('.PA')) return 'EUR';
   return 'USD';
 };
 
 // 주식 데이터에서 통화 정보 추출
 export const getCurrencyFromStock = (stock) => {
-  if (stock.currency) return stock.currency;
-  if (stock.market === 'KRW' || stock.market === 'USD') return stock.market;
-  return getMarketFromSymbol(stock.symbol);
+  if (stock?.market) return stock.market;
+  if (stock?.currency) return stock.currency;
+  return getMarketFromSymbol(stock?.symbol);
 };
 
 // 시장에 따른 통화 단위 반환
 export const getCurrencyFromMarket = (market) => {
-  return market === 'KRW' ? 'KRW' : 'USD';
+  const map = { KRW: 'KRW', USD: 'USD', HKD: 'HKD', EUR: 'EUR' };
+  return map[market] || 'USD';
+};
+
+// 시장별 통화 심볼
+export const getCurrencySymbol = (market) => {
+  const symbols = { KRW: '₩', USD: '$', HKD: 'HK$', EUR: '€', GBP: '£' };
+  return symbols[market] || '$';
 };
 
 // 주식 가격 포맷팅 (환율 적용)
 export const formatStockPrice = (stock, showSymbol = true) => {
-  const currency = getCurrencyFromStock(stock);
+  const market = getCurrencyFromStock(stock);
   const price = stock.current_price || 0;
-  
-  if (currency === 'USD' && stock.exchange_rate) {
-    // 미국 주식은 환율 적용하여 원화로 표시
+
+  // 외화 주식은 환율 적용하여 원화로 표시
+  if (market !== 'KRW' && stock.exchange_rate) {
     const convertedPrice = price * stock.exchange_rate;
-    return showSymbol ? 
-      `₩${formatNumber(Math.round(convertedPrice))}` : 
+    return showSymbol ?
+      `₩${formatNumber(Math.round(convertedPrice))}` :
       formatNumber(Math.round(convertedPrice));
-  } else if (currency === 'KRW') {
-    // 한국 주식은 원화로 표시
-    return showSymbol ? 
-      `₩${formatNumber(price)}` : 
+  } else if (market === 'KRW') {
+    return showSymbol ?
+      `₩${formatNumber(price)}` :
       formatNumber(price);
   } else {
-    // 기본값은 달러
-    return showSymbol ? 
-      `$${formatNumber(price)}` : 
+    const sym = getCurrencySymbol(market);
+    return showSymbol ?
+      `${sym}${formatNumber(price)}` :
       formatNumber(price);
   }
 };
 
 // 주식 변동 금액 포맷팅
 export const formatStockChange = (stock) => {
-  const currency = getCurrencyFromStock(stock);
+  const market = getCurrencyFromStock(stock);
   const change = stock.change || 0;
-  
-  if (currency === 'USD' && stock.exchange_rate) {
+
+  if (market !== 'KRW' && stock.exchange_rate) {
     const convertedChange = change * stock.exchange_rate;
     const sign = convertedChange >= 0 ? '+' : '';
     return `${sign}₩${formatNumber(Math.round(Math.abs(convertedChange)))}`;
-  } else if (currency === 'KRW') {
+  } else if (market === 'KRW') {
     const sign = change >= 0 ? '+' : '';
     return `${sign}₩${formatNumber(Math.abs(change))}`;
   } else {
+    const sym = getCurrencySymbol(market);
     const sign = change >= 0 ? '+' : '';
-    return `${sign}$${formatNumber(Math.abs(change))}`;
+    return `${sign}${sym}${formatNumber(Math.abs(change))}`;
   }
 };
 

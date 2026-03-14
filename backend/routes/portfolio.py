@@ -24,16 +24,18 @@ def verify_auth():
     return user_data, None
 
 def calculate_commission(amount, market):
-    """거래 수수료 계산"""
+    """거래 수수료 계산 (시간외 거래 시 수수료 인상)"""
+    from services.stock_service import StockService
+
     commission_rate = Config.COMMISSION_RATE.get(market, 0.001)
+
+    # 시간외 거래 시 수수료 배수 적용
+    if not StockService.is_market_open(market):
+        commission_rate *= Config.AFTER_HOURS_COMMISSION_MULTIPLIER
+
     commission = amount * commission_rate
-    
-    # 최소 수수료 적용 (한국: 1000원, 미국: 1달러 -> 원화 환산)
-    if market == 'USD':
-        min_commission = 1350  # 대략 1달러의 원화 환산
-    else:
-        min_commission = 1000
-    
+    min_commission = Config.MIN_COMMISSION.get(market, 1000)
+
     return max(commission, min_commission)
 
 @portfolio_bp.route('/', methods=['GET'])
@@ -67,7 +69,7 @@ def get_portfolio():
                 current_price = stock_data['current_price']
                 
                 # 미국 주식인 경우 환율 적용하여 원화로 변환
-                if stock_data.get('currency') == 'USD' and stock_data.get('exchange_rate'):
+                if stock_data.get('currency') != 'KRW' and stock_data.get('exchange_rate'):
                     current_price_krw = current_price * stock_data['exchange_rate']
                 else:
                     current_price_krw = current_price
@@ -84,13 +86,13 @@ def get_portfolio():
                     'quantity': holding['quantity'],
                     'purchase_price': holding['avg_price'],  # 이미 환율 적용된 원화 가격
                     'current_price': current_price_krw,  # 환율 적용된 원화 가격
-                    'original_price': current_price if stock_data.get('currency') == 'USD' else None,  # 원본 USD 가격
+                    'original_price': current_price if stock_data.get('currency') != 'KRW' else None,  # 원본 USD 가격
                     'holding_value': holding_value,
                     'profit_loss': profit_loss,
                     'profit_loss_percent': profit_loss_percent,
                     'market': holding['market'],
                     'currency': stock_data.get('currency', 'KRW'),
-                    'exchange_rate': stock_data.get('exchange_rate') if stock_data.get('currency') == 'USD' else None
+                    'exchange_rate': stock_data.get('exchange_rate') if stock_data.get('currency') != 'KRW' else None
                 }
                 
                 portfolio_with_prices.append(portfolio_item)
@@ -148,14 +150,14 @@ def buy_stock():
         current_price = stock_data['current_price']
         
         # 시장 구분 및 환율 적용
-        market = stock_data.get('currency', 'KRW')
-        
-        # 미국 주식인 경우 환율 적용하여 원화로 변환
-        if market == 'USD' and stock_data.get('exchange_rate'):
+        market = stock_data.get('market', stock_data.get('currency', 'KRW'))
+
+        # 외화 주식인 경우 환율 적용하여 원화로 변환
+        if market != 'KRW' and stock_data.get('exchange_rate'):
             current_price_krw = current_price * stock_data['exchange_rate']
         else:
             current_price_krw = current_price
-        
+
         # 총 거래 금액 계산 (환율 적용된 원화 가격 사용)
         total_amount = quantity * current_price_krw
         commission = calculate_commission(total_amount, market)
@@ -270,16 +272,16 @@ def sell_stock():
         current_price = stock_data['current_price']
         market = holding['market']
         
-        # 미국 주식인 경우 환율 적용하여 원화로 변환
-        if market == 'USD' and stock_data.get('exchange_rate'):
+        # 외화 주식인 경우 환율 적용하여 원화로 변환
+        if market != 'KRW' and stock_data.get('exchange_rate'):
             current_price_krw = current_price * stock_data['exchange_rate']
         else:
             current_price_krw = current_price
-        
+
         # 총 거래 금액 계산 (환율 적용된 원화 가격 사용)
         total_amount = quantity * current_price_krw
         commission = calculate_commission(total_amount, market)
-        
+
         # 소수점 완전 제거를 위해 정수로 변환
         total_amount = int(round(total_amount))
         commission = int(round(commission))
@@ -368,25 +370,24 @@ def calculate_max_buy(symbol):
             return jsonify({'error': '주식 정보를 찾을 수 없습니다.'}), 404
         
         current_price = stock_data['current_price']
-        market = stock_data.get('currency', 'KRW')
-        
-        # 미국 주식인 경우 환율 적용하여 원화로 변환
-        if market == 'USD' and stock_data.get('exchange_rate'):
+        market = stock_data.get('market', stock_data.get('currency', 'KRW'))
+
+        # 외화 주식인 경우 환율 적용하여 원화로 변환
+        if market != 'KRW' and stock_data.get('exchange_rate'):
             current_price_krw = current_price * stock_data['exchange_rate']
         else:
             current_price_krw = current_price
-        
+
         # 사용자 보유 자금
         available_cash = user_data['balance']
-        
-        # 예상 수수료 율 계산
+
+        # 예상 수수료 율 계산 (시간외 거래 시 인상)
+        from services.stock_service import StockService
         commission_rate = Config.COMMISSION_RATE.get(market, 0.001)
-        
-        # 최소 수수료
-        if market == 'USD':
-            min_commission = 1350  # 대략 1달러의 원화 환산
-        else:
-            min_commission = 1000
+        if not StockService.is_market_open(market):
+            commission_rate *= Config.AFTER_HOURS_COMMISSION_MULTIPLIER
+
+        min_commission = Config.MIN_COMMISSION.get(market, 1000)
         
         # 전량매수 가능 수량 계산
         # (available_cash - min_commission) / (current_price_krw * (1 + commission_rate))
@@ -433,7 +434,7 @@ def calculate_max_buy(symbol):
                 'estimated_commission': estimated_commission,
                 'total_cost': total_cost,
                 'current_price': current_price_krw,
-                'original_price': current_price if market == 'USD' else None,
+                'original_price': current_price if market != 'KRW' else None,
                 'available_cash': available_cash,
                 'remaining_cash': available_cash - total_cost
             }
@@ -472,7 +473,7 @@ def get_portfolio_summary():
                 current_price = stock_data['current_price']
                 
                 # 미국 주식인 경우 환율 적용
-                if stock_data.get('currency') == 'USD' and stock_data.get('exchange_rate'):
+                if stock_data.get('currency') != 'KRW' and stock_data.get('exchange_rate'):
                     current_price_krw = current_price * stock_data['exchange_rate']
                 else:
                     current_price_krw = current_price
