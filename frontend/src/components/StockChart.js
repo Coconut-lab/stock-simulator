@@ -1383,41 +1383,29 @@ const StockChart = ({ symbol, stockInfo }) => {
                       }
                     />
                     <Tooltip content={<LineTooltip />} />
-                    <Line
-                      type="monotone"
-                      dataKey="close"
-                      stroke="#667eea"
-                      strokeWidth={2}
-                      dot={(props) => {
-                        const { cx, cy, payload } = props;
-                        if (!payload) return null;
-                        if (payload.is_highest) {
-                          return <circle cx={cx} cy={cy} r={5} fill="#e74c3c" stroke="white" strokeWidth={2} />;
-                        }
-                        if (payload.is_lowest) {
-                          return <circle cx={cx} cy={cy} r={5} fill="#3498db" stroke="white" strokeWidth={2} />;
-                        }
-                        return null;
-                      }}
-                      activeDot={{ r: 4 }}
-                    />
-
-                    {/* 기간 중 최고가/최저가 수평선 */}
+                    {/* 라인 차트: close 기준 최고/최저 */}
                     {(() => {
-                      const highestItem = chartData.find(d => d.is_highest);
-                      const lowestItem = chartData.find(d => d.is_lowest);
+                      let hIdx = 0, lIdx = 0;
+                      chartData.forEach((d, i) => {
+                        if (d.close > chartData[hIdx].close) hIdx = i;
+                        if (d.close < chartData[lIdx].close) lIdx = i;
+                      });
+                      const hVal = chartData[hIdx]?.close;
+                      const lVal = chartData[lIdx]?.close;
+                      const lineHighIdx = hIdx;
+                      const lineLowIdx = lIdx;
                       return (
                         <>
-                          {highestItem && typeof highestItem.high === 'number' && (
+                          {typeof hVal === 'number' && (
                             <ReferenceLine
-                              y={highestItem.high}
+                              y={hVal}
                               stroke="#e74c3c"
                               strokeDasharray="4 3"
                               strokeWidth={1}
                               label={{
                                 value: isKorean
-                                  ? `최고 ${Math.round(highestItem.high).toLocaleString()}`
-                                  : `High $${highestItem.high.toFixed(2)}`,
+                                  ? `최고 ${Math.round(hVal).toLocaleString()}`
+                                  : `High $${hVal.toFixed(2)}`,
                                 position: 'right',
                                 fontSize: 10,
                                 fill: '#e74c3c',
@@ -1425,16 +1413,16 @@ const StockChart = ({ symbol, stockInfo }) => {
                               }}
                             />
                           )}
-                          {lowestItem && typeof lowestItem.low === 'number' && (
+                          {typeof lVal === 'number' && (
                             <ReferenceLine
-                              y={lowestItem.low}
+                              y={lVal}
                               stroke="#3498db"
                               strokeDasharray="4 3"
                               strokeWidth={1}
                               label={{
                                 value: isKorean
-                                  ? `최저 ${Math.round(lowestItem.low).toLocaleString()}`
-                                  : `Low $${lowestItem.low.toFixed(2)}`,
+                                  ? `최저 ${Math.round(lVal).toLocaleString()}`
+                                  : `Low $${lVal.toFixed(2)}`,
                                 position: 'right',
                                 fontSize: 10,
                                 fill: '#3498db',
@@ -1442,6 +1430,23 @@ const StockChart = ({ symbol, stockInfo }) => {
                               }}
                             />
                           )}
+                          <Line
+                            type="monotone"
+                            dataKey="close"
+                            stroke="#667eea"
+                            strokeWidth={2}
+                            dot={(props) => {
+                              const { cx, cy, index } = props;
+                              if (index === lineHighIdx) {
+                                return <circle cx={cx} cy={cy} r={5} fill="#e74c3c" stroke="white" strokeWidth={2} />;
+                              }
+                              if (index === lineLowIdx) {
+                                return <circle cx={cx} cy={cy} r={5} fill="#3498db" stroke="white" strokeWidth={2} />;
+                              }
+                              return null;
+                            }}
+                            activeDot={{ r: 4 }}
+                          />
                         </>
                       );
                     })()}
