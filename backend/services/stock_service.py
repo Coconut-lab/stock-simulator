@@ -633,16 +633,25 @@ class StockService:
         else:
             return self.get_us_stock_info(symbol)
 
+    def _hk_yf_symbol(self, symbol):
+        """홍콩 주식 심볼을 yfinance 형식으로 변환 (0700 → 0700.HK)"""
+        if symbol.endswith('.HK'):
+            return symbol
+        if symbol.isdigit():
+            return f"{symbol}.HK"
+        return symbol
+
     def get_hk_stock_info(self, symbol, max_retries=3):
-        """홍콩 주식 정보 조회 (FinanceDataReader 사용)"""
+        """홍콩 주식 정보 조회 (yfinance 사용)"""
+        yf_symbol = self._hk_yf_symbol(symbol)
         for attempt in range(max_retries):
             try:
                 if attempt > 0:
                     time.sleep(random.uniform(2, 5) * (attempt + 1))
 
-                end_date = datetime.now()
-                start_date = end_date - timedelta(days=30)
-                df = fdr.DataReader(symbol, start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
+                import yfinance as yf
+                ticker = yf.Ticker(yf_symbol)
+                df = ticker.history(period='30d')
 
                 if df.empty:
                     continue
@@ -857,11 +866,12 @@ class StockService:
             
             end_date = datetime.now()
             
-            # 1일 차트인 경우 시간별 데이터 시도 (미국 주식만)
+            # 1일 차트인 경우 시간별 데이터 시도 (외국 주식)
             if period_days == 1 and not self.is_korean_stock(symbol):
                 try:
                     import yfinance as yf
-                    ticker = yf.Ticker(symbol)
+                    yf_sym = self._hk_yf_symbol(symbol) if self.is_hk_stock(symbol) else symbol
+                    ticker = yf.Ticker(yf_sym)
                     df = ticker.history(period='1d', interval='1h')
                     
                     if not df.empty:
@@ -887,11 +897,12 @@ class StockService:
             
             start_date = end_date - timedelta(days=period_days)
 
-            # 유럽 주식은 yfinance 사용 (FDR 미지원)
-            if self.is_eu_stock(symbol):
+            # 홍콩/유럽 주식은 yfinance 사용
+            if self.is_hk_stock(symbol) or self.is_eu_stock(symbol):
                 try:
                     import yfinance as yf
-                    ticker = yf.Ticker(symbol)
+                    yf_sym = self._hk_yf_symbol(symbol) if self.is_hk_stock(symbol) else symbol
+                    ticker = yf.Ticker(yf_sym)
                     period_map = {30: '1mo', 90: '3mo', 180: '6mo', 365: '1y', 730: '2y', 1095: '3y'}
                     yf_period = '1mo'
                     for days, p in sorted(period_map.items()):
@@ -902,7 +913,7 @@ class StockService:
                         yf_period = '3y'
                     df = ticker.history(period=yf_period)
                 except Exception as e:
-                    logging.warning(f"유럽 주식 이력 yfinance 조회 실패 {symbol}: {e}")
+                    logging.warning(f"yfinance 이력 조회 실패 {symbol}: {e}")
                     df = fdr.DataReader(symbol, start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
             else:
                 # FinanceDataReader로 이력 데이터 가져오기
@@ -959,15 +970,23 @@ class StockService:
             
             # 최고/최저 정보 추가
             if history_data:
-                # 최고가/최저가 상위 데이터에 추가
+                # 인덱스 기반으로 최고가/최저가 찾기 (부동소수점 비교 문제 방지)
+                highest_idx = 0
+                lowest_idx = 0
                 for i, data in enumerate(history_data):
-                    if data['high'] == max_price:
-                        data['is_highest'] = True
-                        data['highest_date'] = data['date']
-                    if data['low'] == min_price:
-                        data['is_lowest'] = True
-                        data['lowest_date'] = data['date']
-                
+                    if data['high'] > history_data[highest_idx]['high']:
+                        highest_idx = i
+                    if data['low'] < history_data[lowest_idx]['low']:
+                        lowest_idx = i
+
+                history_data[highest_idx]['is_highest'] = True
+                history_data[highest_idx]['highest_date'] = history_data[highest_idx]['date']
+                history_data[lowest_idx]['is_lowest'] = True
+                history_data[lowest_idx]['lowest_date'] = history_data[lowest_idx]['date']
+
+                max_price = history_data[highest_idx]['high']
+                min_price = history_data[lowest_idx]['low']
+
                 # 첫 번째 요소에 전체 최고/최저 정보 추가
                 history_data[0]['chart_info'] = {
                     'min_price': min_price,
