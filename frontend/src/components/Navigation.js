@@ -169,12 +169,27 @@ const Navigation = () => {
           >
             시장
           </NavLink>
-          <NavLink 
-            to="/transactions" 
+          <NavLink
+            to="/transactions"
             className={location.pathname === '/transactions' ? 'active' : ''}
           >
             거래내역
           </NavLink>
+          <NavLink
+            to="/predictions"
+            className={location.pathname.startsWith('/predictions') ? 'active' : ''}
+          >
+            예측마켓
+          </NavLink>
+          {user?.role === 'admin' && (
+            <NavLink
+              to="/admin/predictions"
+              className={location.pathname === '/admin/predictions' ? 'active' : ''}
+              style={{ color: location.pathname === '/admin/predictions' ? '#e74c3c' : '#e74c3c', fontWeight: 700 }}
+            >
+              관리자
+            </NavLink>
+          )}
         </NavLinks>
 
         <UserInfo>

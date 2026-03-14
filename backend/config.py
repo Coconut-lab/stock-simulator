@@ -73,6 +73,11 @@ class Config:
     # 주식 데이터 업데이트 간격 (초)
     STOCK_UPDATE_INTERVAL = 300  # 5분마다 업데이트 (rate limiting 방지)
 
+    # 예측 마켓 설정
+    PREDICTION_ODDS = 1.8
+    PREDICTION_MIN_BET = 1000
+    PREDICTION_MAX_BET = 500000
+
     # Flask 설정
     DEBUG = True
     TESTING = False

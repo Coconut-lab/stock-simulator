@@ -13,6 +13,7 @@ from services.stock_service import stock_service
 from routes.auth import auth_bp
 from routes.stocks import stocks_bp
 from routes.portfolio import portfolio_bp
+from routes.prediction import prediction_bp
 
 def create_app():
     """Flask 애플리케이션 팩토리"""
@@ -34,6 +35,7 @@ def create_app():
     app.register_blueprint(auth_bp)
     app.register_blueprint(stocks_bp)
     app.register_blueprint(portfolio_bp)
+    app.register_blueprint(prediction_bp)
     
     # 기본 라우트
     @app.route('/')

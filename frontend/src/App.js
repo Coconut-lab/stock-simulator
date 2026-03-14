@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './context/AuthContext';
 import Navigation from './components/Navigation';
 import PrivateRoute from './components/PrivateRoute';
+import AdminRoute from './components/AdminRoute';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -10,6 +11,10 @@ import Portfolio from './pages/Portfolio';
 import Transactions from './pages/Transactions';
 import Markets from './pages/Markets';
 import StockDetail from './pages/StockDetail';
+import Predictions from './pages/Predictions';
+import PredictionDetail from './pages/PredictionDetail';
+import MyBets from './pages/MyBets';
+import AdminPredictions from './pages/AdminPredictions';
 import './App.css';
 
 function App() {
@@ -56,15 +61,47 @@ function App() {
                 </PrivateRoute>
               } 
             />
-            <Route 
-              path="/stock/:symbol" 
+            <Route
+              path="/stock/:symbol"
               element={
                 <PrivateRoute>
                   <StockDetail />
                 </PrivateRoute>
-              } 
+              }
             />
-            
+            <Route
+              path="/predictions"
+              element={
+                <PrivateRoute>
+                  <Predictions />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/predictions/:id"
+              element={
+                <PrivateRoute>
+                  <PredictionDetail />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/my-bets"
+              element={
+                <PrivateRoute>
+                  <MyBets />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/predictions"
+              element={
+                <AdminRoute>
+                  <AdminPredictions />
+                </AdminRoute>
+              }
+            />
+
             {/* 기본 라우트 - 대시보드로 리다이렉트 */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             
