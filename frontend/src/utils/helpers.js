@@ -92,8 +92,8 @@ export const getMarketFromSymbol = (symbol) => {
   // 숫자 6자리는 한국 주식
   if (symbol.match(/^\d{6}$/)) return 'KRW';
   if (symbol.endsWith('.KS') || symbol.endsWith('.KQ')) return 'KRW';
-  // 홍콩 주식 (4자리 이하 숫자 또는 .HK)
-  if (symbol.match(/^\d{1,4}$/) || symbol.endsWith('.HK')) return 'HKD';
+  // 홍콩 주식 (5자리 이하 숫자 또는 .HK)
+  if (symbol.match(/^\d{1,5}$/) || symbol.endsWith('.HK')) return 'HKD';
   // 유럽 주식
   if (['.L','.DE','.PA','.AS','.MI','.MC','.SW','.ST','.CO','.BR','.LS','.OL','.HE','.VI'].some(s => symbol.endsWith(s))) return 'EUR';
   return 'USD';

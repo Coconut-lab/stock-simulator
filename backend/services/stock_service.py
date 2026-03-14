@@ -752,8 +752,13 @@ class StockService:
         """홍콩 주식인지 확인"""
         if symbol in self.hk_stocks:
             return True
+        if self.hk_listing and symbol in self.hk_listing:
+            return True
         # 4자리 이하 숫자이고 한국 주식이 아닌 경우
         if symbol.isdigit() and len(symbol) <= 4:
+            return True
+        # 5자리 숫자 (GEM 보드 등)
+        if symbol.isdigit() and len(symbol) == 5:
             return True
         if symbol.endswith('.HK'):
             return True
