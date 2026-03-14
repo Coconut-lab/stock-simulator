@@ -221,30 +221,23 @@ const StatItem = styled.div`
   }
 `;
 
-// 이동평균선 계산 함수 - 개선버전
+// 이동평균선 계산 함수 - 충분한 데이터가 있을 때만 계산
 const calculateMovingAverages = (data, periods = [5, 20, 60, 120]) => {
   if (!data || data.length === 0) return data;
-  
+
   return data.map((item, index) => {
     const newItem = { ...item };
-    
+
     periods.forEach(period => {
       if (index >= period - 1) {
-        // 충분한 데이터가 있을 때 정상 계산
+        // 충분한 데이터가 있을 때만 계산
         const slice = data.slice(index - period + 1, index + 1);
         const sum = slice.reduce((acc, curr) => acc + (curr.close || 0), 0);
         newItem[`ma${period}`] = sum / period;
-      } else if (index > 0) {
-        // 데이터가 부족할 때 사용 가능한 데이터만 사용
-        const availableSlice = data.slice(0, index + 1);
-        const sum = availableSlice.reduce((acc, curr) => acc + (curr.close || 0), 0);
-        newItem[`ma${period}`] = sum / availableSlice.length;
-      } else {
-        // 첫 번째 데이터에는 현재가를 사용
-        newItem[`ma${period}`] = item.close;
       }
+      // 데이터 부족 시 null (이동평균선을 표시하지 않음)
     });
-    
+
     return newItem;
   });
 };
@@ -1228,13 +1221,14 @@ const StockChart = ({ symbol, stockInfo }) => {
                         const wickWidth = 1.2;
                         const centerX = x + width / 2;
                         
-                        // 🔥 Y축 도메인을 사용한 정확한 좌표 계산
+                        // Recharts Bar props: y = close 가격의 픽셀 위치, height = close에서 baseline(도메인 최소)까지 거리
                         const yDomain = getYAxisDomain();
                         const minPrice = yDomain[0];
-                        const maxPrice = yDomain[1];
-                        const domainRange = maxPrice - minPrice;
-                        
-                        if (domainRange === 0) {
+
+                        // close에서 도메인 최소까지의 가격 차이
+                        const closeToDomainMin = close - minPrice;
+
+                        if (closeToDomainMin === 0 || height === 0) {
                           return (
                             <g>
                               <line
@@ -1248,12 +1242,15 @@ const StockChart = ({ symbol, stockInfo }) => {
                             </g>
                           );
                         }
-                        
-                        // 차트 영역 내에서 각 가격의 정확한 Y 좌표 계산
-                        const highY = y + ((maxPrice - high) / domainRange) * height;
-                        const lowY = y + ((maxPrice - low) / domainRange) * height;
-                        const openY = y + ((maxPrice - open) / domainRange) * height;
-                        const closeY = y + ((maxPrice - close) / domainRange) * height;
+
+                        // 가격 → 픽셀 변환: chartBottom(y+height)이 minPrice, y가 close
+                        const chartBottom = y + height;
+                        const pixelsPerPrice = height / closeToDomainMin;
+
+                        const highY = chartBottom - (high - minPrice) * pixelsPerPrice;
+                        const lowY = chartBottom - (low - minPrice) * pixelsPerPrice;
+                        const openY = chartBottom - (open - minPrice) * pixelsPerPrice;
+                        const closeY = y; // close는 이미 y 위치
                         
                         const bodyTop = Math.min(openY, closeY);
                         const bodyBottom = Math.max(openY, closeY);

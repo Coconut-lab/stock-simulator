@@ -502,12 +502,18 @@ class StockService:
                     if not df.empty:
                         history_data = []
                         for index, row in df.iterrows():
+                            o = safe_float(row['Open'])
+                            h = safe_float(row['High'])
+                            l = safe_float(row['Low'])
+                            c = safe_float(row['Close'])
+                            if o <= 0 or h <= 0 or l <= 0 or c <= 0:
+                                continue
                             history_data.append({
                                 'date': index.strftime('%Y-%m-%d %H:%M'),
-                                'open': float(row['Open']),
-                                'high': float(row['High']),
-                                'low': float(row['Low']),
-                                'close': float(row['Close']),
+                                'open': o,
+                                'high': h,
+                                'low': l,
+                                'close': c,
                                 'volume': int(row['Volume']) if 'Volume' in row else 0
                             })
                         return history_data
@@ -544,19 +550,24 @@ class StockService:
             history_data = []
             min_price = float('inf')
             max_price = float('-inf')
-            
+
             for index, row in df.iterrows():
-                close_price = float(row['Close'])
-                high_price = float(row['High'])
-                low_price = float(row['Low'])
-                
+                open_price = safe_float(row['Open'])
+                close_price = safe_float(row['Close'])
+                high_price = safe_float(row['High'])
+                low_price = safe_float(row['Low'])
+
+                # NaN이었던 값(0.0)은 스킵
+                if open_price <= 0 or close_price <= 0 or high_price <= 0 or low_price <= 0:
+                    continue
+
                 # 최고/최저가 업데이트
                 max_price = max(max_price, high_price)
                 min_price = min(min_price, low_price)
-                
+
                 history_data.append({
                     'date': index.strftime('%Y-%m-%d'),
-                    'open': float(row['Open']),
+                    'open': open_price,
                     'high': high_price,
                     'low': low_price,
                     'close': close_price,
