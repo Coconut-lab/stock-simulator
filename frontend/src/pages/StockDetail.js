@@ -376,10 +376,12 @@ const StockDetail = () => {
   const [maxBuyData, setMaxBuyData] = useState(null);
   const [loadingMaxBuy, setLoadingMaxBuy] = useState(false);
   const [marketStatus, setMarketStatus] = useState(null);
+  const [holdingQuantity, setHoldingQuantity] = useState(0);
 
   useEffect(() => {
     loadStockData();
     loadMarketStatus();
+    loadHolding();
   }, [symbol]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -387,6 +389,18 @@ const StockDetail = () => {
       loadMaxBuyData();
     }
   }, [stockData, tradeType]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loadHolding = async () => {
+    try {
+      const response = await portfolioService.getPortfolio();
+      const holdings = response.data?.holdings || [];
+      const holding = holdings.find(h => h.symbol === symbol);
+      setHoldingQuantity(holding ? holding.quantity : 0);
+    } catch (err) {
+      console.error('Holding data loading error:', err);
+      setHoldingQuantity(0);
+    }
+  };
 
   const loadMaxBuyData = async () => {
     try {
@@ -461,8 +475,8 @@ const StockDetail = () => {
         updateUser({ ...user, balance: response.data.remaining_balance });
       }
 
-      // 주식 데이터 새로고침
-      await loadStockData();
+      // 주식 데이터 및 보유 수량 새로고침
+      await Promise.all([loadStockData(), loadHolding()]);
       
     } catch (error) {
       setError(formatErrorMessage(error));
@@ -672,11 +686,23 @@ const StockDetail = () => {
                         onClick={handleMaxBuy}
                         disabled={loadingMaxBuy || maxBuyData.max_quantity === 0}
                       >
-                        {loadingMaxBuy 
-                          ? '계산중...' 
+                        {loadingMaxBuy
+                          ? '계산중...'
                           : maxBuyData.max_quantity === 0
                             ? '전량매수 불가 (잔액 부족)'
                             : `전량매수 (${maxBuyData.max_quantity}주 - ₩${formatNumber(Math.round(maxBuyData.total_cost))})`
+                        }
+                      </MaxBuyButton>
+                    )}
+                    {tradeType === 'sell' && (
+                      <MaxBuyButton
+                        type="button"
+                        onClick={() => holdingQuantity > 0 && setQuantity(holdingQuantity.toString())}
+                        disabled={holdingQuantity === 0}
+                      >
+                        {holdingQuantity === 0
+                          ? '보유 수량 없음'
+                          : `전량매도 (보유: ${formatNumber(holdingQuantity)}주)`
                         }
                       </MaxBuyButton>
                     )}
