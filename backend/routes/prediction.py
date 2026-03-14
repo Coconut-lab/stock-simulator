@@ -4,6 +4,7 @@ from services.auth_service import auth_service
 import logging
 
 prediction_bp = Blueprint('prediction', __name__, url_prefix='/api/predictions')
+prediction_bp.strict_slashes = False
 
 
 def verify_auth():
