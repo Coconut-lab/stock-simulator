@@ -712,18 +712,31 @@ const CandlestickShape = (props) => {
   );
 };
 
+// 시장별 통화 심볼 반환
+const getCurrSym = (market, symbol) => {
+  if (market === 'KRW') return '';
+  if (market === 'HKD') return 'HK$';
+  if (market === 'EUR') {
+    if (symbol && symbol.endsWith('.L')) return '£';
+    return '€';
+  }
+  return '$';
+};
+
+// 시장별 가격 포맷팅
+const formatMarketPrice = (price, market, symbol) => {
+  if (market === 'KRW') return `${Math.round(price).toLocaleString()}원`;
+  const sym = getCurrSym(market, symbol);
+  return `${sym}${price.toFixed(2)}`;
+};
+
 // 캔들차트용 커스텀 툴팁
 const CandlestickTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length && payload[0].payload) {
     const data = payload[0].payload;
     const market = getMarketFromSymbol(data.symbol || '');
-    const isKorean = market === 'KRW';
-    
-    const formatPrice = (price) => {
-      return isKorean 
-        ? `${Math.round(price).toLocaleString()}원` 
-        : `$${price.toFixed(2)}`;
-    };
+
+    const formatPrice = (price) => formatMarketPrice(price, market, data.symbol);
     
     const isRising = data.close >= data.open;
     
@@ -783,13 +796,8 @@ const LineTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     const market = getMarketFromSymbol(data.symbol || '');
-    const isKorean = market === 'KRW';
-    
-    const formatPrice = (price) => {
-      return isKorean 
-        ? `${Math.round(price).toLocaleString()}원` 
-        : `$${price.toFixed(2)}`;
-    };
+
+    const formatPrice = (price) => formatMarketPrice(price, market, data.symbol);
     
     return (
       <div style={{
@@ -807,12 +815,12 @@ const LineTooltip = ({ active, payload, label }) => {
         <p style={{ margin: '4px 0', color: '#666' }}>
           거래량: {data.volume?.toLocaleString()}
         </p>
-        {data.is_highest && (
+        {data._closeHighest && (
           <div style={{ color: '#e74c3c', fontSize: '11px', marginTop: '4px' }}>
             📈 기간 중 최고가
           </div>
         )}
-        {data.is_lowest && (
+        {data._closeLowest && (
           <div style={{ color: '#3498db', fontSize: '11px', marginTop: '4px' }}>
             📉 기간 중 최저가
           </div>
@@ -1040,22 +1048,22 @@ const StockChart = ({ symbol, stockInfo }) => {
 
   const stats = getChartStats();
 
-  // 라인 차트용: close 기준 최고/최저 인덱스 미리 계산
+  // 라인 차트용: close 기준 최고/최저 인덱스 미리 계산 + 데이터에 플래그 세팅
   let lineHighIdx = 0, lineLowIdx = 0;
   if (chartData.length > 0) {
     chartData.forEach((d, i) => {
+      d._closeHighest = false;
+      d._closeLowest = false;
       if (d.close > chartData[lineHighIdx].close) lineHighIdx = i;
       if (d.close < chartData[lineLowIdx].close) lineLowIdx = i;
     });
+    chartData[lineHighIdx]._closeHighest = true;
+    chartData[lineLowIdx]._closeLowest = true;
   }
   const lineHighClose = chartData[lineHighIdx]?.close;
   const lineLowClose = chartData[lineLowIdx]?.close;
 
-  const formatPrice = (price) => {
-    return isKorean 
-      ? `${Math.round(price).toLocaleString()}원` 
-      : `$${price.toFixed(2)}`;
-  };
+  const formatPrice = (price) => formatMarketPrice(price, market, symbol);
 
   return (
     <ChartContainer>
@@ -1420,9 +1428,7 @@ const StockChart = ({ symbol, stockInfo }) => {
                         strokeDasharray="4 3"
                         strokeWidth={1}
                         label={{
-                          value: isKorean
-                            ? `최고 ${Math.round(lineHighClose).toLocaleString()}`
-                            : `High $${lineHighClose.toFixed(2)}`,
+                          value: `최고 ${formatPrice(lineHighClose)}`,
                           position: 'right',
                           fontSize: 10,
                           fill: '#e74c3c',
@@ -1437,9 +1443,7 @@ const StockChart = ({ symbol, stockInfo }) => {
                         strokeDasharray="4 3"
                         strokeWidth={1}
                         label={{
-                          value: isKorean
-                            ? `최저 ${Math.round(lineLowClose).toLocaleString()}`
-                            : `Low $${lineLowClose.toFixed(2)}`,
+                          value: `최저 ${formatPrice(lineLowClose)}`,
                           position: 'right',
                           fontSize: 10,
                           fill: '#3498db',

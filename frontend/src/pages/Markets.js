@@ -499,7 +499,7 @@ const Markets = () => {
                   </span>
                 </div>
                 <div style={{ color: '#666' }}>
-                  {status.open_time}~{status.close_time} | 수수료 {status.current_commission_percent}
+                  {status.open_time_kst || status.open_time}~{status.close_time_kst || status.close_time} (KST) | 수수료 {status.current_commission_percent}
                   {!status.is_open && ` (x${status.after_hours_multiplier})`}
                 </div>
               </div>

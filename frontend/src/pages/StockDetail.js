@@ -563,7 +563,7 @@ const StockDetail = () => {
             </span>
           </div>
           <div style={{ fontSize: '13px', color: '#666' }}>
-            장시간: {currentMarketStatus.open_time} ~ {currentMarketStatus.close_time} (현지 {currentMarketStatus.local_time})
+            장시간: {currentMarketStatus.open_time_kst || currentMarketStatus.open_time} ~ {currentMarketStatus.close_time_kst || currentMarketStatus.close_time} (KST)
             {!currentMarketStatus.is_open && (
               <span style={{ color: '#e74c3c', marginLeft: '8px', fontWeight: 600 }}>
                 시간외 수수료 적용 (x{currentMarketStatus.after_hours_multiplier})

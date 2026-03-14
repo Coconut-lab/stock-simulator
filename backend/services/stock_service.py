@@ -354,6 +354,7 @@ class StockService:
     def get_all_market_status():
         """모든 시장의 현재 상태 반환"""
         utc_now = datetime.now(timezone.utc)
+        kst_offset = timedelta(hours=9)  # KST = UTC+9
         result = {}
         for market, info in Config.MARKET_INFO.items():
             offset = timedelta(hours=info['utc_offset'])
@@ -364,15 +365,27 @@ class StockService:
             close_time = local_now.replace(hour=info['close_hour'], minute=info['close_min'], second=0)
             is_open = (not is_weekend) and (open_time <= local_now <= close_time)
 
+            # 현지 개장/폐장 시간을 KST로 변환
+            hour_diff = 9 - info['utc_offset']  # KST와의 시차
+            open_hour_kst = info['open_hour'] + hour_diff
+            open_min_kst = info['open_min']
+            close_hour_kst = info['close_hour'] + hour_diff
+            close_min_kst = info['close_min']
+
             commission_rate = Config.COMMISSION_RATE.get(market, 0.001)
             multiplier = Config.AFTER_HOURS_COMMISSION_MULTIPLIER if not is_open else 1
+
+            kst_now = utc_now + kst_offset
 
             result[market] = {
                 'name': info['name'],
                 'is_open': is_open,
                 'local_time': local_now.strftime('%H:%M'),
+                'kst_time': kst_now.strftime('%H:%M'),
                 'open_time': f"{info['open_hour']:02d}:{info['open_min']:02d}",
                 'close_time': f"{info['close_hour']:02d}:{info['close_min']:02d}",
+                'open_time_kst': f"{open_hour_kst:02d}:{open_min_kst:02d}",
+                'close_time_kst': f"{close_hour_kst:02d}:{close_min_kst:02d}",
                 'currency_symbol': info['currency_symbol'],
                 'commission_rate': commission_rate,
                 'commission_percent': f"{commission_rate * 100:.3f}%",
