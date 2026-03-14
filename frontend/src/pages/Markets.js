@@ -443,7 +443,7 @@ const Markets = () => {
         )}
       </SearchSection>
 
-      {!searchQuery && (
+      {!searchQuery && (<>
         <MarketTabs>
           <TabButton
             $active={activeTab === 'all'}
@@ -506,7 +506,7 @@ const Markets = () => {
             ))}
           </div>
         )}
-      )}
+      </>)}
 
       {displayStocks.length > 0 ? (
         <StockGrid>
