@@ -10,14 +10,14 @@ class Prediction:
 
     # ── 예측 CRUD ──
 
-    def create_prediction(self, title, description, deadline, created_by):
+    def create_prediction(self, title, description, deadline, created_by, odds=1.8):
         doc = {
             'title': title,
             'description': description,
             'deadline': deadline,
             'status': 'open',
             'result': None,
-            'odds': 1.8,
+            'odds': odds,
             'total_yes_amount': 0,
             'total_no_amount': 0,
             'total_yes_bettors': 0,

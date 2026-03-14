@@ -12,7 +12,7 @@ class PredictionService:
 
     # ── 예측 관리 (관리자) ──
 
-    def create_prediction(self, title, description, deadline_str, admin_user_id):
+    def create_prediction(self, title, description, deadline_str, admin_user_id, odds=None):
         if not title or not title.strip():
             return None, '제목을 입력해주세요.'
 
@@ -21,14 +21,13 @@ class PredictionService:
         except (ValueError, TypeError):
             return None, '마감 시간 형식이 올바르지 않습니다.'
 
-        if deadline <= datetime.utcnow():
-            return None, '마감 시간은 현재보다 미래여야 합니다.'
-
+        final_odds = float(odds) if odds else Config.PREDICTION_ODDS
         pred_id = self.prediction_model.create_prediction(
             title=title.strip(),
             description=(description or '').strip(),
             deadline=deadline,
-            created_by=admin_user_id
+            created_by=admin_user_id,
+            odds=final_odds
         )
         return pred_id, None
 

@@ -26,6 +26,34 @@ def verify_admin():
     return user_data, None
 
 
+# ── 고정 경로 (동적 경로보다 먼저 등록) ──
+
+@prediction_bp.route('/my-bets', methods=['GET'])
+def get_my_bets():
+    user_data, error = verify_auth()
+    if error:
+        return jsonify({'error': error}), 401
+    try:
+        bets = prediction_service.get_user_bets(user_data['user_id'])
+        return jsonify({'data': bets}), 200
+    except Exception as e:
+        logging.error(f"내 베팅 조회 에러: {e}")
+        return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
+
+
+@prediction_bp.route('/admin/all', methods=['GET'])
+def admin_get_all():
+    user_data, error = verify_admin()
+    if error:
+        return jsonify({'error': error}), 403
+    try:
+        predictions = prediction_service.get_predictions()
+        return jsonify({'data': predictions}), 200
+    except Exception as e:
+        logging.error(f"관리자 예측 조회 에러: {e}")
+        return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
+
+
 # ── 유저 엔드포인트 ──
 
 @prediction_bp.route('/', methods=['GET'])
@@ -41,6 +69,34 @@ def get_predictions():
         logging.error(f"예측 목록 조회 에러: {e}")
         return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
 
+
+@prediction_bp.route('/', methods=['POST'])
+def create_prediction():
+    user_data, error = verify_admin()
+    if error:
+        return jsonify({'error': error}), 403
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': '요청 데이터가 필요합니다.'}), 400
+
+        pred_id, err = prediction_service.create_prediction(
+            title=data.get('title'),
+            description=data.get('description', ''),
+            deadline_str=data.get('deadline'),
+            admin_user_id=user_data['user_id'],
+            odds=data.get('odds')
+        )
+        if err:
+            return jsonify({'error': err}), 400
+
+        return jsonify({'message': '예측이 생성되었습니다.', 'data': {'id': pred_id}}), 201
+    except Exception as e:
+        logging.error(f"예측 생성 에러: {e}")
+        return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
+
+
+# ── 동적 경로 ──
 
 @prediction_bp.route('/<prediction_id>', methods=['GET'])
 def get_prediction_detail(prediction_id):
@@ -81,46 +137,6 @@ def place_bet(prediction_id):
         return jsonify({'message': '베팅이 완료되었습니다.', 'data': bet_data}), 200
     except Exception as e:
         logging.error(f"베팅 에러: {e}")
-        return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
-
-
-@prediction_bp.route('/my-bets', methods=['GET'])
-def get_my_bets():
-    user_data, error = verify_auth()
-    if error:
-        return jsonify({'error': error}), 401
-    try:
-        bets = prediction_service.get_user_bets(user_data['user_id'])
-        return jsonify({'data': bets}), 200
-    except Exception as e:
-        logging.error(f"내 베팅 조회 에러: {e}")
-        return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
-
-
-# ── 관리자 엔드포인트 ──
-
-@prediction_bp.route('/', methods=['POST'])
-def create_prediction():
-    user_data, error = verify_admin()
-    if error:
-        return jsonify({'error': error}), 403
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'error': '요청 데이터가 필요합니다.'}), 400
-
-        pred_id, err = prediction_service.create_prediction(
-            title=data.get('title'),
-            description=data.get('description', ''),
-            deadline_str=data.get('deadline'),
-            admin_user_id=user_data['user_id']
-        )
-        if err:
-            return jsonify({'error': err}), 400
-
-        return jsonify({'message': '예측이 생성되었습니다.', 'data': {'id': pred_id}}), 201
-    except Exception as e:
-        logging.error(f"예측 생성 에러: {e}")
         return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
 
 
@@ -173,17 +189,4 @@ def delete_prediction(prediction_id):
         return jsonify({'message': '예측이 삭제되었습니다.'}), 200
     except Exception as e:
         logging.error(f"예측 삭제 에러: {e}")
-        return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
-
-
-@prediction_bp.route('/admin/all', methods=['GET'])
-def admin_get_all():
-    user_data, error = verify_admin()
-    if error:
-        return jsonify({'error': error}), 403
-    try:
-        predictions = prediction_service.get_predictions()
-        return jsonify({'data': predictions}), 200
-    except Exception as e:
-        logging.error(f"관리자 예측 조회 에러: {e}")
         return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
