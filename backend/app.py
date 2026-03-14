@@ -107,7 +107,13 @@ if __name__ == '__main__':
         app.run(
             host='0.0.0.0',
             port=5000,
-            debug=Config.DEBUG
+            debug=Config.DEBUG,
+            use_reloader=True,
+            extra_files=[
+                '/app/routes/prediction.py',
+                '/app/services/prediction_service.py',
+                '/app/models/prediction.py',
+            ]
         )
     except KeyboardInterrupt:
         # Ctrl+C로 종료 시 정리 작업

@@ -30,9 +30,9 @@ services:
       - FLASK_ENV=development
       - DB_URL=mongodb://admin:admin123@mongodb:27017/stock_simulator?authSource=admin
       - JWT_SECRET_KEY=stock-simulator-secret-key-2024
+      - PYTHONDONTWRITEBYTECODE=1
     volumes:
       - ./backend:/app
-      - /app/__pycache__
     depends_on:
       - mongodb
     networks:
