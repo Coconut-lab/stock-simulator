@@ -610,7 +610,6 @@ const PredictionDetail = () => {
                   onChange={e => setAmount(e.target.value)}
                   placeholder="베팅 금액 (최소 1,000원)"
                   min="1000"
-                  max="500000"
                   step="1000"
                 />
 

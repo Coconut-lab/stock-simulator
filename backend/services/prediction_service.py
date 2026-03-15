@@ -133,8 +133,6 @@ class PredictionService:
         amount = int(amount)
         if amount < Config.PREDICTION_MIN_BET:
             return None, f'최소 베팅 금액은 {Config.PREDICTION_MIN_BET:,}원입니다.'
-        if amount > Config.PREDICTION_MAX_BET:
-            return None, f'최대 베팅 금액은 {Config.PREDICTION_MAX_BET:,}원입니다.'
 
         pred = self.prediction_model.get_prediction(prediction_id)
         if not pred:
