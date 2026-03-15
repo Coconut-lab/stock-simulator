@@ -334,14 +334,35 @@ const Empty = styled.div`
 
 /* ── Ticker Component ── */
 
-const PredictionTicker = ({ predictions, myBetsMap, onClickPrediction }) => {
-  // 진행중인 것만
-  const openPreds = predictions.filter(p => p.status === 'open');
-  if (openPreds.length === 0) return null;
+const AD_MESSAGES = [
+  '예측 마켓에서 당신의 판단력을 시험해보세요!',
+  '베팅은 최소 1,000원부터! 지금 바로 참여하세요',
+  '참여자가 많을수록 배당금이 커집니다',
+  '새로운 예측이 곧 등록됩니다.',
+  'YES or NO? 당신의 선택이 수익이 됩니다',
+];
 
-  // 인기도 = 총 베팅금
-  const HOT_POOL = 1500000; // 150만원 이상이면 HOT
-  const HOT_BETTORS = 7;   // 7명 이상이면 HOT
+const PredictionTicker = ({ predictions, myBetsMap, onClickPrediction }) => {
+  const openPreds = predictions.filter(p => p.status === 'open');
+
+  // 진행중인 예측이 없으면 광고 메시지
+  if (openPreds.length === 0) {
+    const adItems = [...AD_MESSAGES, ...AD_MESSAGES];
+    return (
+      <TickerWrap>
+        <TickerTrack $duration="35s">
+          {adItems.map((msg, i) => (
+            <TickerItem key={i} style={{ cursor: 'default' }}>
+              <TickerTitle style={{ color: '#a5b4fc', maxWidth: 'none' }}>{msg}</TickerTitle>
+            </TickerItem>
+          ))}
+        </TickerTrack>
+      </TickerWrap>
+    );
+  }
+
+  const HOT_POOL = 1500000;
+  const HOT_BETTORS = 7;
   const sorted = [...openPreds].sort((a, b) =>
     (b.total_yes_amount + b.total_no_amount) - (a.total_yes_amount + a.total_no_amount)
   );
