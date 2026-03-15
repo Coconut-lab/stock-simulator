@@ -34,7 +34,9 @@ class User:
     
     def verify_password(self, password, hashed_password):
         """비밀번호 검증"""
-        return bcrypt.checkpw(password, hashed_password)
+        pw = password.encode('utf-8') if isinstance(password, str) else password
+        hp = hashed_password.encode('utf-8') if isinstance(hashed_password, str) else hashed_password
+        return bcrypt.checkpw(pw, hp)
     
     def update_balance(self, user_id, new_balance):
         """사용자 잔액 업데이트"""
