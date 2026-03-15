@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import Navigation from './components/Navigation';
+import AnnouncementTicker from './components/AnnouncementTicker';
 import PrivateRoute from './components/PrivateRoute';
 import AdminRoute from './components/AdminRoute';
 import Login from './pages/Login';
@@ -15,6 +16,8 @@ import Predictions from './pages/Predictions';
 import PredictionDetail from './pages/PredictionDetail';
 import MyBets from './pages/MyBets';
 import AdminPredictions from './pages/AdminPredictions';
+import AdminUsers from './pages/AdminUsers';
+import AdminAnnouncements from './pages/AdminAnnouncements';
 import './App.css';
 
 function App() {
@@ -22,6 +25,7 @@ function App() {
     <AuthProvider>
       <Router>
         <div className="App">
+          <AnnouncementTicker />
           <Navigation />
           <Routes>
             {/* 공개 라우트 */}
@@ -98,6 +102,22 @@ function App() {
               element={
                 <AdminRoute>
                   <AdminPredictions />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/users"
+              element={
+                <AdminRoute>
+                  <AdminUsers />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/announcements"
+              element={
+                <AdminRoute>
+                  <AdminAnnouncements />
                 </AdminRoute>
               }
             />

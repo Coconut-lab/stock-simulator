@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import styled from 'styled-components';
 
-const DARK_PATHS = ['/predictions', '/my-bets', '/admin/predictions'];
+const DARK_PATHS = ['/predictions', '/my-bets', '/admin/predictions', '/admin/users', '/admin/announcements'];
 
 const NavContainer = styled.nav`
   background: ${p => p.$dark ? '#12101f' : 'white'};
@@ -167,14 +167,32 @@ const Navigation = () => {
             예측마켓
           </NavLink>
           {user?.role === 'admin' && (
-            <NavLink to="/admin/predictions" $dark={isDark}
-              className={location.pathname === '/admin/predictions' ? 'active' : ''}
-              style={{
-                color: isDark ? '#ff6b6b' : '#e74c3c',
-                fontWeight: 700
-              }}>
-              관리자
-            </NavLink>
+            <>
+              <NavLink to="/admin/predictions" $dark={isDark}
+                className={location.pathname === '/admin/predictions' ? 'active' : ''}
+                style={{
+                  color: isDark ? '#ff6b6b' : '#e74c3c',
+                  fontWeight: 700
+                }}>
+                예측관리
+              </NavLink>
+              <NavLink to="/admin/users" $dark={isDark}
+                className={location.pathname === '/admin/users' ? 'active' : ''}
+                style={{
+                  color: isDark ? '#ff6b6b' : '#e74c3c',
+                  fontWeight: 700
+                }}>
+                유저관리
+              </NavLink>
+              <NavLink to="/admin/announcements" $dark={isDark}
+                className={location.pathname === '/admin/announcements' ? 'active' : ''}
+                style={{
+                  color: isDark ? '#ffc107' : '#f39c12',
+                  fontWeight: 700
+                }}>
+                공지관리
+              </NavLink>
+            </>
           )}
         </NavLinks>
 

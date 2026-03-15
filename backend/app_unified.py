@@ -15,6 +15,8 @@ from routes.auth import auth_bp
 from routes.stocks import stocks_bp
 from routes.portfolio import portfolio_bp
 from routes.prediction import prediction_bp
+from routes.admin import admin_bp
+from routes.announcement import announcement_bp
 
 def create_app():
     """Flask 애플리케이션 팩토리 (프론트엔드 통합 버전)"""
@@ -43,6 +45,8 @@ def create_app():
     app.register_blueprint(stocks_bp)
     app.register_blueprint(portfolio_bp)
     app.register_blueprint(prediction_bp)
+    app.register_blueprint(admin_bp)
+    app.register_blueprint(announcement_bp)
     
     # API 헬스체크
     @app.route('/api/health')
