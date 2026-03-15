@@ -50,7 +50,7 @@ const TickerTrack = styled.div`
   height: 100%;
   width: max-content;
   animation: ${tickerScroll} ${p => p.$duration || '30s'} linear infinite;
-  &:hover { animation-play-state: paused; }
+  will-change: transform;
 `;
 
 const TickerItem = styled.div`

@@ -5,6 +5,99 @@ import { formatNumber } from '../utils/helpers';
 import styled, { keyframes } from 'styled-components';
 
 const fadeIn = keyframes`from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); }`;
+const tickerScroll = keyframes`
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+`;
+const hotPulse = keyframes`
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+`;
+
+/* ── Ticker ── */
+
+const TickerWrap = styled.div`
+  background: #12101f;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  overflow: hidden;
+  position: relative;
+  height: 42px;
+  margin-bottom: 24px;
+  border-radius: 10px;
+  &::before, &::after {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 50px;
+    z-index: 2;
+    pointer-events: none;
+  }
+  &::before { left: 0; background: linear-gradient(90deg, #12101f, transparent); }
+  &::after { right: 0; background: linear-gradient(90deg, transparent, #12101f); }
+`;
+
+const TickerTrack = styled.div`
+  display: flex;
+  align-items: center;
+  height: 100%;
+  width: max-content;
+  animation: ${tickerScroll} ${p => p.$duration || '40s'} linear infinite;
+  will-change: transform;
+`;
+
+const TickerItem = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 24px;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  border-right: 1px solid rgba(255,255,255,0.06);
+  height: 100%;
+  cursor: pointer;
+  transition: background 0.2s;
+  &:hover { background: rgba(255,255,255,0.04); }
+`;
+
+const TickerTitle = styled.span`
+  color: #ccc;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const TickerPool = styled.span`
+  color: #a5b4fc;
+  font-size: 12px;
+`;
+
+const TickerOdds = styled.span`
+  font-size: 11px;
+  color: #888;
+`;
+
+const HotBadge = styled.span`
+  background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+  color: white;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  animation: ${hotPulse} 1.5s ease infinite;
+`;
+
+const MyBetDot = styled.span`
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: ${p => p.$won ? '#2ecc71' : p.$lost ? '#e74c3c' : '#f39c12'};
+  flex-shrink: 0;
+  box-shadow: 0 0 6px ${p => p.$won ? '#2ecc71' : p.$lost ? '#e74c3c' : '#f39c12'};
+`;
+
+/* ── Main Layout ── */
 
 const Container = styled.div`
   min-height: 100vh;
@@ -203,8 +296,6 @@ const DeadlineTag = styled.span`
   font-size: 11px;
 `;
 
-/* ── 내 베팅 결과 뱃지 ── */
-
 const MyResultBadge = styled.div`
   display: flex;
   align-items: center;
@@ -241,8 +332,67 @@ const Empty = styled.div`
   h3 { color: #bbb; margin-bottom: 8px; font-size: 18px; }
 `;
 
+/* ── Ticker Component ── */
+
+const PredictionTicker = ({ predictions, myBetsMap, onClickPrediction }) => {
+  // 진행중인 것만
+  const openPreds = predictions.filter(p => p.status === 'open');
+  if (openPreds.length === 0) return null;
+
+  // 인기도 = 총 베팅금
+  const HOT_POOL = 1500000; // 150만원 이상이면 HOT
+  const HOT_BETTORS = 7;   // 7명 이상이면 HOT
+  const sorted = [...openPreds].sort((a, b) =>
+    (b.total_yes_amount + b.total_no_amount) - (a.total_yes_amount + a.total_no_amount)
+  );
+
+  const items = sorted.map(p => {
+    const pool = p.total_yes_amount + p.total_no_amount;
+    const bettors = p.total_yes_bettors + p.total_no_bettors;
+    const isHot = pool >= HOT_POOL || bettors >= HOT_BETTORS;
+    const myBets = myBetsMap[p.id];
+    const myStatus = myBets
+      ? (myBets.some(b => b.status === 'won') ? 'won'
+        : myBets.some(b => b.status === 'lost') ? 'lost' : 'pending')
+      : null;
+    return { ...p, pool, bettors, isHot, myStatus };
+  });
+
+  const doubled = [...items, ...items];
+  const duration = `${Math.max(items.length * 6, 20)}s`;
+
+  return (
+    <TickerWrap>
+      <TickerTrack $duration={duration}>
+        {doubled.map((item, i) => (
+          <TickerItem key={i} onClick={() => onClickPrediction(item.id)}>
+            {item.isHot && <HotBadge>HOT</HotBadge>}
+            {item.myStatus && (
+              <MyBetDot
+                $won={item.myStatus === 'won'}
+                $lost={item.myStatus === 'lost'}
+              />
+            )}
+            <TickerTitle>{item.title}</TickerTitle>
+            <TickerPool>{formatNumber(item.pool)}원</TickerPool>
+            <TickerOdds>
+              Y x{item.yes_odds} / N x{item.no_odds}
+            </TickerOdds>
+            {item.bettors > 0 && (
+              <TickerOdds>{item.bettors}명 참여</TickerOdds>
+            )}
+          </TickerItem>
+        ))}
+      </TickerTrack>
+    </TickerWrap>
+  );
+};
+
+/* ── Main ── */
+
 const Predictions = () => {
   const navigate = useNavigate();
+  const [allPredictions, setAllPredictions] = useState([]);
   const [predictions, setPredictions] = useState([]);
   const [myBetsMap, setMyBetsMap] = useState({});
   const [loading, setLoading] = useState(true);
@@ -256,18 +406,21 @@ const Predictions = () => {
     try {
       setLoading(true);
       const status = tab === 'all' ? null : tab;
-      const [predRes, betsRes] = await Promise.all([
+      const [predRes, allRes, betsRes] = await Promise.all([
         predictionService.getPredictions(status),
+        // 티커용: 항상 전체 가져옴 (open만 필요하지만 전체에서 필터)
+        tab !== 'all'
+          ? predictionService.getPredictions(null)
+          : Promise.resolve(null),
         predictionService.getMyBets().catch(() => ({ data: [] })),
       ]);
-      setPredictions(predRes.data || []);
+      const predData = predRes.data || [];
+      setPredictions(predData);
+      setAllPredictions(allRes ? (allRes.data || []) : predData);
 
-      // prediction_id별로 내 베팅 그룹핑
       const map = {};
       for (const bet of (betsRes.data || [])) {
-        if (!map[bet.prediction_id]) {
-          map[bet.prediction_id] = [];
-        }
+        if (!map[bet.prediction_id]) map[bet.prediction_id] = [];
         map[bet.prediction_id].push(bet);
       }
       setMyBetsMap(map);
@@ -279,18 +432,14 @@ const Predictions = () => {
   };
 
   const getDeadlineText = (p) => {
-    // 정산완료된 건 카운트다운 안 보여줌
     if (p.status === 'settled') {
       if (p.settled_at && p.deadline) {
         const settled = new Date(p.settled_at);
         const deadline = new Date(p.deadline);
-        if (settled < deadline) {
-          return { text: '조기 마감', early: true };
-        }
+        if (settled < deadline) return { text: '조기 마감', early: true };
       }
       return { text: '', early: false };
     }
-
     if (!p.deadline) return { text: '', early: false };
     const d = new Date(p.deadline);
     const now = new Date();
@@ -335,6 +484,15 @@ const Predictions = () => {
   return (
     <Container>
       <Inner>
+        {/* 예측 티커 전광판 */}
+        {!loading && (
+          <PredictionTicker
+            predictions={allPredictions}
+            myBetsMap={myBetsMap}
+            onClickPrediction={(id) => navigate(`/predictions/${id}`)}
+          />
+        )}
+
         <Header>
           <h1>예측 마켓</h1>
           <p>다양한 주제에 베팅하고 예측 수익을 얻으세요. 참여자 비율에 따라 배당률이 변동됩니다.</p>
@@ -393,7 +551,6 @@ const Predictions = () => {
                     <span className="no">NO {100 - yp}% ({formatNumber(p.total_no_amount)}원)</span>
                   </BetStats>
 
-                  {/* 내 베팅 결과 */}
                   {myBet && (
                     <MyResultBadge $result={myBet.result}>
                       <span>
