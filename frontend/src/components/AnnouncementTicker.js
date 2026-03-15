@@ -132,7 +132,7 @@ const AnnouncementTicker = () => {
     };
   }, [fetchAnnouncements]);
 
-  // 1세트 너비 측정
+  // 1세트 너비 측정 (화면 너비의 2배 이상 확보)
   useEffect(() => {
     if (announcements.length === 0) return;
     requestAnimationFrame(() => {
@@ -140,7 +140,8 @@ const AnnouncementTicker = () => {
         if (!measureRef.current) return;
         const oneSetWidth = measureRef.current.scrollWidth;
         if (oneSetWidth === 0) return;
-        const reps = Math.max(1, Math.ceil(1600 / oneSetWidth));
+        const minWidth = Math.max(window.innerWidth * 2, 2400);
+        const reps = Math.max(1, Math.ceil(minWidth / oneSetWidth));
         setRepeatsPerSet(reps);
         setWidthRef.current = oneSetWidth * reps;
         offsetRef.current = 0;
