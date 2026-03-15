@@ -17,14 +17,28 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    // 로컬 스토리지에서 토큰과 유저 정보만 확인 (서버 호출 안함)
     if (authService.isAuthenticated()) {
       const storedUser = authService.getStoredUser();
       if (storedUser) {
+        // 캐시된 정보로 즉시 표시
         setUser(storedUser);
         setIsAuthenticated(true);
+        // 서버에서 최신 유저 정보 갱신 (잔액 등)
+        authService.getCurrentUser()
+          .then(res => {
+            if (res.data) {
+              setUser(res.data);
+              localStorage.setItem('user', JSON.stringify(res.data));
+            }
+          })
+          .catch(() => {
+            // 토큰 만료 등 실패 시 로그아웃 처리
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            setUser(null);
+            setIsAuthenticated(false);
+          });
       } else {
-        // 토큰은 있는데 유저 정보가 없으면 정리
         localStorage.removeItem('token');
         localStorage.removeItem('user');
       }
