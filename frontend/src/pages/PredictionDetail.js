@@ -424,6 +424,12 @@ const PredictionDetail = () => {
       setChoice('');
       if (res.data.remaining_balance !== undefined && user) {
         updateUser({ ...user, balance: res.data.remaining_balance });
+      } else {
+        try {
+          const { authService } = await import('../services/authService');
+          const me = await authService.getCurrentUser();
+          if (me.data) updateUser({ ...user, ...me.data });
+        } catch {}
       }
       await loadData();
     } catch (err) {

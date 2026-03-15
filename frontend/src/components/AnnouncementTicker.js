@@ -1,15 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import styled, { keyframes } from 'styled-components';
+import styled from 'styled-components';
 import { adminService } from '../services/adminService';
 
 const POLL_INTERVAL = 60000;
-const SCROLL_SPEED = 60; // px/sec 일정 속도
-
-const scroll = keyframes`
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
-`;
+const SCROLL_SPEED = 60;
 
 const TickerWrapper = styled.div`
   width: 100%;
@@ -22,8 +17,7 @@ const TickerWrapper = styled.div`
   &::before, &::after {
     content: '';
     position: absolute;
-    top: 0;
-    bottom: 0;
+    top: 0; bottom: 0;
     width: 60px;
     z-index: 2;
     pointer-events: none;
@@ -53,15 +47,13 @@ const TickerTrack = styled.div`
   align-items: center;
   white-space: nowrap;
   padding: 10px 0;
-  padding-left: 80px;
-  animation: ${scroll} ${p => p.$duration}s linear infinite;
+  will-change: transform;
 `;
 
 const TickerItem = styled.span`
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-right: 60px;
   font-size: 13px;
   color: ${p => p.$urgent ? '#ffcc00' : '#e0e0e0'};
   font-weight: ${p => p.$urgent ? '700' : '500'};
@@ -79,59 +71,76 @@ const TickerItem = styled.span`
   }
 `;
 
-/* 측정 전용 (화면에 안 보임) */
+const Spacer = styled.span`
+  display: inline-block;
+  width: ${p => p.$w}px;
+  flex-shrink: 0;
+`;
+
+const ItemGap = styled.span`
+  display: inline-block;
+  width: 60px;
+  flex-shrink: 0;
+`;
+
 const MeasureBox = styled.div`
   position: absolute;
   visibility: hidden;
   white-space: nowrap;
   display: flex;
   align-items: center;
-  padding-left: 80px;
 `;
 
 const HIDDEN_PATHS = ['/login', '/register'];
 
 const AnnouncementTicker = () => {
   const [announcements, setAnnouncements] = useState([]);
-  const [duration, setDuration] = useState(40);
+  const [setWidthPx, setSetWidthPx] = useState(0);
   const [repeatsPerSet, setRepeatsPerSet] = useState(4);
+  const [animKey, setAnimKey] = useState(0);
   const measureRef = useRef(null);
+  const prevDataRef = useRef('');
   const location = useLocation();
 
-  const fetchAnnouncements = async () => {
+  const fetchAnnouncements = useCallback(async () => {
     try {
       const res = await adminService.getActiveAnnouncements();
-      setAnnouncements(res.data || []);
+      const newData = res.data || [];
+      // 데이터가 실제로 바뀐 경우에만 state 업데이트 (애니메이션 리셋 방지)
+      const newKey = JSON.stringify(newData.map(a => a.id + a.message));
+      if (newKey !== prevDataRef.current) {
+        prevDataRef.current = newKey;
+        setAnnouncements(newData);
+        setAnimKey(k => k + 1);
+      }
     } catch {
-      setAnnouncements([]);
+      if (prevDataRef.current !== '[]') {
+        prevDataRef.current = '[]';
+        setAnnouncements([]);
+      }
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchAnnouncements();
     const timer = setInterval(fetchAnnouncements, POLL_INTERVAL);
-    // 공지 변경 이벤트 감지 → 즉시 갱신
     const onUpdate = () => fetchAnnouncements();
     window.addEventListener('announcement-updated', onUpdate);
     return () => {
       clearInterval(timer);
       window.removeEventListener('announcement-updated', onUpdate);
     };
-  }, []);
+  }, [fetchAnnouncements]);
 
-  // 1세트 너비 측정 → 반복 횟수 & 애니메이션 시간 계산
+  // 1세트 너비 측정
   const measure = useCallback(() => {
     if (!measureRef.current) return;
     const oneSetWidth = measureRef.current.scrollWidth;
     if (oneSetWidth === 0) return;
 
-    // 한 세트가 최소 1600px 이상이 되도록 반복
     const reps = Math.max(1, Math.ceil(1600 / oneSetWidth));
     setRepeatsPerSet(reps);
-
-    // 한 세트 전체 너비 (= 반복 * 측정값), 이 길이가 -50% 이동 거리
-    const totalHalfWidth = oneSetWidth * reps;
-    setDuration(totalHalfWidth / SCROLL_SPEED);
+    setSetWidthPx(oneSetWidth * reps);
   }, []);
 
   useEffect(() => {
@@ -143,15 +152,19 @@ const AnnouncementTicker = () => {
   if (!announcements.length) return null;
   if (HIDDEN_PATHS.includes(location.pathname)) return null;
 
+  const duration = setWidthPx > 0 ? setWidthPx / SCROLL_SPEED : 30;
+
   const renderItem = (a, key) => (
-    <TickerItem key={key} $urgent={a.priority === 'urgent'}>
-      <span className="dot" />
-      {a.priority === 'urgent' && <span className="urgent-tag">긴급</span>}
-      {a.message}
-    </TickerItem>
+    <React.Fragment key={key}>
+      <TickerItem $urgent={a.priority === 'urgent'}>
+        <span className="dot" />
+        {a.priority === 'urgent' && <span className="urgent-tag">긴급</span>}
+        {a.message}
+      </TickerItem>
+      <ItemGap />
+    </React.Fragment>
   );
 
-  // 한 세트 = announcements × repeatsPerSet
   const buildSet = (prefix) => {
     const items = [];
     for (let r = 0; r < repeatsPerSet; r++) {
@@ -162,20 +175,39 @@ const AnnouncementTicker = () => {
     return items;
   };
 
+  // 측정용: gap 포함한 1세트
+  const measureItems = [];
+  announcements.forEach((a, i) => {
+    measureItems.push(renderItem(a, `m-${i}`));
+  });
+
   return (
     <TickerWrapper>
       <LabelTag>NOTICE</LabelTag>
 
-      {/* 1세트 너비 측정용 (announcements 1번만) */}
       <MeasureBox ref={measureRef}>
-        {announcements.map((a, i) => renderItem(a, `m-${i}`))}
+        {measureItems}
       </MeasureBox>
 
-      {/* 실제 트랙: 동일한 세트 2개 → translateX(-50%)로 무한루프 */}
-      <TickerTrack $duration={duration}>
+      <TickerTrack
+        key={animKey}
+        style={{
+          animation: setWidthPx > 0
+            ? `announceTicker ${duration}s linear infinite`
+            : 'none',
+        }}
+      >
+        <Spacer $w={80} />
         {buildSet('a')}
         {buildSet('b')}
       </TickerTrack>
+
+      <style>{`
+        @keyframes announceTicker {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-${setWidthPx}px); }
+        }
+      `}</style>
     </TickerWrapper>
   );
 };

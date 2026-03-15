@@ -473,6 +473,13 @@ const StockDetail = () => {
       // 상단 잔고 업데이트
       if (response.data?.remaining_balance !== undefined && user) {
         updateUser({ ...user, balance: response.data.remaining_balance });
+      } else {
+        // fallback: 서버에서 최신 유저 정보 가져오기
+        try {
+          const { authService } = await import('../services/authService');
+          const me = await authService.getCurrentUser();
+          if (me.data) updateUser({ ...user, ...me.data });
+        } catch {}
       }
 
       // 주식 데이터 및 보유 수량 새로고침
