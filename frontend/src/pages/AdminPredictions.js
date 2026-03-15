@@ -428,11 +428,14 @@ const AdminPredictions = () => {
     } catch (err) { setError(err.error || '정산에 실패했습니다.'); }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('정말 삭제하시겠습니까?')) return;
+  const handleDelete = async (id, hasBets) => {
+    const msg = hasBets
+      ? '베팅한 유저에게 전액 환불 후 삭제됩니다. 정말 삭제하시겠습니까?'
+      : '정말 삭제하시겠습니까?';
+    if (!window.confirm(msg)) return;
     try {
-      await predictionService.deletePrediction(id);
-      setSuccess('예측이 삭제되었습니다.');
+      const res = await predictionService.deletePrediction(id);
+      setSuccess(res.message || '예측이 삭제되었습니다.');
       await loadPredictions();
     } catch (err) { setError(err.error || '삭제에 실패했습니다.'); }
   };
@@ -544,9 +547,9 @@ const AdminPredictions = () => {
                       정산하기
                     </ActionBtn>
                   )}
-                  {p.status === 'open' && p.total_yes_bettors === 0 && p.total_no_bettors === 0 && (
-                    <ActionBtn $variant="delete" onClick={() => handleDelete(p.id)}>
-                      삭제
+                  {p.status !== 'settled' && (
+                    <ActionBtn $variant="delete" onClick={() => handleDelete(p.id, totalPool > 0)}>
+                      {totalPool > 0 ? '환불 삭제' : '삭제'}
                     </ActionBtn>
                   )}
                 </ActionBtns>

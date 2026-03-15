@@ -211,10 +211,13 @@ def delete_prediction(prediction_id):
     if error:
         return jsonify({'error': error}), 403
     try:
-        err = prediction_service.delete_prediction(prediction_id)
+        summary, err = prediction_service.delete_prediction(prediction_id)
         if err:
             return jsonify({'error': err}), 400
-        return jsonify({'message': '예측이 삭제되었습니다.'}), 200
+        return jsonify({
+            'message': f"예측이 삭제되었습니다. {summary['refund_count']}명에게 총 {summary['refund_total']:,}원 환불됨.",
+            'data': summary
+        }), 200
     except Exception as e:
         logging.error(f"예측 삭제 에러: {e}")
         return jsonify({'error': '서버 에러가 발생했습니다.'}), 500

@@ -104,12 +104,32 @@ class PredictionService:
     def delete_prediction(self, prediction_id):
         pred = self.prediction_model.get_prediction(prediction_id)
         if not pred:
-            return '예측을 찾을 수 없습니다.'
-        bet_count = self.prediction_model.count_bets(prediction_id)
-        if bet_count > 0:
-            return '베팅이 있는 예측은 삭제할 수 없습니다.'
+            return None, '예측을 찾을 수 없습니다.'
+        if pred.get('status') == 'settled':
+            return None, '이미 정산된 예측은 삭제할 수 없습니다.'
+
+        # 베팅한 유저에게 환불
+        bets = self.prediction_model.get_bets_for_prediction(prediction_id)
+        refund_count = 0
+        refund_total = 0
+        for bet in bets:
+            if bet.get('status') != 'refunded':
+                self.user_model.collection.update_one(
+                    {'_id': bet['user_id']},
+                    {'$inc': {'balance': bet['amount']}}
+                )
+                refund_count += 1
+                refund_total += bet['amount']
+
+        # 베팅 기록 삭제 후 예측 삭제
+        self.prediction_model.delete_bets_for_prediction(prediction_id)
         self.prediction_model.delete_prediction(prediction_id)
-        return None
+
+        summary = {
+            'refund_count': refund_count,
+            'refund_total': refund_total,
+        }
+        return summary, None
 
     # ── 예측 조회 ──
 

@@ -115,3 +115,9 @@ class Prediction:
         return self.bets_collection.count_documents(
             {'prediction_id': ObjectId(prediction_id)}
         )
+
+    def delete_bets_for_prediction(self, prediction_id):
+        """예측에 대한 모든 베팅 삭제"""
+        self.bets_collection.delete_many(
+            {'prediction_id': ObjectId(prediction_id)}
+        )
