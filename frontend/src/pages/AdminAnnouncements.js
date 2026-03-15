@@ -334,12 +334,10 @@ const AdminAnnouncements = () => {
                 <option value="urgent">긴급</option>
               </Select>
             </FormGroup>
-            <FormGroup $flex="0">
-              <SubmitBtn onClick={handleCreate} disabled={submitting || !message.trim()}>
-                {submitting ? '등록중...' : '공지 등록'}
-              </SubmitBtn>
-            </FormGroup>
           </FormRow>
+          <SubmitBtn onClick={handleCreate} disabled={submitting || !message.trim()} style={{ width: '100%' }}>
+            {submitting ? '등록중...' : '공지 등록'}
+          </SubmitBtn>
         </CreateCard>
 
         {/* 공지 목록 */}
