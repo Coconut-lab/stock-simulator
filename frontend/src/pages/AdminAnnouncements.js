@@ -89,10 +89,13 @@ const Select = styled.select`
 `;
 
 const SubmitBtn = styled.button`
-  padding: 12px 28px; border: none; border-radius: 10px;
+  padding: 0 24px; height: 42px;
+  border: none; border-radius: 10px;
   font-size: 14px; font-weight: 700; cursor: pointer;
   background: linear-gradient(135deg, #ffc107, #ff9800);
   color: #1a1a2e; transition: opacity 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
   &:hover { opacity: 0.85; }
   &:disabled { opacity: 0.4; cursor: not-allowed; }
 `;
