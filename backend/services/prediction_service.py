@@ -215,6 +215,33 @@ class PredictionService:
             })
         return results
 
+    def get_user_bets_on_prediction(self, prediction_id, user_id):
+        bets = self.prediction_model.get_user_bet_on_prediction(prediction_id, user_id)
+        pred = self.prediction_model.get_prediction(prediction_id)
+        results = []
+        for bet in bets:
+            if pred and bet['status'] == 'pending':
+                total_yes = pred.get('total_yes_amount', 0)
+                total_no = pred.get('total_no_amount', 0)
+                total = total_yes + total_no
+                my_pool = total_yes if bet['choice'] == 'yes' else total_no
+                current_payout = int(bet['amount'] * total / my_pool) if my_pool > 0 else bet['amount']
+            else:
+                current_payout = bet.get('potential_payout', 0)
+
+            results.append({
+                'bet_id': str(bet['_id']),
+                'choice': bet['choice'],
+                'amount': bet['amount'],
+                'potential_payout': current_payout,
+                'status': bet['status'],
+                'payout': bet['payout'],
+                'profit': (bet['payout'] - bet['amount']) if bet['status'] == 'won' else (-bet['amount'] if bet['status'] == 'lost' else 0),
+                'created_at': bet['created_at'].isoformat() if bet.get('created_at') else None,
+                'settled_at': bet['settled_at'].isoformat() if bet.get('settled_at') else None,
+            })
+        return results
+
     # ── 내부 유틸 ──
 
     def _auto_close_expired(self):

@@ -1,11 +1,36 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { predictionService } from '../services/predictionService';
 import { formatNumber } from '../utils/helpers';
 import styled, { keyframes } from 'styled-components';
 
+/* ── Animations ── */
+
 const fadeIn = keyframes`from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); }`;
+const popIn = keyframes`
+  0% { opacity: 0; transform: scale(0.7); }
+  60% { transform: scale(1.05); }
+  100% { opacity: 1; transform: scale(1); }
+`;
+const shimmer = keyframes`
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+`;
+
+/* ── Confetti Canvas ── */
+
+const ConfettiCanvas = styled.canvas`
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 9999;
+`;
+
+/* ── Layout ── */
 
 const Container = styled.div`
   min-height: 100vh;
@@ -109,6 +134,67 @@ const StatBox = styled.div`
   .sub { font-size: 12px; color: #666; margin-top: 6px; }
 `;
 
+/* ── 내 베팅 결과 섹션 ── */
+
+const MyBetCard = styled.div`
+  background: ${p => p.$won
+    ? 'linear-gradient(135deg, rgba(39,174,96,0.15), rgba(46,204,113,0.08))'
+    : p.$lost
+    ? 'linear-gradient(135deg, rgba(231,76,60,0.15), rgba(192,57,43,0.08))'
+    : 'rgba(243,156,18,0.1)'};
+  border: 1px solid ${p => p.$won
+    ? 'rgba(39,174,96,0.3)'
+    : p.$lost
+    ? 'rgba(231,76,60,0.3)'
+    : 'rgba(243,156,18,0.3)'};
+  border-radius: 14px;
+  padding: 22px;
+  margin-bottom: 20px;
+  animation: ${popIn} 0.5s ease;
+`;
+
+const MyBetTitle = styled.div`
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 14px;
+  color: ${p => p.$color || '#e8e8e8'};
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const MyBetGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+`;
+
+const MyBetStat = styled.div`
+  background: rgba(0,0,0,0.2);
+  border-radius: 10px;
+  padding: 12px;
+  text-align: center;
+  .label { font-size: 11px; color: #888; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .value { font-size: 18px; font-weight: 700; color: ${p => p.$color || '#e8e8e8'}; }
+`;
+
+const ProfitValue = styled.div`
+  font-size: 22px;
+  font-weight: 800;
+  text-align: center;
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 10px;
+  background: ${p => p.$positive
+    ? 'linear-gradient(135deg, rgba(46,204,113,0.2), rgba(39,174,96,0.1))'
+    : 'linear-gradient(135deg, rgba(231,76,60,0.2), rgba(192,57,43,0.1))'};
+  color: ${p => p.$positive ? '#2ecc71' : '#e74c3c'};
+  background-size: 400% 100%;
+  animation: ${p => p.$positive ? shimmer : 'none'} 3s ease infinite;
+`;
+
+/* ── 베팅 폼 ── */
+
 const BetSection = styled.div`
   border-top: 1px solid rgba(255,255,255,0.08);
   padding-top: 24px;
@@ -211,12 +297,92 @@ const ResultBanner = styled.div`
   animation: ${fadeIn} 0.4s ease;
 `;
 
+/* ── Confetti Logic ── */
+
+function useConfetti(shouldFire) {
+  const canvasRef = useRef(null);
+  const firedRef = useRef(false);
+
+  const fire = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const colors = ['#2ecc71','#3498db','#f1c40f','#e74c3c','#9b59b6','#1abc9c','#ff6b6b','#feca57','#a5b4fc'];
+    const particles = [];
+
+    for (let i = 0; i < 150; i++) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height * -1,
+        w: Math.random() * 10 + 4,
+        h: Math.random() * 6 + 3,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        vx: (Math.random() - 0.5) * 6,
+        vy: Math.random() * 4 + 2,
+        rot: Math.random() * 360,
+        rv: (Math.random() - 0.5) * 12,
+        opacity: 1,
+      });
+    }
+
+    let frame = 0;
+    const maxFrames = 180;
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      frame++;
+
+      for (const p of particles) {
+        p.x += p.vx;
+        p.vy += 0.08;
+        p.y += p.vy;
+        p.rot += p.rv;
+        if (frame > maxFrames - 40) {
+          p.opacity = Math.max(0, p.opacity - 0.025);
+        }
+
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate((p.rot * Math.PI) / 180);
+        ctx.globalAlpha = p.opacity;
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx.restore();
+      }
+
+      if (frame < maxFrames) {
+        requestAnimationFrame(draw);
+      } else {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    }
+
+    draw();
+  }, []);
+
+  useEffect(() => {
+    if (shouldFire && !firedRef.current) {
+      firedRef.current = true;
+      // small delay for page to render first
+      setTimeout(fire, 300);
+    }
+  }, [shouldFire, fire]);
+
+  return canvasRef;
+}
+
+/* ── Component ── */
+
 const PredictionDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, updateUser } = useAuth();
 
   const [prediction, setPrediction] = useState(null);
+  const [myBets, setMyBets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [choice, setChoice] = useState('');
   const [amount, setAmount] = useState('');
@@ -224,13 +390,20 @@ const PredictionDetail = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  useEffect(() => { loadPrediction(); }, [id]); // eslint-disable-line
+  const hasWon = myBets.some(b => b.status === 'won');
+  const confettiRef = useConfetti(hasWon);
 
-  const loadPrediction = async () => {
+  useEffect(() => { loadData(); }, [id]); // eslint-disable-line
+
+  const loadData = async () => {
     try {
       setLoading(true);
-      const res = await predictionService.getPrediction(id);
-      setPrediction(res.data);
+      const [predRes, betRes] = await Promise.all([
+        predictionService.getPrediction(id),
+        predictionService.getMyBetOn(id).catch(() => ({ data: [] })),
+      ]);
+      setPrediction(predRes.data);
+      setMyBets(betRes.data || []);
     } catch (err) {
       setError('예측을 불러올 수 없습니다.');
     } finally {
@@ -252,7 +425,7 @@ const PredictionDetail = () => {
       if (res.data.remaining_balance !== undefined && user) {
         updateUser({ ...user, balance: res.data.remaining_balance });
       }
-      await loadPrediction();
+      await loadData();
     } catch (err) {
       setError(err.error || '베팅에 실패했습니다.');
     } finally {
@@ -295,8 +468,16 @@ const PredictionDetail = () => {
   };
   const potentialPayout = calcPayout();
 
+  // 내 베팅 합산
+  const myTotalAmount = myBets.reduce((s, b) => s + b.amount, 0);
+  const myTotalPayout = myBets.reduce((s, b) => s + (b.payout || 0), 0);
+  const myTotalProfit = myBets.reduce((s, b) => s + (b.profit || 0), 0);
+  const hasSettled = myBets.some(b => b.status === 'won' || b.status === 'lost');
+  const hasLost = myBets.some(b => b.status === 'lost');
+
   return (
     <Container>
+      {hasWon && <ConfettiCanvas ref={confettiRef} />}
       <Inner>
         <BackBtn onClick={() => navigate('/predictions')}>← 예측 마켓으로</BackBtn>
 
@@ -304,6 +485,54 @@ const PredictionDetail = () => {
           <ResultBanner $r={p.result}>
             결과: {p.result === 'yes' ? 'YES' : 'NO'}
           </ResultBanner>
+        )}
+
+        {/* 내 베팅 결과 */}
+        {myBets.length > 0 && (
+          <MyBetCard $won={hasWon} $lost={hasLost && !hasWon}>
+            <MyBetTitle $color={hasWon ? '#2ecc71' : hasLost ? '#ec7063' : '#f39c12'}>
+              {hasWon ? '축하합니다! 당첨되었습니다!' : hasLost ? '아쉽지만 미당첨입니다' : '베팅 진행중'}
+            </MyBetTitle>
+            <MyBetGrid>
+              {myBets.map((bet, i) => (
+                <React.Fragment key={bet.bet_id}>
+                  <MyBetStat $color={bet.choice === 'yes' ? '#5dade2' : '#ec7063'}>
+                    <div className="label">선택</div>
+                    <div className="value">{bet.choice === 'yes' ? 'YES' : 'NO'}</div>
+                  </MyBetStat>
+                  <MyBetStat>
+                    <div className="label">베팅금</div>
+                    <div className="value">{formatNumber(bet.amount)}원</div>
+                  </MyBetStat>
+                  <MyBetStat $color={
+                    bet.status === 'won' ? '#2ecc71' :
+                    bet.status === 'lost' ? '#e74c3c' : '#f39c12'
+                  }>
+                    <div className="label">상태</div>
+                    <div className="value">{
+                      bet.status === 'won' ? '당첨' :
+                      bet.status === 'lost' ? '미당첨' : '대기중'
+                    }</div>
+                  </MyBetStat>
+                  <MyBetStat $color={bet.status === 'won' ? '#2ecc71' : '#aaa'}>
+                    <div className="label">{bet.status === 'pending' ? '예상 당첨금' : '당첨금'}</div>
+                    <div className="value">
+                      {bet.status === 'won'
+                        ? `${formatNumber(bet.payout)}원`
+                        : bet.status === 'lost'
+                        ? '0원'
+                        : `~${formatNumber(bet.potential_payout)}원`}
+                    </div>
+                  </MyBetStat>
+                </React.Fragment>
+              ))}
+            </MyBetGrid>
+            {hasSettled && (
+              <ProfitValue $positive={myTotalProfit >= 0}>
+                {myTotalProfit >= 0 ? '+' : ''}{formatNumber(myTotalProfit)}원
+              </ProfitValue>
+            )}
+          </MyBetCard>
         )}
 
         <Card>

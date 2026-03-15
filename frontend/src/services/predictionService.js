@@ -29,6 +29,15 @@ export const predictionService = {
     }
   },
 
+  getMyBetOn: async (predictionId) => {
+    try {
+      const response = await api.get(`/predictions/my-bet/${predictionId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { error: '내 베팅 조회에 실패했습니다.' };
+    }
+  },
+
   getMyBets: async () => {
     try {
       const response = await api.get('/predictions/my-bets');

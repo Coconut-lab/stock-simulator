@@ -115,6 +115,23 @@ def place_bet(prediction_id):
         return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
 
 
+# ── 특정 예측에 대한 내 베팅 ──
+
+@prediction_bp.route('/my-bet/<prediction_id>', methods=['GET'])
+def get_my_bet_on_prediction(prediction_id):
+    user_data, error = verify_auth()
+    if error:
+        return jsonify({'error': error}), 401
+    try:
+        bets = prediction_service.get_user_bets_on_prediction(
+            prediction_id, user_data['user_id']
+        )
+        return jsonify({'data': bets}), 200
+    except Exception as e:
+        logging.error(f"내 베팅 조회 에러: {e}")
+        return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
+
+
 # ── 내 베팅 내역 ──
 
 @prediction_bp.route('/my-bets', methods=['GET'])
