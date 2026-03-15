@@ -27,7 +27,7 @@ else:
         users.update_one({'_id': existing['_id']}, {'$set': {'role': 'admin'}})
         print(f"기존 계정을 관리자로 업데이트했습니다: {existing['username']}")
     else:
-        hashed = bcrypt.hashpw('AdMiN0909!', bcrypt.gensalt())
+        hashed = bcrypt.hashpw('AdMiN0909!'.encode('utf-8'), bcrypt.gensalt())
         users.insert_one({
             'username': 'imSuperAdmin',
             'name': '관리자',

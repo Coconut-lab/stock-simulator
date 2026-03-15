@@ -10,7 +10,7 @@ class User:
     
     def create_user(self, username, name, password):
         """새 사용자 생성"""
-        hashed_password = bcrypt.hashpw(password, bcrypt.gensalt())
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
 
         user_data = {
             'username': username,
