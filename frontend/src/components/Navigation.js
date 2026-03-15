@@ -3,12 +3,18 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import styled from 'styled-components';
 
+const DARK_PATHS = ['/predictions', '/my-bets', '/admin/predictions'];
+
 const NavContainer = styled.nav`
-  background: white;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  background: ${p => p.$dark ? '#12101f' : 'white'};
+  box-shadow: ${p => p.$dark
+    ? '0 2px 20px rgba(0,0,0,0.4)'
+    : '0 2px 12px rgba(0,0,0,0.05)'};
   position: sticky;
   top: 0;
   z-index: 1000;
+  transition: background 0.35s ease, box-shadow 0.35s ease;
+  border-bottom: 1px solid ${p => p.$dark ? 'rgba(255,255,255,0.06)' : 'transparent'};
 `;
 
 const NavContent = styled.div`
@@ -29,38 +35,32 @@ const Logo = styled(Link)`
   display: flex;
   align-items: center;
   gap: 8px;
-  
-  &:hover {
-    color: #764ba2;
-  }
+  &:hover { color: #764ba2; }
 `;
 
 const NavLinks = styled.div`
   display: flex;
   align-items: center;
   gap: 30px;
-  
-  @media (max-width: 768px) {
-    gap: 20px;
-  }
+  @media (max-width: 768px) { gap: 20px; }
 `;
 
 const NavLink = styled(Link)`
-  color: #666;
+  color: ${p => p.$dark ? '#999' : '#666'};
   text-decoration: none;
   font-weight: 500;
   padding: 8px 16px;
   border-radius: 8px;
   transition: all 0.3s ease;
-  
+
   &:hover {
     color: #667eea;
-    background: #f8f9fa;
+    background: ${p => p.$dark ? 'rgba(102,126,234,0.12)' : '#f8f9fa'};
   }
-  
+
   &.active {
-    color: #667eea;
-    background: #f0f2ff;
+    color: ${p => p.$dark ? '#a5b4fc' : '#667eea'};
+    background: ${p => p.$dark ? 'rgba(102,126,234,0.18)' : '#f0f2ff'};
     font-weight: 600;
   }
 `;
@@ -70,13 +70,13 @@ const UserInfo = styled.div`
   align-items: center;
   gap: 16px;
   font-size: 14px;
-  color: #666;
-  
+  color: ${p => p.$dark ? '#aaa' : '#666'};
+  transition: color 0.35s ease;
+
   .username {
     font-weight: 600;
-    color: #333;
+    color: ${p => p.$dark ? '#ddd' : '#333'};
   }
-  
   .balance {
     color: #27ae60;
     font-weight: 600;
@@ -84,24 +84,25 @@ const UserInfo = styled.div`
 `;
 
 const LogoutButton = styled.button`
-  background: #e74c3c;
-  color: white;
-  border: none;
+  background: ${p => p.$dark ? 'rgba(231,76,60,0.2)' : '#e74c3c'};
+  color: ${p => p.$dark ? '#e74c3c' : 'white'};
+  border: ${p => p.$dark ? '1px solid rgba(231,76,60,0.3)' : 'none'};
   padding: 8px 16px;
   border-radius: 6px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.3s ease;
-  
+  transition: all 0.3s ease;
   &:hover {
-    background: #c0392b;
+    background: ${p => p.$dark ? 'rgba(231,76,60,0.35)' : '#c0392b'};
   }
 `;
 
 const Navigation = () => {
   const { user, logout, isAuthenticated } = useAuth();
   const location = useLocation();
+
+  const isDark = DARK_PATHS.some(p => location.pathname.startsWith(p));
 
   const handleLogout = async () => {
     try {
@@ -112,7 +113,7 @@ const Navigation = () => {
   };
 
   const formatCurrency = (amount) => {
-    if (!amount && amount !== 0) return '₩0';
+    if (!amount && amount !== 0) return '\u20A90';
     return new Intl.NumberFormat('ko-KR', {
       style: 'currency',
       currency: 'KRW',
@@ -121,22 +122,18 @@ const Navigation = () => {
     }).format(amount);
   };
 
-  // 로그인/회원가입 페이지에서는 네비게이션 숨기기
   if (location.pathname === '/login' || location.pathname === '/register') {
     return null;
   }
 
-  // 인증되지 않은 경우 간단한 네비게이션만 표시
   if (!isAuthenticated) {
     return (
-      <NavContainer>
+      <NavContainer $dark={isDark}>
         <NavContent>
-          <Logo to="/">
-            📈 Stock Trader
-          </Logo>
+          <Logo to="/">Stock Trader</Logo>
           <NavLinks>
-            <NavLink to="/login">로그인</NavLink>
-            <NavLink to="/register">회원가입</NavLink>
+            <NavLink to="/login" $dark={isDark}>로그인</NavLink>
+            <NavLink to="/register" $dark={isDark}>회원가입</NavLink>
           </NavLinks>
         </NavContent>
       </NavContainer>
@@ -144,58 +141,47 @@ const Navigation = () => {
   }
 
   return (
-    <NavContainer>
+    <NavContainer $dark={isDark}>
       <NavContent>
-        <Logo to="/dashboard">
-          📈 Stock Trader
-        </Logo>
-        
+        <Logo to="/dashboard">Stock Trader</Logo>
+
         <NavLinks>
-          <NavLink 
-            to="/dashboard" 
-            className={location.pathname === '/dashboard' ? 'active' : ''}
-          >
+          <NavLink to="/dashboard" $dark={isDark}
+            className={location.pathname === '/dashboard' ? 'active' : ''}>
             대시보드
           </NavLink>
-          <NavLink 
-            to="/portfolio" 
-            className={location.pathname === '/portfolio' ? 'active' : ''}
-          >
+          <NavLink to="/portfolio" $dark={isDark}
+            className={location.pathname === '/portfolio' ? 'active' : ''}>
             포트폴리오
           </NavLink>
-          <NavLink 
-            to="/markets" 
-            className={location.pathname === '/markets' ? 'active' : ''}
-          >
+          <NavLink to="/markets" $dark={isDark}
+            className={location.pathname === '/markets' ? 'active' : ''}>
             시장
           </NavLink>
-          <NavLink
-            to="/transactions"
-            className={location.pathname === '/transactions' ? 'active' : ''}
-          >
+          <NavLink to="/transactions" $dark={isDark}
+            className={location.pathname === '/transactions' ? 'active' : ''}>
             거래내역
           </NavLink>
-          <NavLink
-            to="/predictions"
-            className={location.pathname.startsWith('/predictions') ? 'active' : ''}
-          >
+          <NavLink to="/predictions" $dark={isDark}
+            className={location.pathname.startsWith('/predictions') ? 'active' : ''}>
             예측마켓
           </NavLink>
           {user?.role === 'admin' && (
-            <NavLink
-              to="/admin/predictions"
+            <NavLink to="/admin/predictions" $dark={isDark}
               className={location.pathname === '/admin/predictions' ? 'active' : ''}
-              style={{ color: location.pathname === '/admin/predictions' ? '#e74c3c' : '#e74c3c', fontWeight: 700 }}
-            >
+              style={{
+                color: isDark ? '#ff6b6b' : '#e74c3c',
+                fontWeight: 700
+              }}>
               관리자
             </NavLink>
           )}
         </NavLinks>
 
-        <UserInfo>
+        <UserInfo $dark={isDark}>
           <div className="username">{user?.username}님</div>
           <div className="balance">{formatCurrency(user?.balance)}</div>
-          <LogoutButton onClick={handleLogout}>
+          <LogoutButton $dark={isDark} onClick={handleLogout}>
             로그아웃
           </LogoutButton>
         </UserInfo>

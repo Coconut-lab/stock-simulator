@@ -2,72 +2,154 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { predictionService } from '../services/predictionService';
 import { formatNumber } from '../utils/helpers';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
+
+const fadeIn = keyframes`from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); }`;
 
 const Container = styled.div`
   min-height: 100vh;
-  background: #f8f9fa;
-  padding: 20px;
+  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+  padding: 24px;
+`;
+
+const Inner = styled.div`
+  max-width: 1100px;
+  margin: 0 auto;
 `;
 
 const Header = styled.div`
-  background: white;
-  padding: 24px;
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+  background: rgba(255,255,255,0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.08);
+  padding: 28px;
+  border-radius: 16px;
   margin-bottom: 24px;
-  h1 { margin: 0; color: #333; font-size: 28px; }
-  p { margin: 8px 0 0; color: #666; }
+  animation: ${fadeIn} 0.4s ease;
+  h1 {
+    margin: 0;
+    font-size: 28px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  p { margin: 8px 0 0; color: #888; font-size: 14px; }
 `;
 
 const Tabs = styled.div`
   display: flex;
-  gap: 4px;
+  gap: 6px;
   margin-bottom: 24px;
   flex-wrap: wrap;
+  align-items: center;
 `;
 
 const Tab = styled.button`
-  padding: 10px 20px;
-  border: none;
-  background: ${p => p.$active ? '#667eea' : 'white'};
-  color: ${p => p.$active ? 'white' : '#666'};
-  border-radius: 8px;
+  padding: 9px 20px;
+  border: 1px solid ${p => p.$active ? 'rgba(102,126,234,0.5)' : 'rgba(255,255,255,0.1)'};
+  background: ${p => p.$active ? 'rgba(102,126,234,0.25)' : 'rgba(255,255,255,0.04)'};
+  color: ${p => p.$active ? '#a5b4fc' : '#888'};
+  border-radius: 10px;
   font-weight: 600;
+  font-size: 13px;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-  &:hover { opacity: 0.9; }
+  transition: all 0.2s;
+  &:hover { background: rgba(102,126,234,0.15); color: #a5b4fc; }
+`;
+
+const MyBetsBtn = styled.button`
+  margin-left: auto;
+  padding: 9px 20px;
+  border: 1px solid rgba(102,126,234,0.3);
+  background: rgba(102,126,234,0.12);
+  color: #a5b4fc;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  &:hover { background: rgba(102,126,234,0.25); }
 `;
 
 const Grid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 20px;
+  gap: 18px;
 `;
 
 const Card = styled.div`
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.05);
-  padding: 24px;
+  background: rgba(255,255,255,0.06);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 22px;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: all 0.25s;
+  animation: ${fadeIn} 0.4s ease;
+  animation-delay: ${p => p.$delay || '0s'};
+  animation-fill-mode: backwards;
   border-left: 4px solid ${p =>
-    p.$status === 'open' ? '#27ae60' :
-    p.$status === 'closed' ? '#f39c12' : '#95a5a6'};
-  &:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+    p.$status === 'open' ? '#2ecc71' :
+    p.$status === 'closed' ? '#f39c12' : '#7f8c8d'};
+  &:hover {
+    transform: translateY(-4px);
+    background: rgba(255,255,255,0.1);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+  }
+`;
+
+const CardTop = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  gap: 6px;
+  flex-wrap: wrap;
+`;
+
+const StatusBadge = styled.span`
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: white;
+  background: ${p =>
+    p.$s === 'open' ? '#27ae60' :
+    p.$s === 'closed' ? '#e67e22' : '#7f8c8d'};
+`;
+
+const ResultBadge = styled.span`
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: white;
+  background: ${p => p.$r === 'yes' ? '#3498db' : '#e74c3c'};
+`;
+
+const OddsBadge = styled.span`
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #a5b4fc;
+  background: rgba(102,126,234,0.15);
+  border: 1px solid rgba(102,126,234,0.2);
 `;
 
 const CardTitle = styled.h3`
-  margin: 0 0 8px;
-  font-size: 18px;
-  color: #333;
+  margin: 0 0 6px;
+  font-size: 17px;
+  color: #e8e8e8;
+  font-weight: 600;
 `;
 
 const CardDesc = styled.p`
-  margin: 0 0 16px;
-  color: #666;
-  font-size: 14px;
+  margin: 0 0 14px;
+  color: #888;
+  font-size: 13px;
   line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -75,93 +157,67 @@ const CardDesc = styled.p`
   overflow: hidden;
 `;
 
-const StatusBadge = styled.span`
-  display: inline-block;
-  padding: 3px 10px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  color: white;
-  background: ${p =>
-    p.$s === 'open' ? '#27ae60' :
-    p.$s === 'closed' ? '#f39c12' : '#95a5a6'};
-`;
-
-const ResultBadge = styled.span`
-  display: inline-block;
-  padding: 3px 10px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  margin-left: 6px;
-  color: white;
-  background: ${p => p.$r === 'yes' ? '#3498db' : '#e74c3c'};
-`;
-
 const BetBar = styled.div`
   display: flex;
   height: 8px;
   border-radius: 4px;
   overflow: hidden;
-  background: #eee;
+  background: rgba(255,255,255,0.08);
   margin: 12px 0 8px;
 `;
 
 const BetBarYes = styled.div`
-  background: #3498db;
+  background: linear-gradient(90deg, #2980b9, #3498db);
   width: ${p => p.$w}%;
-  transition: width 0.3s;
+  transition: width 0.4s;
 `;
 
 const BetBarNo = styled.div`
-  background: #e74c3c;
+  background: linear-gradient(90deg, #e74c3c, #c0392b);
   width: ${p => p.$w}%;
-  transition: width 0.3s;
+  transition: width 0.4s;
 `;
 
 const BetStats = styled.div`
   display: flex;
   justify-content: space-between;
-  font-size: 13px;
-  color: #666;
-  .yes { color: #3498db; font-weight: 600; }
-  .no { color: #e74c3c; font-weight: 600; }
+  font-size: 12px;
+  .yes { color: #5dade2; font-weight: 600; }
+  .no { color: #ec7063; font-weight: 600; }
 `;
 
 const Deadline = styled.div`
-  font-size: 13px;
-  color: #999;
+  font-size: 12px;
+  color: #666;
   margin-top: 12px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.06);
 `;
 
-const OddsBadge = styled.span`
-  background: #f0f2ff;
-  color: #667eea;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
+const DeadlineTag = styled.span`
+  color: ${p => p.$urgent ? '#f39c12' : '#888'};
   font-weight: 600;
 `;
 
 const Empty = styled.div`
   text-align: center;
-  padding: 60px;
-  color: #666;
-  h3 { color: #333; margin-bottom: 8px; }
+  padding: 80px 20px;
+  color: #888;
+  h3 { color: #bbb; margin-bottom: 8px; font-size: 18px; }
 `;
 
 const Predictions = () => {
   const navigate = useNavigate();
   const [predictions, setPredictions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState('open');
+  const [tab, setTab] = useState('all');
 
   useEffect(() => {
     loadPredictions();
-  }, [tab]);
+  }, [tab]); // eslint-disable-line
 
   const loadPredictions = async () => {
     try {
@@ -197,68 +253,74 @@ const Predictions = () => {
 
   return (
     <Container>
-      <Header>
-        <h1>예측 마켓</h1>
-        <p>다양한 주제에 베팅하고 예측 수익을 얻으세요. 배당률 1.8배!</p>
-      </Header>
+      <Inner>
+        <Header>
+          <h1>예측 마켓</h1>
+          <p>다양한 주제에 베팅하고 예측 수익을 얻으세요. 참여자 비율에 따라 배당률이 변동됩니다.</p>
+        </Header>
 
-      <Tabs>
-        {[
-          ['open', '진행중'],
-          ['closed', '마감'],
-          ['settled', '정산완료'],
-          ['all', '전체'],
-        ].map(([key, label]) => (
-          <Tab key={key} $active={tab === key} onClick={() => setTab(key)}>
-            {label}
-          </Tab>
-        ))}
-        <Tab $active={false} onClick={() => navigate('/my-bets')}
-          style={{ marginLeft: 'auto', background: '#f0f2ff', color: '#667eea' }}>
-          내 베팅 내역
-        </Tab>
-      </Tabs>
+        <Tabs>
+          {[
+            ['all', '전체'],
+            ['open', '진행중'],
+            ['closed', '마감'],
+            ['settled', '정산완료'],
+          ].map(([key, label]) => (
+            <Tab key={key} $active={tab === key} onClick={() => setTab(key)}>
+              {label}
+            </Tab>
+          ))}
+          <MyBetsBtn onClick={() => navigate('/my-bets')}>
+            내 베팅 내역
+          </MyBetsBtn>
+        </Tabs>
 
-      {loading ? (
-        <Empty><p>로딩 중...</p></Empty>
-      ) : predictions.length === 0 ? (
-        <Empty>
-          <h3>예측이 없습니다</h3>
-          <p>{tab === 'open' ? '아직 진행중인 예측이 없습니다.' : '해당 상태의 예측이 없습니다.'}</p>
-        </Empty>
-      ) : (
-        <Grid>
-          {predictions.map(p => {
-            const yp = getYesPercent(p);
-            return (
-              <Card key={p.id} $status={p.status}
-                onClick={() => navigate(`/predictions/${p.id}`)}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <StatusBadge $s={p.status}>
-                    {p.status === 'open' ? '진행중' : p.status === 'closed' ? '마감' : '정산완료'}
-                  </StatusBadge>
-                  {p.result && <ResultBadge $r={p.result}>{p.result === 'yes' ? 'YES' : 'NO'}</ResultBadge>}
-                  <OddsBadge>YES x{p.yes_odds} / NO x{p.no_odds}</OddsBadge>
-                </div>
-                <CardTitle>{p.title}</CardTitle>
-                {p.description && <CardDesc>{p.description}</CardDesc>}
-                <BetBar>
-                  <BetBarYes $w={yp} />
-                  <BetBarNo $w={100 - yp} />
-                </BetBar>
-                <BetStats>
-                  <span className="yes">YES {yp}% ({formatNumber(p.total_yes_amount)}원)</span>
-                  <span className="no">NO {100 - yp}% ({formatNumber(p.total_no_amount)}원)</span>
-                </BetStats>
-                <Deadline>
-                  <span>{p.deadline ? new Date(p.deadline).toLocaleString('ko-KR') : ''}</span>
-                  <span style={{ fontWeight: 600 }}>{getDeadlineText(p.deadline)}</span>
-                </Deadline>
-              </Card>
-            );
-          })}
-        </Grid>
-      )}
+        {loading ? (
+          <Empty><p style={{ color: '#888' }}>로딩 중...</p></Empty>
+        ) : predictions.length === 0 ? (
+          <Empty>
+            <h3>예측이 없습니다</h3>
+            <p>{tab === 'open' ? '아직 진행중인 예측이 없습니다.' : '해당 상태의 예측이 없습니다.'}</p>
+          </Empty>
+        ) : (
+          <Grid>
+            {predictions.map((p, i) => {
+              const yp = getYesPercent(p);
+              const dlText = getDeadlineText(p.deadline);
+              const isUrgent = dlText.includes('시간') || dlText.includes('분');
+              return (
+                <Card key={p.id} $status={p.status}
+                  $delay={`${Math.min(i * 0.04, 0.3)}s`}
+                  onClick={() => navigate(`/predictions/${p.id}`)}>
+                  <CardTop>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <StatusBadge $s={p.status}>
+                        {p.status === 'open' ? '진행중' : p.status === 'closed' ? '마감' : '정산완료'}
+                      </StatusBadge>
+                      {p.result && <ResultBadge $r={p.result}>{p.result === 'yes' ? 'YES' : 'NO'}</ResultBadge>}
+                    </div>
+                    <OddsBadge>YES x{p.yes_odds} / NO x{p.no_odds}</OddsBadge>
+                  </CardTop>
+                  <CardTitle>{p.title}</CardTitle>
+                  {p.description && <CardDesc>{p.description}</CardDesc>}
+                  <BetBar>
+                    <BetBarYes $w={yp} />
+                    <BetBarNo $w={100 - yp} />
+                  </BetBar>
+                  <BetStats>
+                    <span className="yes">YES {yp}% ({formatNumber(p.total_yes_amount)}원)</span>
+                    <span className="no">NO {100 - yp}% ({formatNumber(p.total_no_amount)}원)</span>
+                  </BetStats>
+                  <Deadline>
+                    <span>{p.deadline ? new Date(p.deadline).toLocaleString('ko-KR') : ''}</span>
+                    <DeadlineTag $urgent={isUrgent}>{dlText}</DeadlineTag>
+                  </Deadline>
+                </Card>
+              );
+            })}
+          </Grid>
+        )}
+      </Inner>
     </Container>
   );
 };
