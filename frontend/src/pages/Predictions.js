@@ -198,8 +198,40 @@ const Deadline = styled.div`
 `;
 
 const DeadlineTag = styled.span`
-  color: ${p => p.$urgent ? '#f39c12' : '#888'};
+  color: ${p => p.$urgent ? '#f39c12' : p.$early ? '#a5b4fc' : '#888'};
   font-weight: 600;
+  font-size: 11px;
+`;
+
+/* ── 내 베팅 결과 뱃지 ── */
+
+const MyResultBadge = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  background: ${p =>
+    p.$result === 'won' ? 'rgba(46,204,113,0.12)' :
+    p.$result === 'lost' ? 'rgba(231,76,60,0.12)' :
+    'rgba(243,156,18,0.12)'};
+  border: 1px solid ${p =>
+    p.$result === 'won' ? 'rgba(46,204,113,0.25)' :
+    p.$result === 'lost' ? 'rgba(231,76,60,0.25)' :
+    'rgba(243,156,18,0.25)'};
+  color: ${p =>
+    p.$result === 'won' ? '#2ecc71' :
+    p.$result === 'lost' ? '#ec7063' :
+    '#f39c12'};
+`;
+
+const MyResultProfit = styled.span`
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 800;
 `;
 
 const Empty = styled.div`
@@ -212,19 +244,33 @@ const Empty = styled.div`
 const Predictions = () => {
   const navigate = useNavigate();
   const [predictions, setPredictions] = useState([]);
+  const [myBetsMap, setMyBetsMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('all');
 
   useEffect(() => {
-    loadPredictions();
+    loadData();
   }, [tab]); // eslint-disable-line
 
-  const loadPredictions = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
       const status = tab === 'all' ? null : tab;
-      const res = await predictionService.getPredictions(status);
-      setPredictions(res.data || []);
+      const [predRes, betsRes] = await Promise.all([
+        predictionService.getPredictions(status),
+        predictionService.getMyBets().catch(() => ({ data: [] })),
+      ]);
+      setPredictions(predRes.data || []);
+
+      // prediction_id별로 내 베팅 그룹핑
+      const map = {};
+      for (const bet of (betsRes.data || [])) {
+        if (!map[bet.prediction_id]) {
+          map[bet.prediction_id] = [];
+        }
+        map[bet.prediction_id].push(bet);
+      }
+      setMyBetsMap(map);
     } catch (err) {
       console.error(err);
     } finally {
@@ -232,23 +278,58 @@ const Predictions = () => {
     }
   };
 
-  const getDeadlineText = (deadline) => {
-    if (!deadline) return '';
-    const d = new Date(deadline);
+  const getDeadlineText = (p) => {
+    // 정산완료된 건 카운트다운 안 보여줌
+    if (p.status === 'settled') {
+      if (p.settled_at && p.deadline) {
+        const settled = new Date(p.settled_at);
+        const deadline = new Date(p.deadline);
+        if (settled < deadline) {
+          return { text: '조기 마감', early: true };
+        }
+      }
+      return { text: '', early: false };
+    }
+
+    if (!p.deadline) return { text: '', early: false };
+    const d = new Date(p.deadline);
     const now = new Date();
     const diff = d - now;
-    if (diff <= 0) return '마감됨';
+    if (diff <= 0) return { text: '마감됨', urgent: false };
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(hours / 24);
-    if (days > 0) return `D-${days}`;
-    if (hours > 0) return `${hours}시간 남음`;
-    return `${Math.floor(diff / 60000)}분 남음`;
+    if (days > 0) return { text: `D-${days}`, urgent: false };
+    if (hours > 0) return { text: `${hours}시간 남음`, urgent: true };
+    return { text: `${Math.floor(diff / 60000)}분 남음`, urgent: true };
   };
 
   const getYesPercent = (p) => {
     const total = p.total_yes_amount + p.total_no_amount;
     if (total === 0) return 50;
     return Math.round((p.total_yes_amount / total) * 100);
+  };
+
+  const getMyBetSummary = (predictionId) => {
+    const bets = myBetsMap[predictionId];
+    if (!bets || bets.length === 0) return null;
+
+    const hasWon = bets.some(b => b.status === 'won');
+    const hasLost = bets.some(b => b.status === 'lost');
+    const allPending = bets.every(b => b.status === 'pending');
+
+    const totalAmount = bets.reduce((s, b) => s + b.amount, 0);
+    const totalPayout = bets.reduce((s, b) => s + (b.payout || 0), 0);
+    const profit = hasWon || hasLost ? totalPayout - (
+      bets.filter(b => b.status === 'won' || b.status === 'lost').reduce((s, b) => s + b.amount, 0)
+    ) : 0;
+    const choices = [...new Set(bets.map(b => b.choice))];
+
+    return {
+      result: allPending ? 'pending' : hasWon ? 'won' : 'lost',
+      totalAmount,
+      profit,
+      choices,
+    };
   };
 
   return (
@@ -286,8 +367,8 @@ const Predictions = () => {
           <Grid>
             {predictions.map((p, i) => {
               const yp = getYesPercent(p);
-              const dlText = getDeadlineText(p.deadline);
-              const isUrgent = dlText.includes('시간') || dlText.includes('분');
+              const dl = getDeadlineText(p);
+              const myBet = getMyBetSummary(p.id);
               return (
                 <Card key={p.id} $status={p.status}
                   $delay={`${Math.min(i * 0.04, 0.3)}s`}
@@ -311,9 +392,34 @@ const Predictions = () => {
                     <span className="yes">YES {yp}% ({formatNumber(p.total_yes_amount)}원)</span>
                     <span className="no">NO {100 - yp}% ({formatNumber(p.total_no_amount)}원)</span>
                   </BetStats>
+
+                  {/* 내 베팅 결과 */}
+                  {myBet && (
+                    <MyResultBadge $result={myBet.result}>
+                      <span>
+                        {myBet.choices.map(c => c === 'yes' ? 'YES' : 'NO').join('+')}
+                        {' '}
+                        {formatNumber(myBet.totalAmount)}원 베팅
+                      </span>
+                      {myBet.result === 'won' && (
+                        <MyResultProfit>+{formatNumber(myBet.profit)}원</MyResultProfit>
+                      )}
+                      {myBet.result === 'lost' && (
+                        <MyResultProfit>-{formatNumber(myBet.totalAmount)}원</MyResultProfit>
+                      )}
+                      {myBet.result === 'pending' && (
+                        <MyResultProfit>대기중</MyResultProfit>
+                      )}
+                    </MyResultBadge>
+                  )}
+
                   <Deadline>
                     <span>{p.deadline ? new Date(p.deadline).toLocaleString('ko-KR') : ''}</span>
-                    <DeadlineTag $urgent={isUrgent}>{dlText}</DeadlineTag>
+                    {dl.text && (
+                      <DeadlineTag $urgent={dl.urgent} $early={dl.early}>
+                        {dl.text}
+                      </DeadlineTag>
+                    )}
                   </Deadline>
                 </Card>
               );
