@@ -1,6 +1,5 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
-from werkzeug.routing import BaseConverter
 import logging
 import time
 import threading
@@ -19,12 +18,6 @@ from routes.prediction import prediction_bp
 def create_app():
     """Flask 애플리케이션 팩토리"""
     app = Flask(__name__)
-
-    # MongoDB ObjectId 전용 URL 컨버터
-    class ObjectIdConverter(BaseConverter):
-        regex = r'[0-9a-fA-F]{24}'
-
-    app.url_map.converters['oid'] = ObjectIdConverter
 
     # 설정 로드
     app.config.from_object(Config)

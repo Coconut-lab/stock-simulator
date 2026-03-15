@@ -4,7 +4,7 @@ export const predictionService = {
   getPredictions: async (status = null) => {
     try {
       const params = status ? { status } : {};
-      const response = await api.get('/predictions/', { params });
+      const response = await api.get('/predictions/list', { params });
       return response.data;
     } catch (error) {
       throw error.response?.data || { error: '예측 목록 조회에 실패했습니다.' };
@@ -13,7 +13,7 @@ export const predictionService = {
 
   getPrediction: async (id) => {
     try {
-      const response = await api.get(`/predictions/${id}`);
+      const response = await api.get(`/predictions/get/${id}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || { error: '예측 조회에 실패했습니다.' };
@@ -22,7 +22,7 @@ export const predictionService = {
 
   placeBet: async (predictionId, choice, amount) => {
     try {
-      const response = await api.post(`/predictions/${predictionId}/bet`, { choice, amount });
+      const response = await api.post(`/predictions/bet/${predictionId}`, { choice, amount });
       return response.data;
     } catch (error) {
       throw error.response?.data || { error: '베팅에 실패했습니다.' };
@@ -50,7 +50,7 @@ export const predictionService = {
 
   closePrediction: async (id) => {
     try {
-      const response = await api.put(`/predictions/${id}/close`);
+      const response = await api.put(`/predictions/close/${id}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || { error: '예측 마감에 실패했습니다.' };
@@ -59,7 +59,7 @@ export const predictionService = {
 
   settlePrediction: async (id, result) => {
     try {
-      const response = await api.put(`/predictions/${id}/settle`, { result });
+      const response = await api.put(`/predictions/settle/${id}`, { result });
       return response.data;
     } catch (error) {
       throw error.response?.data || { error: '정산에 실패했습니다.' };
@@ -68,7 +68,7 @@ export const predictionService = {
 
   deletePrediction: async (id) => {
     try {
-      const response = await api.delete(`/predictions/${id}`);
+      const response = await api.delete(`/predictions/remove/${id}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || { error: '예측 삭제에 실패했습니다.' };
