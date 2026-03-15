@@ -1439,7 +1439,76 @@ class StockService:
                 'change': 50.0,
                 'change_percent': 0.36
             })
-        
+
+        # 항셍 지수 (홍콩)
+        try:
+            hsi_data = fdr.DataReader('HSI', datetime.now() - timedelta(days=5), datetime.now())
+            if not hsi_data.empty:
+                latest = hsi_data.iloc[-1]
+                prev = hsi_data.iloc[-2] if len(hsi_data) >= 2 else latest
+                indices.append({
+                    'name': '항셍',
+                    'symbol': 'HSI',
+                    'value': safe_float(latest['Close']),
+                    'change': safe_float(latest['Close'] - prev['Close']),
+                    'change_percent': safe_float((latest['Close'] - prev['Close']) / prev['Close'] * 100)
+                })
+        except Exception as e:
+            logging.debug(f"항셍 지수 조회 실패: {e}")
+            indices.append({
+                'name': '항셍',
+                'symbol': 'HSI',
+                'value': 18000.0,
+                'change': 0.0,
+                'change_percent': 0.0
+            })
+
+        # DAX 지수 (독일/유럽)
+        try:
+            dax_data = fdr.DataReader('DE40', datetime.now() - timedelta(days=5), datetime.now())
+            if not dax_data.empty:
+                latest = dax_data.iloc[-1]
+                prev = dax_data.iloc[-2] if len(dax_data) >= 2 else latest
+                indices.append({
+                    'name': 'DAX',
+                    'symbol': 'DAX',
+                    'value': safe_float(latest['Close']),
+                    'change': safe_float(latest['Close'] - prev['Close']),
+                    'change_percent': safe_float((latest['Close'] - prev['Close']) / prev['Close'] * 100)
+                })
+        except Exception as e:
+            logging.debug(f"DAX 지수 조회 실패: {e}")
+            indices.append({
+                'name': 'DAX',
+                'symbol': 'DAX',
+                'value': 18000.0,
+                'change': 0.0,
+                'change_percent': 0.0
+            })
+
+        # FTSE 100 지수 (영국)
+        try:
+            ftse_data = fdr.DataReader('UK100', datetime.now() - timedelta(days=5), datetime.now())
+            if not ftse_data.empty:
+                latest = ftse_data.iloc[-1]
+                prev = ftse_data.iloc[-2] if len(ftse_data) >= 2 else latest
+                indices.append({
+                    'name': 'FTSE 100',
+                    'symbol': 'FTSE',
+                    'value': safe_float(latest['Close']),
+                    'change': safe_float(latest['Close'] - prev['Close']),
+                    'change_percent': safe_float((latest['Close'] - prev['Close']) / prev['Close'] * 100)
+                })
+        except Exception as e:
+            logging.debug(f"FTSE 지수 조회 실패: {e}")
+            indices.append({
+                'name': 'FTSE 100',
+                'symbol': 'FTSE',
+                'value': 8000.0,
+                'change': 0.0,
+                'change_percent': 0.0
+            })
+
         return indices
     
     @staticmethod
