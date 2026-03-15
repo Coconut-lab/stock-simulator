@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { adminService } from '../services/adminService';
 
 const POLL_INTERVAL = 60000;
-const SCROLL_SPEED = 60;
+const SCROLL_SPEED = 60; // px/sec
 
 const TickerWrapper = styled.div`
   width: 100%;
@@ -95,23 +95,23 @@ const HIDDEN_PATHS = ['/login', '/register'];
 
 const AnnouncementTicker = () => {
   const [announcements, setAnnouncements] = useState([]);
-  const [setWidthPx, setSetWidthPx] = useState(0);
   const [repeatsPerSet, setRepeatsPerSet] = useState(4);
-  const [animKey, setAnimKey] = useState(0);
   const measureRef = useRef(null);
+  const trackRef = useRef(null);
   const prevDataRef = useRef('');
+  const animRef = useRef(null);
+  const offsetRef = useRef(0);
+  const setWidthRef = useRef(0);
   const location = useLocation();
 
   const fetchAnnouncements = useCallback(async () => {
     try {
       const res = await adminService.getActiveAnnouncements();
       const newData = res.data || [];
-      // 데이터가 실제로 바뀐 경우에만 state 업데이트 (애니메이션 리셋 방지)
       const newKey = JSON.stringify(newData.map(a => a.id + a.message));
       if (newKey !== prevDataRef.current) {
         prevDataRef.current = newKey;
         setAnnouncements(newData);
-        setAnimKey(k => k + 1);
       }
     } catch {
       if (prevDataRef.current !== '[]') {
@@ -133,26 +133,55 @@ const AnnouncementTicker = () => {
   }, [fetchAnnouncements]);
 
   // 1세트 너비 측정
-  const measure = useCallback(() => {
-    if (!measureRef.current) return;
-    const oneSetWidth = measureRef.current.scrollWidth;
-    if (oneSetWidth === 0) return;
-
-    const reps = Math.max(1, Math.ceil(1600 / oneSetWidth));
-    setRepeatsPerSet(reps);
-    setSetWidthPx(oneSetWidth * reps);
-  }, []);
-
   useEffect(() => {
-    if (announcements.length > 0) {
-      requestAnimationFrame(() => requestAnimationFrame(measure));
+    if (announcements.length === 0) return;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!measureRef.current) return;
+        const oneSetWidth = measureRef.current.scrollWidth;
+        if (oneSetWidth === 0) return;
+        const reps = Math.max(1, Math.ceil(1600 / oneSetWidth));
+        setRepeatsPerSet(reps);
+        setWidthRef.current = oneSetWidth * reps;
+        offsetRef.current = 0;
+      });
+    });
+  }, [announcements]);
+
+  // requestAnimationFrame 기반 애니메이션 루프
+  useEffect(() => {
+    if (announcements.length === 0) {
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+      return;
     }
-  }, [announcements, measure]);
+
+    let lastTime = null;
+
+    const animate = (time) => {
+      if (lastTime !== null && setWidthRef.current > 0) {
+        const dt = (time - lastTime) / 1000;
+        offsetRef.current -= SCROLL_SPEED * dt;
+
+        if (Math.abs(offsetRef.current) >= setWidthRef.current) {
+          offsetRef.current += setWidthRef.current;
+        }
+
+        if (trackRef.current) {
+          trackRef.current.style.transform = `translateX(${offsetRef.current}px)`;
+        }
+      }
+      lastTime = time;
+      animRef.current = requestAnimationFrame(animate);
+    };
+
+    animRef.current = requestAnimationFrame(animate);
+    return () => {
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+    };
+  }, [announcements]);
 
   if (!announcements.length) return null;
   if (HIDDEN_PATHS.includes(location.pathname)) return null;
-
-  const duration = setWidthPx > 0 ? setWidthPx / SCROLL_SPEED : 30;
 
   const renderItem = (a, key) => (
     <React.Fragment key={key}>
@@ -175,7 +204,6 @@ const AnnouncementTicker = () => {
     return items;
   };
 
-  // 측정용: gap 포함한 1세트
   const measureItems = [];
   announcements.forEach((a, i) => {
     measureItems.push(renderItem(a, `m-${i}`));
@@ -189,25 +217,11 @@ const AnnouncementTicker = () => {
         {measureItems}
       </MeasureBox>
 
-      <TickerTrack
-        key={animKey}
-        style={{
-          animation: setWidthPx > 0
-            ? `announceTicker ${duration}s linear infinite`
-            : 'none',
-        }}
-      >
+      <TickerTrack ref={trackRef}>
         <Spacer $w={80} />
         {buildSet('a')}
         {buildSet('b')}
       </TickerTrack>
-
-      <style>{`
-        @keyframes announceTicker {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-${setWidthPx}px); }
-        }
-      `}</style>
     </TickerWrapper>
   );
 };
