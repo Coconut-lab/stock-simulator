@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 import { adminService } from '../services/adminService';
 
-const POLL_INTERVAL = 60000; // 1분마다 확인
+const POLL_INTERVAL = 60000;
+const SCROLL_SPEED = 60; // px/sec 일정 속도
 
 const scroll = keyframes`
   0% { transform: translateX(0); }
@@ -39,28 +40,21 @@ const TickerWrapper = styled.div`
 
 const LabelTag = styled.div`
   position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
+  left: 0; top: 0; bottom: 0;
+  display: flex; align-items: center;
   padding: 0 14px;
   background: linear-gradient(135deg, #e74c3c, #c0392b);
-  color: white;
-  font-weight: 700;
-  font-size: 12px;
-  z-index: 3;
-  letter-spacing: 1px;
-  white-space: nowrap;
+  color: white; font-weight: 700; font-size: 12px;
+  z-index: 3; letter-spacing: 1px; white-space: nowrap;
 `;
 
 const TickerTrack = styled.div`
   display: flex;
   align-items: center;
   white-space: nowrap;
-  animation: ${scroll} ${p => p.$duration}s linear infinite;
   padding: 10px 0;
   padding-left: 80px;
+  animation: ${scroll} ${p => p.$duration}s linear infinite;
 `;
 
 const TickerItem = styled.span`
@@ -73,29 +67,35 @@ const TickerItem = styled.span`
   font-weight: ${p => p.$urgent ? '700' : '500'};
 
   .dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
+    width: 6px; height: 6px; border-radius: 50%;
     background: ${p => p.$urgent ? '#ff4444' : '#ffc107'};
     flex-shrink: 0;
   }
-
   .urgent-tag {
     background: rgba(255, 68, 68, 0.25);
-    color: #ff6b6b;
-    font-size: 10px;
-    font-weight: 700;
-    padding: 2px 6px;
-    border-radius: 3px;
+    color: #ff6b6b; font-size: 10px; font-weight: 700;
+    padding: 2px 6px; border-radius: 3px;
     border: 1px solid rgba(255, 68, 68, 0.3);
   }
+`;
+
+/* 측정 전용 (화면에 안 보임) */
+const MeasureBox = styled.div`
+  position: absolute;
+  visibility: hidden;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  padding-left: 80px;
 `;
 
 const HIDDEN_PATHS = ['/login', '/register'];
 
 const AnnouncementTicker = () => {
   const [announcements, setAnnouncements] = useState([]);
-  const trackRef = useRef(null);
+  const [duration, setDuration] = useState(40);
+  const [repeatsPerSet, setRepeatsPerSet] = useState(4);
+  const measureRef = useRef(null);
   const location = useLocation();
 
   const fetchAnnouncements = async () => {
@@ -113,22 +113,62 @@ const AnnouncementTicker = () => {
     return () => clearInterval(timer);
   }, []);
 
+  // 1세트 너비 측정 → 반복 횟수 & 애니메이션 시간 계산
+  const measure = useCallback(() => {
+    if (!measureRef.current) return;
+    const oneSetWidth = measureRef.current.scrollWidth;
+    if (oneSetWidth === 0) return;
+
+    // 한 세트가 최소 1600px 이상이 되도록 반복
+    const reps = Math.max(1, Math.ceil(1600 / oneSetWidth));
+    setRepeatsPerSet(reps);
+
+    // 한 세트 전체 너비 (= 반복 * 측정값), 이 길이가 -50% 이동 거리
+    const totalHalfWidth = oneSetWidth * reps;
+    setDuration(totalHalfWidth / SCROLL_SPEED);
+  }, []);
+
+  useEffect(() => {
+    if (announcements.length > 0) {
+      requestAnimationFrame(() => requestAnimationFrame(measure));
+    }
+  }, [announcements, measure]);
+
   if (!announcements.length) return null;
   if (HIDDEN_PATHS.includes(location.pathname)) return null;
 
-  const speed = Math.max(15, announcements.length * 12);
+  const renderItem = (a, key) => (
+    <TickerItem key={key} $urgent={a.priority === 'urgent'}>
+      <span className="dot" />
+      {a.priority === 'urgent' && <span className="urgent-tag">긴급</span>}
+      {a.message}
+    </TickerItem>
+  );
+
+  // 한 세트 = announcements × repeatsPerSet
+  const buildSet = (prefix) => {
+    const items = [];
+    for (let r = 0; r < repeatsPerSet; r++) {
+      announcements.forEach((a, i) => {
+        items.push(renderItem(a, `${prefix}-${r}-${i}`));
+      });
+    }
+    return items;
+  };
 
   return (
     <TickerWrapper>
       <LabelTag>NOTICE</LabelTag>
-      <TickerTrack $duration={speed} ref={trackRef}>
-        {[...announcements, ...announcements].map((a, i) => (
-          <TickerItem key={`${a.id}-${i}`} $urgent={a.priority === 'urgent'}>
-            <span className="dot" />
-            {a.priority === 'urgent' && <span className="urgent-tag">긴급</span>}
-            {a.message}
-          </TickerItem>
-        ))}
+
+      {/* 1세트 너비 측정용 (announcements 1번만) */}
+      <MeasureBox ref={measureRef}>
+        {announcements.map((a, i) => renderItem(a, `m-${i}`))}
+      </MeasureBox>
+
+      {/* 실제 트랙: 동일한 세트 2개 → translateX(-50%)로 무한루프 */}
+      <TickerTrack $duration={duration}>
+        {buildSet('a')}
+        {buildSet('b')}
       </TickerTrack>
     </TickerWrapper>
   );

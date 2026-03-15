@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import styled from 'styled-components';
 
-const DARK_PATHS = ['/predictions', '/my-bets', '/admin/predictions', '/admin/users', '/admin/announcements'];
+const DARK_PATHS = ['/predictions', '/my-bets', '/admin'];
 
 const NavContainer = styled.nav`
   background: ${p => p.$dark ? '#12101f' : 'white'};
@@ -62,6 +62,88 @@ const NavLink = styled(Link)`
     color: ${p => p.$dark ? '#a5b4fc' : '#667eea'};
     background: ${p => p.$dark ? 'rgba(102,126,234,0.18)' : '#f0f2ff'};
     font-weight: 600;
+  }
+`;
+
+/* ── 관리자 드롭다운 ── */
+
+const AdminDropdown = styled.div`
+  position: relative;
+
+  &:hover > div {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+`;
+
+const AdminTrigger = styled.span`
+  color: ${p => p.$dark ? '#ff6b6b' : '#e74c3c'};
+  font-weight: 700;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  &:hover {
+    background: ${p => p.$dark ? 'rgba(231,76,60,0.12)' : 'rgba(231,76,60,0.08)'};
+  }
+
+  &.active {
+    background: ${p => p.$dark ? 'rgba(231,76,60,0.18)' : 'rgba(231,76,60,0.1)'};
+  }
+
+  .arrow {
+    font-size: 10px;
+    transition: transform 0.2s;
+  }
+
+  ${AdminDropdown}:hover & .arrow {
+    transform: rotate(180deg);
+  }
+`;
+
+const DropdownMenu = styled.div`
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px);
+  min-width: 160px;
+  background: ${p => p.$dark ? '#1e1e36' : 'white'};
+  border: 1px solid ${p => p.$dark ? 'rgba(255,255,255,0.1)' : '#eee'};
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: ${p => p.$dark
+    ? '0 8px 32px rgba(0,0,0,0.5)'
+    : '0 8px 32px rgba(0,0,0,0.12)'};
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+  z-index: 1100;
+`;
+
+const DropdownItem = styled(Link)`
+  display: block;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  color: ${p => p.$dark ? '#ccc' : '#555'};
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: ${p => p.$dark ? 'rgba(231,76,60,0.12)' : 'rgba(231,76,60,0.06)'};
+    color: ${p => p.$dark ? '#ff6b6b' : '#e74c3c'};
+  }
+
+  &.active {
+    background: ${p => p.$dark ? 'rgba(231,76,60,0.18)' : 'rgba(231,76,60,0.1)'};
+    color: ${p => p.$dark ? '#ff6b6b' : '#e74c3c'};
   }
 `;
 
@@ -167,32 +249,28 @@ const Navigation = () => {
             예측마켓
           </NavLink>
           {user?.role === 'admin' && (
-            <>
-              <NavLink to="/admin/predictions" $dark={isDark}
-                className={location.pathname === '/admin/predictions' ? 'active' : ''}
-                style={{
-                  color: isDark ? '#ff6b6b' : '#e74c3c',
-                  fontWeight: 700
-                }}>
-                예측관리
-              </NavLink>
-              <NavLink to="/admin/users" $dark={isDark}
-                className={location.pathname === '/admin/users' ? 'active' : ''}
-                style={{
-                  color: isDark ? '#ff6b6b' : '#e74c3c',
-                  fontWeight: 700
-                }}>
-                유저관리
-              </NavLink>
-              <NavLink to="/admin/announcements" $dark={isDark}
-                className={location.pathname === '/admin/announcements' ? 'active' : ''}
-                style={{
-                  color: isDark ? '#ffc107' : '#f39c12',
-                  fontWeight: 700
-                }}>
-                공지관리
-              </NavLink>
-            </>
+            <AdminDropdown>
+              <AdminTrigger
+                $dark={isDark}
+                className={location.pathname.startsWith('/admin') ? 'active' : ''}
+              >
+                관리자 <span className="arrow">▼</span>
+              </AdminTrigger>
+              <DropdownMenu $dark={isDark}>
+                <DropdownItem to="/admin/predictions" $dark={isDark}
+                  className={location.pathname === '/admin/predictions' ? 'active' : ''}>
+                  예측 관리
+                </DropdownItem>
+                <DropdownItem to="/admin/users" $dark={isDark}
+                  className={location.pathname === '/admin/users' ? 'active' : ''}>
+                  유저 관리
+                </DropdownItem>
+                <DropdownItem to="/admin/announcements" $dark={isDark}
+                  className={location.pathname === '/admin/announcements' ? 'active' : ''}>
+                  공지 관리
+                </DropdownItem>
+              </DropdownMenu>
+            </AdminDropdown>
           )}
         </NavLinks>
 
