@@ -421,6 +421,8 @@ const Predictions = () => {
 
   useEffect(() => {
     loadData();
+    const timer = setInterval(loadData, 30 * 1000); // 30초마다 갱신
+    return () => clearInterval(timer);
   }, [tab]); // eslint-disable-line
 
   const loadData = async () => {

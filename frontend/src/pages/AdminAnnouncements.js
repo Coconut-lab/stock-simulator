@@ -237,6 +237,7 @@ const AdminAnnouncements = () => {
       setPriority('normal');
       setDurationHours(2);
       loadAnnouncements();
+      window.dispatchEvent(new Event('announcement-updated'));
     } catch (err) {
       setMsg({ error: true, text: err.error || '등록에 실패했습니다.' });
     } finally {
@@ -249,6 +250,7 @@ const AdminAnnouncements = () => {
     try {
       await adminService.deactivateAnnouncement(id);
       loadAnnouncements();
+      window.dispatchEvent(new Event('announcement-updated'));
     } catch (err) {
       alert(err.error || '비활성화에 실패했습니다.');
     }
@@ -259,6 +261,7 @@ const AdminAnnouncements = () => {
     try {
       await adminService.deleteAnnouncement(id);
       loadAnnouncements();
+      window.dispatchEvent(new Event('announcement-updated'));
     } catch (err) {
       alert(err.error || '삭제에 실패했습니다.');
     }

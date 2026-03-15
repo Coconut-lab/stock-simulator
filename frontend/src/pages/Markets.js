@@ -337,7 +337,11 @@ const Markets = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const PER_PAGE = 30;
 
-  useEffect(() => { loadMarketData(); }, []);
+  useEffect(() => {
+    loadMarketData();
+    const timer = setInterval(loadMarketData, 5 * 60 * 1000); // 5분마다 갱신
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (searchQuery.length > 1) {

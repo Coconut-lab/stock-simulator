@@ -110,7 +110,13 @@ const AnnouncementTicker = () => {
   useEffect(() => {
     fetchAnnouncements();
     const timer = setInterval(fetchAnnouncements, POLL_INTERVAL);
-    return () => clearInterval(timer);
+    // 공지 변경 이벤트 감지 → 즉시 갱신
+    const onUpdate = () => fetchAnnouncements();
+    window.addEventListener('announcement-updated', onUpdate);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('announcement-updated', onUpdate);
+    };
   }, []);
 
   // 1세트 너비 측정 → 반복 횟수 & 애니메이션 시간 계산
