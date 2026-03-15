@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { formatErrorMessage, validateEmail, validatePassword } from '../utils/helpers';
+import { formatErrorMessage, validatePassword } from '../utils/helpers';
 import styled from 'styled-components';
 
 const Container = styled.div`
@@ -124,7 +124,7 @@ const LinkText = styled.p`
 const Register = () => {
   const [formData, setFormData] = useState({
     username: '',
-    email: '',
+    name: '',
     password: '',
     confirmPassword: ''
   });
@@ -158,15 +158,9 @@ const Register = () => {
     const newErrors = {};
 
     if (!formData.username) {
-      newErrors.username = '사용자명을 입력해주세요.';
+      newErrors.username = '아이디를 입력해주세요.';
     } else if (formData.username.length < 2) {
-      newErrors.username = '사용자명은 최소 2자 이상이어야 합니다.';
-    }
-
-    if (!formData.email) {
-      newErrors.email = '이메일을 입력해주세요.';
-    } else if (!validateEmail(formData.email)) {
-      newErrors.email = '올바른 이메일 형식을 입력해주세요.';
+      newErrors.username = '아이디는 최소 2자 이상이어야 합니다.';
     }
 
     if (!formData.password) {
@@ -197,7 +191,7 @@ const Register = () => {
     try {
       await register({
         username: formData.username,
-        email: formData.email,
+        name: formData.name,
         password: formData.password
       });
       
@@ -230,7 +224,7 @@ const Register = () => {
 
         <Form onSubmit={handleSubmit}>
           <InputGroup>
-            <Label htmlFor="username">사용자명</Label>
+            <Label htmlFor="username">아이디</Label>
             <Input
               id="username"
               type="text"
@@ -238,7 +232,7 @@ const Register = () => {
               value={formData.username}
               onChange={handleChange}
               className={errors.username ? 'error' : ''}
-              placeholder="사용자명을 입력하세요"
+              placeholder="아이디를 입력하세요"
             />
             {errors.username && (
               <ErrorMessage>{errors.username}</ErrorMessage>
@@ -246,19 +240,15 @@ const Register = () => {
           </InputGroup>
 
           <InputGroup>
-            <Label htmlFor="email">이메일</Label>
+            <Label htmlFor="name">이름</Label>
             <Input
-              id="email"
-              type="email"
-              name="email"
-              value={formData.email}
+              id="name"
+              type="text"
+              name="name"
+              value={formData.name}
               onChange={handleChange}
-              className={errors.email ? 'error' : ''}
-              placeholder="이메일을 입력하세요"
+              placeholder="이름을 입력하세요 (선택)"
             />
-            {errors.email && (
-              <ErrorMessage>{errors.email}</ErrorMessage>
-            )}
           </InputGroup>
 
           <InputGroup>

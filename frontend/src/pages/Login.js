@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { formatErrorMessage, validateEmail, validatePassword } from '../utils/helpers';
+import { formatErrorMessage } from '../utils/helpers';
 import styled from 'styled-components';
 
 const Container = styled.div`
@@ -114,7 +114,7 @@ const LinkText = styled.p`
 
 const Login = () => {
   const [formData, setFormData] = useState({
-    email: '',
+    username: '',
     password: ''
   });
   const [errors, setErrors] = useState({});
@@ -144,10 +144,8 @@ const Login = () => {
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.email) {
-      newErrors.email = '이메일을 입력해주세요.';
-    } else if (!validateEmail(formData.email)) {
-      newErrors.email = '올바른 이메일 형식을 입력해주세요.';
+    if (!formData.username) {
+      newErrors.username = '아이디를 입력해주세요.';
     }
 
     if (!formData.password) {
@@ -168,7 +166,7 @@ const Login = () => {
 
     try {
       await login({
-        email: formData.email,
+        username: formData.username,
         password: formData.password
       });
       
@@ -191,18 +189,18 @@ const Login = () => {
 
         <Form onSubmit={handleSubmit}>
           <InputGroup>
-            <Label htmlFor="email">이메일</Label>
+            <Label htmlFor="username">아이디</Label>
             <Input
-              id="email"
-              type="email"
-              name="email"
-              value={formData.email}
+              id="username"
+              type="text"
+              name="username"
+              value={formData.username}
               onChange={handleChange}
-              className={errors.email ? 'error' : ''}
-              placeholder="이메일을 입력하세요"
+              className={errors.username ? 'error' : ''}
+              placeholder="아이디를 입력하세요"
             />
-            {errors.email && (
-              <ErrorMessage>{errors.email}</ErrorMessage>
+            {errors.username && (
+              <ErrorMessage>{errors.username}</ErrorMessage>
             )}
           </InputGroup>
 

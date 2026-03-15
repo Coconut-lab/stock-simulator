@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { portfolioService } from '../services/portfolioService';
-import { 
-  formatCurrency, 
-  formatDate, 
-  formatNumber, 
+import {
+  formatCurrency,
+  formatDate,
+  formatNumber,
   formatErrorMessage,
-  getMarketFromSymbol 
+  getMarketFromSymbol,
+  getCurrencySymbol
 } from '../utils/helpers';
 import styled from 'styled-components';
 
@@ -21,14 +22,14 @@ const Header = styled.div`
   border-radius: 12px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
   margin-bottom: 30px;
-  
+
   h1 {
     margin: 0;
     color: #333;
     font-size: 28px;
     font-weight: 700;
   }
-  
+
   p {
     margin: 8px 0 0 0;
     color: #666;
@@ -49,7 +50,7 @@ const CardHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  
+
   h2 {
     margin: 0;
     color: #333;
@@ -76,7 +77,7 @@ const Select = styled.select`
   border-radius: 6px;
   font-size: 14px;
   background: white;
-  
+
   &:focus {
     outline: none;
     border-color: #667eea;
@@ -90,13 +91,13 @@ const TransactionsTable = styled.div`
 const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
-  
+
   th, td {
     padding: 12px;
     text-align: left;
     border-bottom: 1px solid #eee;
   }
-  
+
   th {
     background: #f8f9fa;
     font-weight: 600;
@@ -105,24 +106,45 @@ const Table = styled.table`
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
-  
+
   td {
     font-size: 14px;
   }
-  
-  .symbol {
-    font-weight: 700;
-    color: #333;
-  }
-  
+
   .buy {
     color: #e74c3c;
     font-weight: 600;
   }
-  
+
   .sell {
     color: #3498db;
     font-weight: 600;
+  }
+`;
+
+const StockCell = styled.div`
+  .symbol {
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 2px;
+  }
+
+  .name {
+    font-size: 12px;
+    color: #666;
+  }
+`;
+
+const PriceCell = styled.div`
+  .main-price {
+    font-weight: 600;
+    color: #333;
+  }
+
+  .sub-price {
+    font-size: 12px;
+    color: #999;
+    margin-top: 2px;
   }
 `;
 
@@ -134,12 +156,12 @@ const Badge = styled.span`
   border-radius: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  
+
   &.buy {
     background: #ffeaea;
     color: #e74c3c;
   }
-  
+
   &.sell {
     background: #e3f2fd;
     color: #3498db;
@@ -150,18 +172,18 @@ const EmptyState = styled.div`
   text-align: center;
   padding: 60px 20px;
   color: #666;
-  
+
   .icon {
     font-size: 48px;
     margin-bottom: 16px;
     opacity: 0.5;
   }
-  
+
   h3 {
     margin: 0 0 8px 0;
     color: #333;
   }
-  
+
   p {
     margin: 0;
     font-size: 14px;
@@ -171,7 +193,7 @@ const EmptyState = styled.div`
 const LoadingState = styled.div`
   text-align: center;
   padding: 40px;
-  
+
   .spinner {
     width: 40px;
     height: 40px;
@@ -181,7 +203,7 @@ const LoadingState = styled.div`
     animation: spin 1s linear infinite;
     margin: 0 auto 16px;
   }
-  
+
   @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
@@ -195,40 +217,6 @@ const ErrorMessage = styled.div`
   border-radius: 8px;
   border-left: 4px solid #e74c3c;
   margin: 20px 0;
-`;
-
-const Pagination = styled.div`
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 16px;
-  margin-top: 20px;
-  padding: 20px;
-`;
-
-const PageButton = styled.button`
-  padding: 8px 16px;
-  border: 1px solid #ddd;
-  background: white;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  
-  &:hover:not(:disabled) {
-    background: #f8f9fa;
-    border-color: #667eea;
-  }
-  
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-  
-  &.active {
-    background: #667eea;
-    color: white;
-    border-color: #667eea;
-  }
 `;
 
 const Transactions = () => {
@@ -246,10 +234,10 @@ const Transactions = () => {
     try {
       setLoading(true);
       setError('');
-      
+
       const response = await portfolioService.getTransactions(limit);
       setTransactions(response.data);
-      
+
     } catch (error) {
       console.error('Transactions loading error:', error);
       setError(formatErrorMessage(error));
@@ -272,7 +260,7 @@ const Transactions = () => {
   const getTransactionStats = () => {
     const buyTransactions = transactions.filter(t => t.type === 'buy');
     const sellTransactions = transactions.filter(t => t.type === 'sell');
-    
+
     return {
       totalTransactions: transactions.length,
       buyCount: buyTransactions.length,
@@ -280,6 +268,31 @@ const Transactions = () => {
       totalBuyAmount: calculateTotalAmount(buyTransactions),
       totalSellAmount: calculateTotalAmount(sellTransactions),
     };
+  };
+
+  const getDisplayName = (t) => {
+    return t.name && t.name !== t.symbol ? t.name : '';
+  };
+
+  const renderPrice = (t) => {
+    // price는 항상 원화로 저장됨
+    const market = t.market || getMarketFromSymbol(t.symbol);
+    const isKRW = market === 'KRW';
+
+    return (
+      <PriceCell>
+        <div className="main-price">₩{formatNumber(Math.round(t.price))}</div>
+        {!isKRW && t.original_price && (
+          <div className="sub-price">
+            {getCurrencySymbol(market)}{formatNumber(Math.round(t.original_price * 100) / 100)}
+          </div>
+        )}
+      </PriceCell>
+    );
+  };
+
+  const renderAmount = (amount) => {
+    return `₩${formatNumber(Math.round(amount))}`;
   };
 
   if (loading) {
@@ -317,10 +330,10 @@ const Transactions = () => {
           <h2>거래 통계</h2>
         </CardHeader>
         <CardContent>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-            gap: '20px' 
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '20px'
           }}>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: '24px', fontWeight: '700', color: '#333' }}>
@@ -348,7 +361,7 @@ const Transactions = () => {
             </div>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: '18px', fontWeight: '700', color: '#333' }}>
-                {formatCurrency(stats.totalBuyAmount)}
+                ₩{formatNumber(Math.round(stats.totalBuyAmount))}
               </div>
               <div style={{ fontSize: '14px', color: '#666', marginTop: '4px' }}>
                 총 매수 금액
@@ -384,7 +397,7 @@ const Transactions = () => {
                     <th>종목</th>
                     <th>거래유형</th>
                     <th>수량</th>
-                    <th>가격</th>
+                    <th>단가</th>
                     <th>거래금액</th>
                     <th>수수료</th>
                     <th>총 금액</th>
@@ -394,36 +407,25 @@ const Transactions = () => {
                   {filteredTransactions.map((transaction) => (
                     <tr key={transaction._id}>
                       <td>{formatDate(transaction.timestamp)}</td>
-                      <td className="symbol">{transaction.symbol}</td>
+                      <td>
+                        <StockCell>
+                          <div className="symbol">{transaction.symbol}</div>
+                          {getDisplayName(transaction) && (
+                            <div className="name">{getDisplayName(transaction)}</div>
+                          )}
+                        </StockCell>
+                      </td>
                       <td>
                         <Badge className={transaction.type}>
                           {transaction.type === 'buy' ? '매수' : '매도'}
                         </Badge>
                       </td>
                       <td>{formatNumber(transaction.quantity)}</td>
-                      <td>
-                        {getMarketFromSymbol(transaction.symbol) === 'KRW' 
-                          ? formatNumber(transaction.price) + '원'
-                          : '$' + formatNumber(transaction.price)
-                        }
-                      </td>
-                      <td>
-                        {formatCurrency(
-                          transaction.quantity * transaction.price,
-                          getMarketFromSymbol(transaction.symbol)
-                        )}
-                      </td>
-                      <td>
-                        {formatCurrency(
-                          transaction.commission,
-                          getMarketFromSymbol(transaction.symbol)
-                        )}
-                      </td>
+                      <td>{renderPrice(transaction)}</td>
+                      <td>{renderAmount(transaction.quantity * transaction.price)}</td>
+                      <td>{renderAmount(transaction.commission)}</td>
                       <td className={transaction.type}>
-                        {formatCurrency(
-                          transaction.total_amount,
-                          getMarketFromSymbol(transaction.symbol)
-                        )}
+                        {renderAmount(transaction.total_amount)}
                       </td>
                     </tr>
                   ))}

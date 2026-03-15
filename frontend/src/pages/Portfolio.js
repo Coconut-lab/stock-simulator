@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { portfolioService } from '../services/portfolioService';
 import { stockService } from '../services/stockService';
-import { 
-  formatPercent, 
-  formatNumber, 
-  getProfitColor, 
+import {
+  formatPercent,
+  formatNumber,
+  getProfitColor,
   formatErrorMessage,
   validateQuantity,
   getMarketFromSymbol,
   formatStockPrice,
   formatStockChange,
-  getCurrencyFromStock
+  getCurrencyFromStock,
+  getCurrencySymbol
 } from '../utils/helpers';
 import styled from 'styled-components';
 
@@ -26,7 +27,7 @@ const Header = styled.div`
   border-radius: 12px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
   margin-bottom: 30px;
-  
+
   h1 {
     margin: 0;
     color: #333;
@@ -63,7 +64,7 @@ const StatValue = styled.div`
   font-size: 20px;
   font-weight: 700;
   color: ${props => props.color || '#333'};
-  
+
   .original-amount {
     font-size: 14px;
     font-weight: 500;
@@ -86,7 +87,7 @@ const CardHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  
+
   h2 {
     margin: 0;
     color: #333;
@@ -106,7 +107,7 @@ const HoldingsTable = styled.div`
 const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
-  
+
   th {
     text-align: left;
     padding: 12px;
@@ -116,13 +117,13 @@ const Table = styled.table`
     font-size: 14px;
     border-bottom: 1px solid #dee2e6;
   }
-  
+
   td {
     padding: 12px;
     border-bottom: 1px solid #f1f3f4;
     vertical-align: middle;
   }
-  
+
   tr:hover {
     background: #f8f9fa;
   }
@@ -134,7 +135,7 @@ const StockCell = styled.div`
     color: #333;
     margin-bottom: 4px;
   }
-  
+
   .name {
     font-size: 12px;
     color: #666;
@@ -146,7 +147,7 @@ const PriceCell = styled.div`
     font-weight: 600;
     color: #333;
   }
-  
+
   .original-price {
     font-size: 12px;
     color: #999;
@@ -159,7 +160,7 @@ const ValueCell = styled.div`
     font-weight: 600;
     color: #333;
   }
-  
+
   .sub-value {
     font-size: 12px;
     color: #999;
@@ -176,11 +177,11 @@ const ActionButton = styled.button`
   font-size: 12px;
   cursor: pointer;
   margin-right: 4px;
-  
+
   &:hover {
     opacity: 0.8;
   }
-  
+
   &:disabled {
     opacity: 0.5;
     cursor: not-allowed;
@@ -191,18 +192,18 @@ const EmptyState = styled.div`
   text-align: center;
   padding: 60px 20px;
   color: #666;
-  
+
   .icon {
     font-size: 48px;
     margin-bottom: 16px;
     opacity: 0.5;
   }
-  
+
   h3 {
     margin: 0 0 8px 0;
     color: #333;
   }
-  
+
   p {
     margin: 0;
     font-size: 14px;
@@ -221,7 +222,7 @@ const ErrorMessage = styled.div`
 const LoadingState = styled.div`
   text-align: center;
   padding: 60px;
-  
+
   .spinner {
     width: 50px;
     height: 50px;
@@ -231,7 +232,7 @@ const LoadingState = styled.div`
     animation: spin 1s linear infinite;
     margin: 0 auto 20px;
   }
-  
+
   @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
@@ -246,11 +247,45 @@ const RefreshButton = styled.button`
   border-radius: 6px;
   font-size: 14px;
   cursor: pointer;
-  
+
   &:hover {
     background: #5a6fd8;
   }
 `;
+
+const MarketLabel = styled.div`
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-right: 8px;
+  background: ${props => {
+    switch(props.market) {
+      case 'KRW': return '#e8f5e9';
+      case 'USD': return '#e3f2fd';
+      case 'HKD': return '#fff3e0';
+      case 'EUR': return '#f3e5f5';
+      default: return '#f5f5f5';
+    }
+  }};
+  color: ${props => {
+    switch(props.market) {
+      case 'KRW': return '#2e7d32';
+      case 'USD': return '#1565c0';
+      case 'HKD': return '#e65100';
+      case 'EUR': return '#6a1b9a';
+      default: return '#616161';
+    }
+  }};
+`;
+
+const MARKET_NAMES = {
+  KRW: '한국 주식',
+  USD: '미국 주식',
+  HKD: '홍콩 주식',
+  EUR: '유럽 주식',
+};
 
 const Portfolio = () => {
   const [portfolio, setPortfolio] = useState(null);
@@ -266,10 +301,10 @@ const Portfolio = () => {
     try {
       setLoading(true);
       setError('');
-      
+
       const response = await portfolioService.getPortfolio();
       setPortfolio(response.data);
-      
+
     } catch (error) {
       console.error('Portfolio loading error:', error);
       setError(formatErrorMessage(error));
@@ -295,7 +330,7 @@ const Portfolio = () => {
     if (!window.confirm(`${symbol} ${quantity}주를 전량 매도하시겠습니까?`)) {
       return;
     }
-    
+
     try {
       await portfolioService.sellStock(symbol, quantity);
       await loadPortfolio();
@@ -306,9 +341,8 @@ const Portfolio = () => {
 
   const calculateTotalValue = () => {
     if (!portfolio?.holdings) return 0;
-    
+
     return portfolio.holdings.reduce((total, holding) => {
-      // 이미 환율이 적용된 가격을 사용
       const currentValue = holding.current_price * holding.quantity;
       return total + currentValue;
     }, 0);
@@ -316,33 +350,47 @@ const Portfolio = () => {
 
   const calculateTotalProfitLoss = () => {
     if (!portfolio?.holdings) return { amount: 0, percentage: 0 };
-    
+
     let totalCurrent = 0;
     let totalPurchase = 0;
-    
+
     portfolio.holdings.forEach(holding => {
-      // 이미 환율이 적용된 가격을 사용
       const currentValue = holding.current_price * holding.quantity;
       const purchaseValue = holding.purchase_price * holding.quantity;
-      
+
       totalCurrent += currentValue;
       totalPurchase += purchaseValue;
     });
-    
+
     const amount = totalCurrent - totalPurchase;
     const percentage = totalPurchase > 0 ? (amount / totalPurchase) * 100 : 0;
-    
+
     return { amount, percentage };
+  };
+
+  const groupHoldingsByMarket = () => {
+    if (!portfolio?.holdings) return {};
+    const groups = {};
+    portfolio.holdings.forEach(holding => {
+      const market = holding.currency || 'KRW';
+      if (!groups[market]) groups[market] = [];
+      groups[market].push(holding);
+    });
+    return groups;
+  };
+
+  const getCurrSym = (currency) => {
+    return getCurrencySymbol(currency);
   };
 
   const renderHoldingValue = (holding) => {
     const currentValue = holding.current_price * holding.quantity;
-    
+
     return (
       <ValueCell>
         <div className="main-value">₩{formatNumber(Math.round(currentValue))}</div>
         {holding.original_price && (
-          <div className="sub-value">${formatNumber(Math.round(holding.original_price * holding.quantity))}</div>
+          <div className="sub-value">{getCurrSym(holding.currency)}{formatNumber(Math.round(holding.original_price * holding.quantity * 100) / 100)}</div>
         )}
       </ValueCell>
     );
@@ -351,15 +399,25 @@ const Portfolio = () => {
   const renderHoldingProfit = (holding) => {
     const profitLoss = (holding.current_price - holding.purchase_price) * holding.quantity;
     const profitLossPercent = ((holding.current_price - holding.purchase_price) / holding.purchase_price) * 100;
-    
+
     return (
       <ValueCell style={{ color: getProfitColor(profitLoss) }}>
         <div className="main-value">
-          {profitLoss >= 0 ? '+' : ''}₩{formatNumber(Math.round(Math.abs(profitLoss)))}
+          {profitLoss >= 0 ? '+' : '-'}₩{formatNumber(Math.round(Math.abs(profitLoss)))}
+          <span style={{ fontSize: '12px', marginLeft: '4px' }}>
+            ({profitLoss >= 0 ? '+' : ''}{formatPercent(profitLossPercent)})
+          </span>
         </div>
-        <div className="sub-value">
-          {profitLoss >= 0 ? '+' : ''}{formatPercent(profitLossPercent)}
-        </div>
+        {holding.original_profit_loss != null && (
+          <div className="sub-value" style={{ color: getProfitColor(holding.original_profit_loss) }}>
+            {holding.original_profit_loss >= 0 ? '+' : '-'}
+            {getCurrSym(holding.currency)}
+            {formatNumber(Math.round(Math.abs(holding.original_profit_loss) * 100) / 100)}
+            {holding.original_profit_loss_percent != null && (
+              <span> ({holding.original_profit_loss_percent >= 0 ? '+' : ''}{formatPercent(holding.original_profit_loss_percent)})</span>
+            )}
+          </div>
+        )}
       </ValueCell>
     );
   };
@@ -380,6 +438,8 @@ const Portfolio = () => {
 
   const totalValue = calculateTotalValue();
   const totalProfitLoss = calculateTotalProfitLoss();
+  const marketGroups = groupHoldingsByMarket();
+  const marketOrder = ['KRW', 'USD', 'HKD', 'EUR'];
 
   return (
     <Container>
@@ -396,21 +456,21 @@ const Portfolio = () => {
               <StatTitle>보유 현금</StatTitle>
               <StatValue>₩{formatNumber(Math.round(portfolio.cash))}</StatValue>
             </StatCard>
-            
+
             <StatCard>
               <StatTitle>주식 평가액</StatTitle>
               <StatValue>₩{formatNumber(Math.round(totalValue))}</StatValue>
             </StatCard>
-            
+
             <StatCard>
               <StatTitle>총 자산</StatTitle>
               <StatValue>₩{formatNumber(Math.round(Math.round(portfolio.cash) + totalValue))}</StatValue>
             </StatCard>
-            
+
             <StatCard color={getProfitColor(totalProfitLoss.amount)}>
               <StatTitle>총 손익</StatTitle>
               <StatValue color={getProfitColor(totalProfitLoss.amount)}>
-                {totalProfitLoss.amount >= 0 ? '+' : ''}₩{formatNumber(Math.round(Math.abs(totalProfitLoss.amount)))}
+                {totalProfitLoss.amount >= 0 ? '+' : '-'}₩{formatNumber(Math.round(Math.abs(totalProfitLoss.amount)))}
                 <div className="original-amount">
                   {totalProfitLoss.amount >= 0 ? '+' : ''}{formatPercent(totalProfitLoss.percentage)}
                 </div>
@@ -418,82 +478,183 @@ const Portfolio = () => {
             </StatCard>
           </StatsGrid>
 
-          <Card>
-            <CardHeader>
-              <h2>보유 주식</h2>
-              <RefreshButton onClick={refreshPortfolio} disabled={refreshing}>
-                {refreshing ? '새로고침 중...' : '새로고침'}
-              </RefreshButton>
-            </CardHeader>
-            <CardContent>
-              {portfolio.holdings && portfolio.holdings.length > 0 ? (
-                <HoldingsTable>
-                  <Table>
-                    <thead>
-                      <tr>
-                        <th>종목</th>
-                        <th>수량</th>
-                        <th>매수가</th>
-                        <th>현재가</th>
-                        <th>평가액</th>
-                        <th>손익</th>
-                        <th>액션</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {portfolio.holdings.map((holding) => (
-                        <tr key={holding.symbol}>
-                          <td>
-                            <StockCell>
-                              <div className="symbol">{holding.symbol}</div>
-                              <div className="name">{holding.name}</div>
-                            </StockCell>
-                          </td>
-                          <td>{formatNumber(holding.quantity)}</td>
-                          <td>
-                            <PriceCell>
-                              <div className="current-price">
-                                ₩{formatNumber(Math.round(holding.purchase_price))}
-                              </div>
-                              {holding.original_price && holding.exchange_rate && (
-                                <div className="original-price">${formatNumber(Math.round(holding.purchase_price / holding.exchange_rate))}</div>
-                              )}
-                            </PriceCell>
-                          </td>
-                          <td>
-                            <PriceCell>
-                              <div className="current-price">
-                                ₩{formatNumber(Math.round(holding.current_price))}
-                              </div>
-                              {holding.original_price && (
-                                <div className="original-price">${formatNumber(holding.original_price)}</div>
-                              )}
-                            </PriceCell>
-                          </td>
-                          <td>{renderHoldingValue(holding)}</td>
-                          <td>{renderHoldingProfit(holding)}</td>
-                          <td>
-                            <ActionButton
-                              variant="sell"
-                              onClick={() => handleQuickSell(holding.symbol, holding.quantity)}
-                            >
-                              전량매도
-                            </ActionButton>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </Table>
-                </HoldingsTable>
-              ) : (
+          {portfolio.holdings && portfolio.holdings.length > 0 ? (
+            marketOrder
+              .filter(market => marketGroups[market]?.length > 0)
+              .map(market => (
+                <Card key={market}>
+                  <CardHeader>
+                    <h2>
+                      <MarketLabel market={market}>{getCurrSym(market)}</MarketLabel>
+                      {MARKET_NAMES[market] || market}
+                      <span style={{ fontSize: '14px', color: '#999', fontWeight: 400, marginLeft: '8px' }}>
+                        ({marketGroups[market].length}종목)
+                      </span>
+                    </h2>
+                    {market === marketOrder.filter(m => marketGroups[m]?.length > 0)[0] && (
+                      <RefreshButton onClick={refreshPortfolio} disabled={refreshing}>
+                        {refreshing ? '새로고침 중...' : '새로고침'}
+                      </RefreshButton>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    <HoldingsTable>
+                      <Table>
+                        <thead>
+                          <tr>
+                            <th>종목</th>
+                            <th>수량</th>
+                            <th>매수가</th>
+                            <th>현재가</th>
+                            <th>평가액</th>
+                            <th>손익</th>
+                            <th>액션</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {marketGroups[market].map((holding) => (
+                            <tr key={holding.symbol}>
+                              <td>
+                                <StockCell>
+                                  <div className="symbol">{holding.symbol}</div>
+                                  <div className="name">{holding.name}</div>
+                                </StockCell>
+                              </td>
+                              <td>{formatNumber(holding.quantity)}</td>
+                              <td>
+                                <PriceCell>
+                                  <div className="current-price">
+                                    ₩{formatNumber(Math.round(holding.purchase_price))}
+                                  </div>
+                                  {holding.purchase_price_original != null && (
+                                    <div className="original-price">
+                                      {getCurrSym(holding.currency)}{formatNumber(Math.round(holding.purchase_price_original * 100) / 100)}
+                                    </div>
+                                  )}
+                                </PriceCell>
+                              </td>
+                              <td>
+                                <PriceCell>
+                                  <div className="current-price">
+                                    ₩{formatNumber(Math.round(holding.current_price))}
+                                  </div>
+                                  {holding.original_price && (
+                                    <div className="original-price">
+                                      {getCurrSym(holding.currency)}{formatNumber(holding.original_price)}
+                                    </div>
+                                  )}
+                                </PriceCell>
+                              </td>
+                              <td>{renderHoldingValue(holding)}</td>
+                              <td>{renderHoldingProfit(holding)}</td>
+                              <td>
+                                <ActionButton
+                                  variant="sell"
+                                  onClick={() => handleQuickSell(holding.symbol, holding.quantity)}
+                                >
+                                  전량매도
+                                </ActionButton>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </Table>
+                    </HoldingsTable>
+                  </CardContent>
+                </Card>
+              ))
+          ) : (
+            <Card>
+              <CardContent>
                 <EmptyState>
                   <div className="icon">📈</div>
                   <h3>보유 주식이 없습니다</h3>
                   <p>시장에서 주식을 구매해보세요!</p>
                 </EmptyState>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 그룹에 포함되지 않은 기타 시장 */}
+          {Object.keys(marketGroups)
+            .filter(m => !marketOrder.includes(m))
+            .map(market => (
+              <Card key={market}>
+                <CardHeader>
+                  <h2>
+                    <MarketLabel market={market}>{getCurrSym(market)}</MarketLabel>
+                    {MARKET_NAMES[market] || `${market} 주식`}
+                    <span style={{ fontSize: '14px', color: '#999', fontWeight: 400, marginLeft: '8px' }}>
+                      ({marketGroups[market].length}종목)
+                    </span>
+                  </h2>
+                </CardHeader>
+                <CardContent>
+                  <HoldingsTable>
+                    <Table>
+                      <thead>
+                        <tr>
+                          <th>종목</th>
+                          <th>수량</th>
+                          <th>매수가</th>
+                          <th>현재가</th>
+                          <th>평가액</th>
+                          <th>손익</th>
+                          <th>액션</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {marketGroups[market].map((holding) => (
+                          <tr key={holding.symbol}>
+                            <td>
+                              <StockCell>
+                                <div className="symbol">{holding.symbol}</div>
+                                <div className="name">{holding.name}</div>
+                              </StockCell>
+                            </td>
+                            <td>{formatNumber(holding.quantity)}</td>
+                            <td>
+                              <PriceCell>
+                                <div className="current-price">
+                                  {formatNumber(Math.round(holding.purchase_price))}
+                                </div>
+                                {holding.purchase_price_original != null && (
+                                  <div className="original-price">
+                                    {getCurrSym(holding.currency)}{formatNumber(Math.round(holding.purchase_price_original * 100) / 100)}
+                                  </div>
+                                )}
+                              </PriceCell>
+                            </td>
+                            <td>
+                              <PriceCell>
+                                <div className="current-price">
+                                  {formatNumber(Math.round(holding.current_price))}
+                                </div>
+                                {holding.original_price && (
+                                  <div className="original-price">
+                                    {getCurrSym(holding.currency)}{formatNumber(holding.original_price)}
+                                  </div>
+                                )}
+                              </PriceCell>
+                            </td>
+                            <td>{renderHoldingValue(holding)}</td>
+                            <td>{renderHoldingProfit(holding)}</td>
+                            <td>
+                              <ActionButton
+                                variant="sell"
+                                onClick={() => handleQuickSell(holding.symbol, holding.quantity)}
+                              >
+                                전량매도
+                              </ActionButton>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </Table>
+                  </HoldingsTable>
+                </CardContent>
+              </Card>
+            ))}
         </>
       )}
     </Container>

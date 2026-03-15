@@ -21,22 +21,23 @@ class Portfolio:
         })
         return holding
     
-    def add_holding(self, user_id, symbol, quantity, avg_price, market):
+    def add_holding(self, user_id, symbol, quantity, avg_price, market, original_avg_price=None):
         """새 보유 종목 추가"""
         holding_data = {
             'user_id': ObjectId(user_id),
             'symbol': symbol,
             'quantity': quantity,
             'avg_price': avg_price,
-            'market': market,  # 'KRW' 또는 'USD'
+            'original_avg_price': original_avg_price,
+            'market': market,
             'created_at': datetime.utcnow(),
             'updated_at': datetime.utcnow()
         }
-        
+
         result = self.collection.insert_one(holding_data)
         return str(result.inserted_id)
     
-    def update_holding(self, user_id, symbol, new_quantity, new_avg_price):
+    def update_holding(self, user_id, symbol, new_quantity, new_avg_price, original_avg_price=None):
         """보유 종목 업데이트"""
         if new_quantity <= 0:
             # 수량이 0 이하면 삭제
@@ -46,30 +47,33 @@ class Portfolio:
             })
             return result.deleted_count > 0
         else:
-            # 수량과 평균 단가 업데이트
+            update_fields = {
+                'quantity': new_quantity,
+                'avg_price': new_avg_price,
+                'updated_at': datetime.utcnow()
+            }
+            if original_avg_price is not None:
+                update_fields['original_avg_price'] = original_avg_price
             result = self.collection.update_one(
                 {
                     'user_id': ObjectId(user_id),
                     'symbol': symbol
                 },
-                {
-                    '$set': {
-                        'quantity': new_quantity,
-                        'avg_price': new_avg_price,
-                        'updated_at': datetime.utcnow()
-                    }
-                }
+                {'$set': update_fields}
             )
             return result.modified_count > 0
     
-    def record_transaction(self, user_id, symbol, transaction_type, quantity, price, commission, market):
+    def record_transaction(self, user_id, symbol, transaction_type, quantity, price, commission, market, name=None, original_price=None, exchange_rate=None):
         """거래 기록 저장"""
         transaction_data = {
             'user_id': ObjectId(user_id),
             'symbol': symbol,
+            'name': name or symbol,
             'type': transaction_type,  # 'buy' 또는 'sell'
             'quantity': quantity,
             'price': price,
+            'original_price': original_price,
+            'exchange_rate': exchange_rate,
             'commission': commission,
             'total_amount': quantity * price + commission,
             'market': market,

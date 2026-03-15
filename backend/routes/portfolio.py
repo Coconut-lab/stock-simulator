@@ -80,16 +80,30 @@ def get_portfolio():
                 profit_loss = (current_price_krw - holding['avg_price']) * holding['quantity']
                 profit_loss_percent = (profit_loss / (holding['avg_price'] * holding['quantity'])) * 100 if holding['avg_price'] > 0 else 0
                 
+                # 원래 통화 기준 손익 계산 (해외 주식)
+                original_profit_loss = None
+                original_profit_loss_percent = None
+                purchase_price_original = None
+                if stock_data.get('currency') != 'KRW' and stock_data.get('exchange_rate'):
+                    # 저장된 원래 통화 평균가 사용, 없으면 현재 환율로 역산 (근사값)
+                    purchase_price_original = holding.get('original_avg_price') or (holding['avg_price'] / stock_data['exchange_rate'])
+                    original_profit_loss = (current_price - purchase_price_original) * holding['quantity']
+                    if purchase_price_original > 0:
+                        original_profit_loss_percent = ((current_price - purchase_price_original) / purchase_price_original) * 100
+
                 portfolio_item = {
                     'symbol': symbol,
                     'name': stock_data.get('name', symbol),
                     'quantity': holding['quantity'],
                     'purchase_price': holding['avg_price'],  # 이미 환율 적용된 원화 가격
                     'current_price': current_price_krw,  # 환율 적용된 원화 가격
-                    'original_price': current_price if stock_data.get('currency') != 'KRW' else None,  # 원본 USD 가격
+                    'original_price': current_price if stock_data.get('currency') != 'KRW' else None,
+                    'purchase_price_original': purchase_price_original,
                     'holding_value': holding_value,
                     'profit_loss': profit_loss,
                     'profit_loss_percent': profit_loss_percent,
+                    'original_profit_loss': original_profit_loss,
+                    'original_profit_loss_percent': original_profit_loss_percent,
                     'market': holding['market'],
                     'currency': stock_data.get('currency', 'KRW'),
                     'exchange_rate': stock_data.get('exchange_rate') if stock_data.get('currency') != 'KRW' else None
@@ -189,26 +203,39 @@ def buy_stock():
         # 기존 보유 종목 확인
         existing_holding = portfolio_model.get_holding(user_id, symbol)
         
+        # 원래 통화 평균 단가 계산
+        is_foreign = market != 'KRW' and stock_data.get('exchange_rate')
         if existing_holding:
             # 기존 보유 종목이 있으면 평균 단가 재계산
             total_quantity = existing_holding['quantity'] + quantity
             total_value = (existing_holding['quantity'] * existing_holding['avg_price']) + total_amount
             new_avg_price = total_value / total_quantity
-            
-            portfolio_model.update_holding(user_id, symbol, total_quantity, new_avg_price)
+
+            new_original_avg = None
+            if is_foreign:
+                old_orig = existing_holding.get('original_avg_price') or (existing_holding['avg_price'] / stock_data['exchange_rate'])
+                total_orig_value = (existing_holding['quantity'] * old_orig) + (quantity * current_price)
+                new_original_avg = total_orig_value / total_quantity
+
+            portfolio_model.update_holding(user_id, symbol, total_quantity, new_avg_price, new_original_avg)
         else:
             # 새로운 종목 추가 (환율 적용된 원화 가격으로 저장)
-            portfolio_model.add_holding(user_id, symbol, quantity, current_price_krw, market)
+            original_avg = current_price if is_foreign else None
+            portfolio_model.add_holding(user_id, symbol, quantity, current_price_krw, market, original_avg)
         
         # 거래 기록 저장
+        stock_name = stock_data.get('name', symbol)
+        original_price = current_price if market != 'KRW' else None
+        ex_rate = stock_data.get('exchange_rate') if market != 'KRW' else None
         portfolio_model.record_transaction(
-            user_id, symbol, 'buy', quantity, current_price_krw, commission, market
+            user_id, symbol, 'buy', quantity, current_price_krw, commission, market,
+            name=stock_name, original_price=original_price, exchange_rate=ex_rate
         )
-        
+
         # 사용자 잔액 업데이트 (정수로 보장)
         new_balance = int(round(user_data['balance'] - total_cost))
         user_model.update_balance(user_id, new_balance)
-        
+
         return jsonify({
             'message': '매수가 완료되었습니다.',
             'data': {
@@ -292,13 +319,17 @@ def sell_stock():
         
         # 보유 수량 업데이트
         new_quantity = holding['quantity'] - quantity
-        portfolio_model.update_holding(user_id, symbol, new_quantity, holding['avg_price'])
+        portfolio_model.update_holding(user_id, symbol, new_quantity, holding['avg_price'], holding.get('original_avg_price'))
         
         # 거래 기록 저장
+        stock_name = stock_data.get('name', symbol)
+        original_price_val = current_price if market != 'KRW' else None
+        ex_rate = stock_data.get('exchange_rate') if market != 'KRW' else None
         portfolio_model.record_transaction(
-            user_id, symbol, 'sell', quantity, current_price_krw, commission, market
+            user_id, symbol, 'sell', quantity, current_price_krw, commission, market,
+            name=stock_name, original_price=original_price_val, exchange_rate=ex_rate
         )
-        
+
         # 사용자 잔액 업데이트 (정수로 보장)
         new_balance = int(round(user_data['balance'] + net_amount))
         user_model.update_balance(user_id, new_balance)
@@ -339,10 +370,15 @@ def get_transactions():
         portfolio_model = Portfolio()
         transactions = portfolio_model.get_user_transactions(user_id, limit)
         
-        # ObjectId를 문자열로 변환
+        # ObjectId를 문자열로 변환, datetime 직렬화
         for transaction in transactions:
             transaction['_id'] = str(transaction['_id'])
             transaction['user_id'] = str(transaction['user_id'])
+            if transaction.get('timestamp'):
+                transaction['timestamp'] = transaction['timestamp'].isoformat()
+            # 이전 거래 데이터 호환 (name 필드 없는 경우)
+            if 'name' not in transaction:
+                transaction['name'] = transaction.get('symbol', '')
         
         return jsonify({
             'data': transactions

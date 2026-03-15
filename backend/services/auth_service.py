@@ -28,44 +28,39 @@ class AuthService:
         except jwt.InvalidTokenError:
             return None
     
-    def register(self, username, email, password):
+    def register(self, username, name, password):
         """사용자 등록"""
-        # 이메일 중복 확인
-        if self.user_model.find_by_email(email):
-            return None, "이미 존재하는 이메일입니다."
-        
-        # 사용자명 중복 확인
+        # 아이디 중복 확인
         if self.user_model.find_by_username(username):
-            return None, "이미 존재하는 사용자명입니다."
-        
+            return None, "이미 존재하는 아이디입니다."
+
         # 사용자 생성
         try:
-            user_id = self.user_model.create_user(username, email, password)
+            user_id = self.user_model.create_user(username, name, password)
             token = self.generate_token(user_id)
-            
             user_data = self.user_model.get_user_stats(user_id)
-            
+
             return {
                 'token': token,
                 'user': user_data
             }, None
-            
+
         except Exception as e:
             return None, f"사용자 생성 실패: {str(e)}"
-    
-    def login(self, email, password):
+
+    def login(self, username, password):
         """사용자 로그인"""
-        user = self.user_model.find_by_email(email)
-        
+        user = self.user_model.find_by_username(username)
+
         if not user:
-            return None, "존재하지 않는 이메일입니다."
-        
+            return None, "존재하지 않는 아이디입니다."
+
         if not self.user_model.verify_password(password, user['password']):
             return None, "비밀번호가 올바르지 않습니다."
-        
+
         token = self.generate_token(user['_id'])
         user_data = self.user_model.get_user_stats(str(user['_id']))
-        
+
         return {
             'token': token,
             'user': user_data

@@ -429,7 +429,7 @@ const AdminUsers = () => {
           <SearchInput
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="이름 또는 이메일로 검색..."
+            placeholder="아이디 또는 이름으로 검색..."
           />
         </SearchBar>
 
@@ -456,7 +456,7 @@ const AdminUsers = () => {
           <Table>
             <TableHeader>
               <span>유저</span>
-              <span className="hide-mobile">이메일</span>
+              <span className="hide-mobile">이름</span>
               <span>잔액</span>
               <span className="hide-mobile">역할</span>
               <span>관리</span>
@@ -470,7 +470,7 @@ const AdminUsers = () => {
                   </div>
                 </Username>
                 <span className="hide-mobile" style={{ color: '#999', fontSize: 13 }}>
-                  {user.email}
+                  {user.name}
                 </span>
                 <Balance>{formatNumber(user.balance)}원</Balance>
                 <span className="hide-mobile">
@@ -510,7 +510,7 @@ const AdminUsers = () => {
         <Overlay onClick={closeModal}>
           <Modal onClick={e => e.stopPropagation()}>
             <ModalTitle>{selected.username}</ModalTitle>
-            <ModalSub>{selected.email}</ModalSub>
+            <ModalSub>{selected.name}</ModalSub>
 
             <CurrentBalance>
               <span>현재 잔액</span>

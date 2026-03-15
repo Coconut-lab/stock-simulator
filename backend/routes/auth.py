@@ -14,18 +14,17 @@ def register():
             return jsonify({'error': '요청 데이터가 없습니다.'}), 400
         
         username = data.get('username')
-        email = data.get('email')
+        name = data.get('name', '')
         password = data.get('password')
-        
+
         # 필수 필드 검증
-        if not username or not email or not password:
-            return jsonify({'error': '모든 필드를 입력해주세요.'}), 400
-        
-        # 비밀번호 길이 검증
+        if not username or not password:
+            return jsonify({'error': '아이디와 비밀번호를 입력해주세요.'}), 400
+
         if len(password) < 6:
             return jsonify({'error': '비밀번호는 최소 6자 이상이어야 합니다.'}), 400
-        
-        result, error = auth_service.register(username, email, password)
+
+        result, error = auth_service.register(username, name, password)
         
         if error:
             return jsonify({'error': error}), 400
@@ -48,14 +47,14 @@ def login():
         if not data:
             return jsonify({'error': '요청 데이터가 없습니다.'}), 400
         
-        email = data.get('email')
+        username = data.get('username')
         password = data.get('password')
-        
+
         # 필수 필드 검증
-        if not email or not password:
-            return jsonify({'error': '이메일과 비밀번호를 입력해주세요.'}), 400
-        
-        result, error = auth_service.login(email, password)
+        if not username or not password:
+            return jsonify({'error': '아이디와 비밀번호를 입력해주세요.'}), 400
+
+        result, error = auth_service.login(username, password)
         
         if error:
             return jsonify({'error': error}), 401

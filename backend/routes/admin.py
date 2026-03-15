@@ -39,7 +39,7 @@ def get_users():
         if search:
             query['$or'] = [
                 {'username': {'$regex': search, '$options': 'i'}},
-                {'email': {'$regex': search, '$options': 'i'}},
+                {'name': {'$regex': search, '$options': 'i'}},
             ]
 
         total = user_model.collection.count_documents(query)
@@ -55,7 +55,7 @@ def get_users():
             result.append({
                 'user_id': str(u['_id']),
                 'username': u['username'],
-                'email': u['email'],
+                'name': u.get('name', u['username']),
                 'balance': u['balance'],
                 'role': u.get('role', 'user'),
                 'created_at': u['created_at'].isoformat() if u.get('created_at') else None,

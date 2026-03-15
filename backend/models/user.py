@@ -8,29 +8,24 @@ class User:
     def __init__(self):
         self.collection = get_collection('users')
     
-    def create_user(self, username, email, password):
+    def create_user(self, username, name, password):
         """새 사용자 생성"""
-        # 비밀번호 해싱
-        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-        
+        hashed_password = bcrypt.hashpw(password, bcrypt.gensalt())
+
         user_data = {
             'username': username,
-            'email': email,
+            'name': name,
             'password': hashed_password,
-            'balance': Config.INITIAL_BALANCE,  # 초기 자금 100만원
+            'balance': Config.INITIAL_BALANCE,
             'created_at': datetime.utcnow(),
             'updated_at': datetime.utcnow()
         }
-        
+
         result = self.collection.insert_one(user_data)
         return str(result.inserted_id)
-    
-    def find_by_email(self, email):
-        """이메일로 사용자 찾기"""
-        return self.collection.find_one({'email': email})
-    
+
     def find_by_username(self, username):
-        """사용자명으로 사용자 찾기"""
+        """아이디로 사용자 찾기"""
         return self.collection.find_one({'username': username})
     
     def find_by_id(self, user_id):
@@ -39,7 +34,7 @@ class User:
     
     def verify_password(self, password, hashed_password):
         """비밀번호 검증"""
-        return bcrypt.checkpw(password.encode('utf-8'), hashed_password)
+        return bcrypt.checkpw(password, hashed_password)
     
     def update_balance(self, user_id, new_balance):
         """사용자 잔액 업데이트"""
@@ -63,7 +58,7 @@ class User:
         return {
             'user_id': str(user['_id']),
             'username': user['username'],
-            'email': user['email'],
+            'name': user.get('name', user['username']),
             'balance': user['balance'],
             'role': user.get('role', 'user'),
             'created_at': user['created_at'],
