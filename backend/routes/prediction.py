@@ -58,8 +58,7 @@ def create_prediction():
             title=data.get('title'),
             description=data.get('description', ''),
             deadline_str=data.get('deadline'),
-            admin_user_id=user_data['user_id'],
-            odds=data.get('odds')
+            admin_user_id=user_data['user_id']
         )
         if err:
             return jsonify({'error': err}), 400

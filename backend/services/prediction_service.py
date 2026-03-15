@@ -10,9 +10,20 @@ class PredictionService:
         self.prediction_model = Prediction()
         self.user_model = User()
 
+    # ── 배당률 계산 ──
+
+    def _calc_odds(self, total_yes, total_no):
+        """파리뮤추얼 배당률 계산"""
+        total = total_yes + total_no
+        if total == 0:
+            return {'yes_odds': 2.0, 'no_odds': 2.0}
+        yes_odds = round(total / total_yes, 2) if total_yes > 0 else 0
+        no_odds = round(total / total_no, 2) if total_no > 0 else 0
+        return {'yes_odds': yes_odds, 'no_odds': no_odds}
+
     # ── 예측 관리 (관리자) ──
 
-    def create_prediction(self, title, description, deadline_str, admin_user_id, odds=None):
+    def create_prediction(self, title, description, deadline_str, admin_user_id, **kwargs):
         if not title or not title.strip():
             return None, '제목을 입력해주세요.'
 
@@ -21,13 +32,11 @@ class PredictionService:
         except (ValueError, TypeError):
             return None, '마감 시간 형식이 올바르지 않습니다.'
 
-        final_odds = float(odds) if odds else Config.PREDICTION_ODDS
         pred_id = self.prediction_model.create_prediction(
             title=title.strip(),
             description=(description or '').strip(),
             deadline=deadline,
-            created_by=admin_user_id,
-            odds=final_odds
+            created_by=admin_user_id
         )
         return pred_id, None
 
@@ -50,22 +59,30 @@ class PredictionService:
         if pred['status'] == 'settled':
             return None, '이미 정산된 예측입니다.'
 
-        odds = pred.get('odds', Config.PREDICTION_ODDS)
+        total_yes = pred.get('total_yes_amount', 0)
+        total_no = pred.get('total_no_amount', 0)
+        total_pool = total_yes + total_no
 
-        # 승자 처리
-        winning_bets = self.prediction_model.get_bets_by_choice(prediction_id, result)
+        winning_pool = total_yes if result == 'yes' else total_no
         losing_choice = 'no' if result == 'yes' else 'yes'
+
+        # 승자 처리: 파리뮤추얼 배당
+        winning_bets = self.prediction_model.get_bets_by_choice(prediction_id, result)
         losing_bets = self.prediction_model.get_bets_by_choice(prediction_id, losing_choice)
 
         total_payout = 0
         winners = 0
         for bet in winning_bets:
-            payout = int(bet['amount'] * odds)
-            # 잔고에 당첨금 지급
-            user = self.user_model.find_by_id(str(bet['user_id']))
-            if user:
-                new_balance = user['balance'] + payout
-                self.user_model.update_balance(str(bet['user_id']), new_balance)
+            if winning_pool > 0 and total_pool > 0:
+                payout = int(bet['amount'] * total_pool / winning_pool)
+            else:
+                payout = bet['amount']  # 반대편 베팅이 없으면 원금 반환
+
+            # atomic $inc로 잔액 증가 (동시성 안전)
+            self.user_model.collection.update_one(
+                {'_id': bet['user_id']},
+                {'$inc': {'balance': payout}}
+            )
             self.prediction_model.update_bet_result(str(bet['_id']), 'won', payout)
             total_payout += payout
             winners += 1
@@ -79,6 +96,7 @@ class PredictionService:
             'result': result,
             'winners': winners,
             'losers': len(losing_bets),
+            'total_pool': total_pool,
             'total_payout': total_payout,
         }
         return summary, None
@@ -141,14 +159,25 @@ class PredictionService:
         if result.modified_count == 0:
             return None, '잔액이 부족합니다.'
 
-        odds = pred.get('odds', Config.PREDICTION_ODDS)
-        self.prediction_model.place_bet(prediction_id, user_id, choice, amount, odds)
+        # 베팅 후 예상 배당률 계산
+        total_yes = pred.get('total_yes_amount', 0)
+        total_no = pred.get('total_no_amount', 0)
+        if choice == 'yes':
+            new_yes = total_yes + amount
+            new_total = new_yes + total_no
+            estimated_payout = int(amount * new_total / new_yes) if new_yes > 0 else amount
+        else:
+            new_no = total_no + amount
+            new_total = total_yes + new_no
+            estimated_payout = int(amount * new_total / new_no) if new_no > 0 else amount
+
+        self.prediction_model.place_bet(prediction_id, user_id, choice, amount, estimated_payout)
 
         updated_user = self.user_model.find_by_id(user_id)
         bet_data = {
             'choice': choice,
             'amount': amount,
-            'potential_payout': int(amount * odds),
+            'potential_payout': estimated_payout,
             'remaining_balance': updated_user['balance'],
         }
         return bet_data, None
@@ -158,6 +187,17 @@ class PredictionService:
         results = []
         for bet in bets:
             pred = self.prediction_model.get_prediction(str(bet['prediction_id']))
+
+            # 현재 예상 배당금 재계산 (정산 전)
+            if pred and bet['status'] == 'pending':
+                total_yes = pred.get('total_yes_amount', 0)
+                total_no = pred.get('total_no_amount', 0)
+                total = total_yes + total_no
+                my_pool = total_yes if bet['choice'] == 'yes' else total_no
+                current_payout = int(bet['amount'] * total / my_pool) if my_pool > 0 else bet['amount']
+            else:
+                current_payout = bet.get('potential_payout', 0)
+
             results.append({
                 'bet_id': str(bet['_id']),
                 'prediction_id': str(bet['prediction_id']),
@@ -166,10 +206,12 @@ class PredictionService:
                 'prediction_result': pred.get('result') if pred else None,
                 'choice': bet['choice'],
                 'amount': bet['amount'],
-                'potential_payout': bet['potential_payout'],
+                'potential_payout': current_payout,
                 'status': bet['status'],
                 'payout': bet['payout'],
+                'profit': (bet['payout'] - bet['amount']) if bet['status'] == 'won' else (-bet['amount'] if bet['status'] == 'lost' else 0),
                 'created_at': bet['created_at'].isoformat() if bet.get('created_at') else None,
+                'settled_at': bet['settled_at'].isoformat() if bet.get('settled_at') else None,
             })
         return results
 
@@ -183,6 +225,10 @@ class PredictionService:
         )
 
     def _serialize_prediction(self, pred):
+        total_yes = pred.get('total_yes_amount', 0)
+        total_no = pred.get('total_no_amount', 0)
+        odds = self._calc_odds(total_yes, total_no)
+
         return {
             'id': str(pred['_id']),
             'title': pred['title'],
@@ -190,9 +236,10 @@ class PredictionService:
             'deadline': pred['deadline'].isoformat() if pred.get('deadline') else None,
             'status': pred['status'],
             'result': pred.get('result'),
-            'odds': pred.get('odds', Config.PREDICTION_ODDS),
-            'total_yes_amount': pred.get('total_yes_amount', 0),
-            'total_no_amount': pred.get('total_no_amount', 0),
+            'yes_odds': odds['yes_odds'],
+            'no_odds': odds['no_odds'],
+            'total_yes_amount': total_yes,
+            'total_no_amount': total_no,
             'total_yes_bettors': pred.get('total_yes_bettors', 0),
             'total_no_bettors': pred.get('total_no_bettors', 0),
             'created_at': pred['created_at'].isoformat() if pred.get('created_at') else None,

@@ -228,7 +228,22 @@ const PredictionDetail = () => {
   const total = p.total_yes_amount + p.total_no_amount;
   const yp = total === 0 ? 50 : Math.round((p.total_yes_amount / total) * 100);
   const isOpen = p.status === 'open';
-  const potentialPayout = amount ? parseInt(amount) * p.odds : 0;
+  const calcPayout = () => {
+    if (!amount || !choice) return 0;
+    const bet = parseInt(amount);
+    const totalYes = p.total_yes_amount;
+    const totalNo = p.total_no_amount;
+    if (choice === 'yes') {
+      const newYes = totalYes + bet;
+      const newTotal = newYes + totalNo;
+      return newYes > 0 ? Math.round(bet * newTotal / newYes) : bet;
+    } else {
+      const newNo = totalNo + bet;
+      const newTotal = totalYes + newNo;
+      return newNo > 0 ? Math.round(bet * newTotal / newNo) : bet;
+    }
+  };
+  const potentialPayout = calcPayout();
 
   return (
     <Container>
@@ -245,7 +260,8 @@ const PredictionDetail = () => {
           <InfoChip $bg={isOpen ? '#eafaf1' : '#fef9e7'} $color={isOpen ? '#27ae60' : '#f39c12'}>
             {isOpen ? '진행중' : p.status === 'closed' ? '베팅 마감' : '정산완료'}
           </InfoChip>
-          <InfoChip>배당 x{p.odds}</InfoChip>
+          <InfoChip>YES x{p.yes_odds}</InfoChip>
+          <InfoChip $bg="#fdedec" $color="#e74c3c">NO x{p.no_odds}</InfoChip>
           <InfoChip $bg="#f5f5f5" $color="#666">
             마감: {p.deadline ? new Date(p.deadline).toLocaleString('ko-KR') : '-'}
           </InfoChip>

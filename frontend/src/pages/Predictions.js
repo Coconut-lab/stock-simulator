@@ -238,7 +238,7 @@ const Predictions = () => {
                     {p.status === 'open' ? '진행중' : p.status === 'closed' ? '마감' : '정산완료'}
                   </StatusBadge>
                   {p.result && <ResultBadge $r={p.result}>{p.result === 'yes' ? 'YES' : 'NO'}</ResultBadge>}
-                  <OddsBadge>x{p.odds}</OddsBadge>
+                  <OddsBadge>YES x{p.yes_odds} / NO x{p.no_odds}</OddsBadge>
                 </div>
                 <CardTitle>{p.title}</CardTitle>
                 {p.description && <CardDesc>{p.description}</CardDesc>}

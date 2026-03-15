@@ -10,14 +10,13 @@ class Prediction:
 
     # ── 예측 CRUD ──
 
-    def create_prediction(self, title, description, deadline, created_by, odds=1.8):
+    def create_prediction(self, title, description, deadline, created_by):
         doc = {
             'title': title,
             'description': description,
             'deadline': deadline,
             'status': 'open',
             'result': None,
-            'odds': odds,
             'total_yes_amount': 0,
             'total_no_amount': 0,
             'total_yes_bettors': 0,
@@ -59,13 +58,13 @@ class Prediction:
 
     # ── 베팅 ──
 
-    def place_bet(self, prediction_id, user_id, choice, amount, odds):
+    def place_bet(self, prediction_id, user_id, choice, amount, estimated_payout):
         bet = {
             'prediction_id': ObjectId(prediction_id),
             'user_id': ObjectId(user_id),
             'choice': choice,
             'amount': amount,
-            'potential_payout': int(amount * odds),
+            'potential_payout': estimated_payout,
             'status': 'pending',
             'payout': 0,
             'created_at': datetime.utcnow(),
