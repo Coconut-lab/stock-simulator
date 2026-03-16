@@ -2,12 +2,15 @@ from flask import Blueprint, request, jsonify
 from services.auth_service import auth_service
 from models.user import User
 from models.announcement import Announcement
+from models.portfolio import Portfolio
 from bson.objectid import ObjectId
+from datetime import datetime
 import logging
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/api/admin')
 user_model = User()
 announcement_model = Announcement()
+portfolio_model = Portfolio()
 
 
 def verify_admin():
@@ -109,6 +112,26 @@ def update_user_balance(user_id):
             return jsonify({'error': "action은 'set', 'add', 'subtract' 중 하나여야 합니다."}), 400
 
         user_model.update_balance(user_id, new_balance)
+
+        # 잔액 변경 거래 기록 저장
+        diff = new_balance - user['balance']
+        if diff != 0:
+            tx_type = 'admin_deposit' if diff > 0 else 'admin_withdraw'
+            portfolio_model.transactions_collection.insert_one({
+                'user_id': ObjectId(user_id),
+                'symbol': '-',
+                'name': '관리자 조정',
+                'type': tx_type,
+                'quantity': 0,
+                'price': abs(diff),
+                'original_price': None,
+                'exchange_rate': None,
+                'commission': 0,
+                'total_amount': abs(diff),
+                'market': 'KRW',
+                'memo': f"관리자가 잔액 {action} ({user['balance']:,}→{new_balance:,})",
+                'timestamp': datetime.utcnow()
+            })
 
         return jsonify({
             'message': '잔액이 수정되었습니다.',

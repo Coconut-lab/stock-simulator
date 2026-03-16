@@ -166,6 +166,16 @@ const Badge = styled.span`
     background: #e3f2fd;
     color: #3498db;
   }
+
+  &.admin_deposit {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+
+  &.admin_withdraw {
+    background: #fff3e0;
+    color: #e65100;
+  }
 `;
 
 const EmptyState = styled.div`
@@ -248,6 +258,7 @@ const Transactions = () => {
 
   const filteredTransactions = transactions.filter(transaction => {
     if (filter === 'all') return true;
+    if (filter === 'admin') return transaction.type === 'admin_deposit' || transaction.type === 'admin_withdraw';
     return transaction.type === filter;
   });
 
@@ -379,6 +390,7 @@ const Transactions = () => {
               <option value="all">전체</option>
               <option value="buy">매수만</option>
               <option value="sell">매도만</option>
+              <option value="admin">관리자 조정</option>
             </Select>
             <Select value={limit} onChange={(e) => setLimit(parseInt(e.target.value))}>
               <option value={20}>최근 20건</option>
@@ -404,31 +416,54 @@ const Transactions = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredTransactions.map((transaction) => (
-                    <tr key={transaction._id}>
-                      <td>{formatDate(transaction.timestamp)}</td>
-                      <td>
-                        <StockCell>
-                          <div className="symbol">{transaction.symbol}</div>
-                          {getDisplayName(transaction) && (
-                            <div className="name">{getDisplayName(transaction)}</div>
+                  {filteredTransactions.map((transaction) => {
+                    const isAdmin = transaction.type === 'admin_deposit' || transaction.type === 'admin_withdraw';
+                    const typeLabel = {
+                      buy: '매수', sell: '매도',
+                      admin_deposit: '입금', admin_withdraw: '출금'
+                    }[transaction.type] || transaction.type;
+
+                    return (
+                      <tr key={transaction._id}>
+                        <td>{formatDate(transaction.timestamp)}</td>
+                        <td>
+                          {isAdmin ? (
+                            <StockCell>
+                              <div className="symbol" style={{ color: '#888' }}>관리자 조정</div>
+                              {transaction.memo && <div className="name">{transaction.memo}</div>}
+                            </StockCell>
+                          ) : (
+                            <StockCell>
+                              <div className="symbol">{transaction.symbol}</div>
+                              {getDisplayName(transaction) && (
+                                <div className="name">{getDisplayName(transaction)}</div>
+                              )}
+                            </StockCell>
                           )}
-                        </StockCell>
-                      </td>
-                      <td>
-                        <Badge className={transaction.type}>
-                          {transaction.type === 'buy' ? '매수' : '매도'}
-                        </Badge>
-                      </td>
-                      <td>{formatNumber(transaction.quantity)}</td>
-                      <td>{renderPrice(transaction)}</td>
-                      <td>{renderAmount(transaction.quantity * transaction.price)}</td>
-                      <td>{renderAmount(transaction.commission)}</td>
-                      <td className={transaction.type}>
-                        {renderAmount(transaction.total_amount)}
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td>
+                          <Badge className={transaction.type}>{typeLabel}</Badge>
+                        </td>
+                        <td>{isAdmin ? '-' : formatNumber(transaction.quantity)}</td>
+                        <td>{isAdmin ? '-' : renderPrice(transaction)}</td>
+                        <td>
+                          {isAdmin ? (
+                            <span style={{ fontWeight: 600, color: transaction.type === 'admin_deposit' ? '#2e7d32' : '#e65100' }}>
+                              {transaction.type === 'admin_deposit' ? '+' : '-'}₩{formatNumber(Math.round(transaction.total_amount))}
+                            </span>
+                          ) : renderAmount(transaction.quantity * transaction.price)}
+                        </td>
+                        <td>{isAdmin ? '-' : renderAmount(transaction.commission)}</td>
+                        <td className={isAdmin ? '' : transaction.type}>
+                          {isAdmin ? (
+                            <span style={{ fontWeight: 700, color: transaction.type === 'admin_deposit' ? '#2e7d32' : '#e65100' }}>
+                              {transaction.type === 'admin_deposit' ? '+' : '-'}₩{formatNumber(Math.round(transaction.total_amount))}
+                            </span>
+                          ) : renderAmount(transaction.total_amount)}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </Table>
             </TransactionsTable>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { portfolioService } from '../services/portfolioService';
 import { stockService } from '../services/stockService';
+import { useAuth } from '../context/AuthContext';
 import {
   formatPercent,
   formatNumber,
@@ -253,6 +254,32 @@ const RefreshButton = styled.button`
   }
 `;
 
+const SummaryFooter = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 24px;
+  padding: 16px 20px;
+  background: #f8f9fa;
+  border-top: 1px solid #eee;
+  font-size: 13px;
+  color: #666;
+
+  .label {
+    font-weight: 500;
+  }
+
+  .value {
+    font-weight: 700;
+    margin-left: 6px;
+  }
+
+  .profit {
+    font-weight: 700;
+    margin-left: 6px;
+  }
+`;
+
 const MarketLabel = styled.div`
   display: inline-block;
   padding: 4px 10px;
@@ -288,6 +315,7 @@ const MARKET_NAMES = {
 };
 
 const Portfolio = () => {
+  const { user, updateUser } = useAuth();
   const [portfolio, setPortfolio] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -304,6 +332,10 @@ const Portfolio = () => {
 
       const response = await portfolioService.getPortfolio();
       setPortfolio(response.data);
+      // 상단 잔고 동기화
+      if (response.data?.cash !== undefined && user) {
+        updateUser({ ...user, balance: response.data.cash });
+      }
 
     } catch (error) {
       console.error('Portfolio loading error:', error);
@@ -318,6 +350,9 @@ const Portfolio = () => {
       setRefreshing(true);
       const response = await portfolioService.getPortfolio();
       setPortfolio(response.data);
+      if (response.data?.cash !== undefined && user) {
+        updateUser({ ...user, balance: response.data.cash });
+      }
     } catch (error) {
       console.error('Portfolio refresh error:', error);
       setError(formatErrorMessage(error));
@@ -332,7 +367,11 @@ const Portfolio = () => {
     }
 
     try {
-      await portfolioService.sellStock(symbol, quantity);
+      const response = await portfolioService.sellStock(symbol, quantity);
+      // 상단 잔고 즉시 갱신
+      if (response.data?.remaining_balance !== undefined && user) {
+        updateUser({ ...user, balance: response.data.remaining_balance });
+      }
       await loadPortfolio();
     } catch (error) {
       setError(formatErrorMessage(error));
@@ -467,114 +506,115 @@ const Portfolio = () => {
               <StatValue>₩{formatNumber(Math.round(Math.round(portfolio.cash) + totalValue))}</StatValue>
             </StatCard>
 
-            <StatCard color={getProfitColor(totalProfitLoss.amount)}>
-              <StatTitle>평가 손익</StatTitle>
-              <StatValue color={getProfitColor(totalProfitLoss.amount)}>
-                {totalProfitLoss.amount >= 0 ? '+' : '-'}₩{formatNumber(Math.round(Math.abs(totalProfitLoss.amount)))}
-                <div className="original-amount">
-                  {totalProfitLoss.amount >= 0 ? '+' : ''}{formatPercent(totalProfitLoss.percentage)}
-                </div>
-              </StatValue>
-            </StatCard>
+            {portfolio.holdings && portfolio.holdings.length > 0 && (
+              <StatCard color={getProfitColor(totalProfitLoss.amount)}>
+                <StatTitle>평가 손익</StatTitle>
+                <StatValue color={getProfitColor(totalProfitLoss.amount)}>
+                  {totalProfitLoss.amount >= 0 ? '+' : '-'}₩{formatNumber(Math.round(Math.abs(totalProfitLoss.amount)))}
+                  <div className="original-amount">
+                    {totalProfitLoss.amount >= 0 ? '+' : ''}{formatPercent(totalProfitLoss.percentage)}
+                  </div>
+                </StatValue>
+              </StatCard>
+            )}
 
-            <StatCard color={getProfitColor(portfolio.realized_pnl || 0)}>
-              <StatTitle>실현 손익</StatTitle>
-              <StatValue color={getProfitColor(portfolio.realized_pnl || 0)}>
-                {(portfolio.realized_pnl || 0) >= 0 ? '+' : '-'}₩{formatNumber(Math.round(Math.abs(portfolio.realized_pnl || 0)))}
-              </StatValue>
-            </StatCard>
-
-            <StatCard color="#e67e22">
-              <StatTitle>총 수수료</StatTitle>
-              <StatValue>₩{formatNumber(Math.round(portfolio.total_commission || 0))}</StatValue>
-            </StatCard>
           </StatsGrid>
 
           {portfolio.holdings && portfolio.holdings.length > 0 ? (
-            marketOrder
-              .filter(market => marketGroups[market]?.length > 0)
-              .map(market => (
-                <Card key={market}>
-                  <CardHeader>
-                    <h2>
-                      <MarketLabel market={market}>{getCurrSym(market)}</MarketLabel>
-                      {MARKET_NAMES[market] || market}
-                      <span style={{ fontSize: '14px', color: '#999', fontWeight: 400, marginLeft: '8px' }}>
-                        ({marketGroups[market].length}종목)
-                      </span>
-                    </h2>
-                    {market === marketOrder.filter(m => marketGroups[m]?.length > 0)[0] && (
-                      <RefreshButton onClick={refreshPortfolio} disabled={refreshing}>
-                        {refreshing ? '새로고침 중...' : '새로고침'}
-                      </RefreshButton>
-                    )}
-                  </CardHeader>
-                  <CardContent>
-                    <HoldingsTable>
-                      <Table>
-                        <thead>
-                          <tr>
-                            <th>종목</th>
-                            <th>수량</th>
-                            <th>매수가</th>
-                            <th>현재가</th>
-                            <th>평가액</th>
-                            <th>손익</th>
-                            <th>액션</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {marketGroups[market].map((holding) => (
-                            <tr key={holding.symbol}>
-                              <td>
-                                <StockCell>
-                                  <div className="symbol">{holding.symbol}</div>
-                                  <div className="name">{holding.name}</div>
-                                </StockCell>
-                              </td>
-                              <td>{formatNumber(holding.quantity)}</td>
-                              <td>
-                                <PriceCell>
-                                  <div className="current-price">
-                                    ₩{formatNumber(Math.round(holding.purchase_price))}
-                                  </div>
-                                  {holding.purchase_price_original != null && (
-                                    <div className="original-price">
-                                      {getCurrSym(holding.currency)}{formatNumber(Math.round(holding.purchase_price_original * 100) / 100)}
-                                    </div>
-                                  )}
-                                </PriceCell>
-                              </td>
-                              <td>
-                                <PriceCell>
-                                  <div className="current-price">
-                                    ₩{formatNumber(Math.round(holding.current_price))}
-                                  </div>
-                                  {holding.original_price && (
-                                    <div className="original-price">
-                                      {getCurrSym(holding.currency)}{formatNumber(holding.original_price)}
-                                    </div>
-                                  )}
-                                </PriceCell>
-                              </td>
-                              <td>{renderHoldingValue(holding)}</td>
-                              <td>{renderHoldingProfit(holding)}</td>
-                              <td>
-                                <ActionButton
-                                  variant="sell"
-                                  onClick={() => handleQuickSell(holding.symbol, holding.quantity)}
-                                >
-                                  전량매도
-                                </ActionButton>
-                              </td>
+            <>
+              {marketOrder
+                .filter(market => marketGroups[market]?.length > 0)
+                .map((market, idx) => (
+                  <Card key={market}>
+                    <CardHeader>
+                      <h2>
+                        <MarketLabel market={market}>{getCurrSym(market)}</MarketLabel>
+                        {MARKET_NAMES[market] || market}
+                        <span style={{ fontSize: '14px', color: '#999', fontWeight: 400, marginLeft: '8px' }}>
+                          ({marketGroups[market].length}종목)
+                        </span>
+                      </h2>
+                      {idx === 0 && (
+                        <RefreshButton onClick={refreshPortfolio} disabled={refreshing}>
+                          {refreshing ? '새로고침 중...' : '새로고침'}
+                        </RefreshButton>
+                      )}
+                    </CardHeader>
+                    <CardContent>
+                      <HoldingsTable>
+                        <Table>
+                          <thead>
+                            <tr>
+                              <th>종목</th>
+                              <th>수량</th>
+                              <th>매수가</th>
+                              <th>현재가</th>
+                              <th>평가액</th>
+                              <th>손익</th>
+                              <th>액션</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </Table>
-                    </HoldingsTable>
-                  </CardContent>
-                </Card>
-              ))
+                          </thead>
+                          <tbody>
+                            {marketGroups[market].map((holding) => (
+                              <tr key={holding.symbol}>
+                                <td>
+                                  <StockCell>
+                                    <div className="symbol">{holding.symbol}</div>
+                                    <div className="name">{holding.name}</div>
+                                  </StockCell>
+                                </td>
+                                <td>{formatNumber(holding.quantity)}</td>
+                                <td>
+                                  <PriceCell>
+                                    <div className="current-price">
+                                      ₩{formatNumber(Math.round(holding.purchase_price))}
+                                    </div>
+                                    {holding.purchase_price_original != null && (
+                                      <div className="original-price">
+                                        {getCurrSym(holding.currency)}{formatNumber(Math.round(holding.purchase_price_original * 100) / 100)}
+                                      </div>
+                                    )}
+                                  </PriceCell>
+                                </td>
+                                <td>
+                                  <PriceCell>
+                                    <div className="current-price">
+                                      ₩{formatNumber(Math.round(holding.current_price))}
+                                    </div>
+                                    {holding.original_price && (
+                                      <div className="original-price">
+                                        {getCurrSym(holding.currency)}{formatNumber(holding.original_price)}
+                                      </div>
+                                    )}
+                                  </PriceCell>
+                                </td>
+                                <td>{renderHoldingValue(holding)}</td>
+                                <td>{renderHoldingProfit(holding)}</td>
+                                <td>
+                                  <ActionButton
+                                    variant="sell"
+                                    onClick={() => handleQuickSell(holding.symbol, holding.quantity)}
+                                  >
+                                    전량매도
+                                  </ActionButton>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </Table>
+                      </HoldingsTable>
+                    </CardContent>
+                  </Card>
+                ))}
+              {(portfolio.total_commission || 0) > 0 && (
+                <SummaryFooter>
+                  <span>
+                    <span className="label">총 수수료</span>
+                    <span className="value">₩{formatNumber(Math.round(portfolio.total_commission || 0))}</span>
+                  </span>
+                </SummaryFooter>
+              )}
+            </>
           ) : (
             <Card>
               <CardContent>
