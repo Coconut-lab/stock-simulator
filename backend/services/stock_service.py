@@ -301,6 +301,7 @@ class StockService:
     def _load_eu_listings(self):
         """유럽 주요 지수 구성 종목을 Wikipedia에서 자동 로드"""
         import pandas as pd
+        from io import StringIO
 
         wiki_indices = {
             # (URL, suffix for tickers without exchange suffix)
@@ -330,7 +331,7 @@ class StockService:
         for index_name, (url, suffix) in wiki_indices.items():
             try:
                 html = requests.get(url, headers=headers, timeout=10).text
-                tables = pd.read_html(html)
+                tables = pd.read_html(StringIO(html))
 
                 for table in tables:
                     cols_lower = {str(c).lower(): c for c in table.columns}
