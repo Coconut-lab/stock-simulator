@@ -86,6 +86,48 @@ const TickerArrow = styled.span`
   font-size: 10px;
 `;
 
+const FlagIcon = ({ code }) => {
+  const s = { width: 20, height: 14, borderRadius: 2, display: 'inline-block', verticalAlign: 'middle', flexShrink: 0 };
+  if (code === 'US') return (
+    <svg viewBox="0 0 60 30" style={s}>
+      <rect width="60" height="30" fill="#B22234"/>
+      {[0,1,2,3,4,5].map(i => <rect key={i} y={4.6 + i * 4.6} width="60" height="2.3" fill="#fff"/>)}
+      <rect width="24" height="16" fill="#3C3B6E"/>
+    </svg>
+  );
+  if (code === 'EU') return (
+    <svg viewBox="0 0 60 40" style={s}>
+      <rect width="60" height="40" fill="#003399"/>
+      {[...Array(12)].map((_, i) => {
+        const a = (i * 30 - 90) * Math.PI / 180;
+        return <circle key={i} cx={30 + 12 * Math.cos(a)} cy={20 + 12 * Math.sin(a)} r="2" fill="#FFCC00"/>;
+      })}
+    </svg>
+  );
+  if (code === 'UK') return (
+    <svg viewBox="0 0 60 30" style={s}>
+      <rect width="60" height="30" fill="#012169"/>
+      <line x1="0" y1="0" x2="60" y2="30" stroke="#fff" strokeWidth="6"/>
+      <line x1="60" y1="0" x2="0" y2="30" stroke="#fff" strokeWidth="6"/>
+      <line x1="0" y1="0" x2="60" y2="30" stroke="#C8102E" strokeWidth="2"/>
+      <line x1="60" y1="0" x2="0" y2="30" stroke="#C8102E" strokeWidth="2"/>
+      <rect x="25" y="0" width="10" height="30" fill="#fff"/>
+      <rect x="0" y="10" width="60" height="10" fill="#fff"/>
+      <rect x="27" y="0" width="6" height="30" fill="#C8102E"/>
+      <rect x="0" y="12" width="60" height="6" fill="#C8102E"/>
+    </svg>
+  );
+  if (code === 'HK') return (
+    <svg viewBox="0 0 60 40" style={s}>
+      <rect width="60" height="40" fill="#DE2910"/>
+      {[...Array(5)].map((_, i) => (
+        <ellipse key={i} cx="30" cy="20" rx="3.5" ry="9" fill="#fff" transform={`rotate(${i * 72}, 30, 20)`}/>
+      ))}
+    </svg>
+  );
+  return null;
+};
+
 const TickerDivider = styled.span`
   color: rgba(255,255,255,0.15);
   font-size: 10px;
@@ -269,10 +311,10 @@ const TickerBanner = ({ indices, exchangeRates }) => {
   // 환율
   if (exchangeRates) {
     const currencies = [
-      { key: 'USD', name: 'USD/KRW', flag: '\u{1F1FA}\u{1F1F8}' },
-      { key: 'EUR', name: 'EUR/KRW', flag: '\u{1F1EA}\u{1F1FA}' },
-      { key: 'GBP', name: 'GBP/KRW', flag: '\u{1F1EC}\u{1F1E7}' },
-      { key: 'HKD', name: 'HKD/KRW', flag: '\u{1F1ED}\u{1F1F0}' },
+      { key: 'USD', name: 'USD/KRW', tag: 'US' },
+      { key: 'EUR', name: 'EUR/KRW', tag: 'EU' },
+      { key: 'GBP', name: 'GBP/KRW', tag: 'UK' },
+      { key: 'HKD', name: 'HKD/KRW', tag: 'HK' },
     ];
     for (const c of currencies) {
       const data = exchangeRates[c.key];
@@ -282,7 +324,8 @@ const TickerBanner = ({ indices, exchangeRates }) => {
         const changePercent = typeof data === 'object' ? (data.change_percent || 0) : 0;
         items.push({
           type: 'fx',
-          name: `${c.flag} ${c.name}`,
+          name: c.name,
+          tag: c.tag,
           value: formatNumber(Math.round(rate * 100) / 100),
           change,
           changePercent,
@@ -302,6 +345,7 @@ const TickerBanner = ({ indices, exchangeRates }) => {
       <TickerTrack $duration={duration}>
         {doubled.map((item, i) => (
           <TickerItem key={i}>
+            {item.tag && <FlagIcon code={item.tag} />}
             <TickerName>{item.name}</TickerName>
             <TickerValue>{item.value}</TickerValue>
             {item.change !== undefined && (

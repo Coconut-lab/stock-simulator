@@ -1346,170 +1346,59 @@ class StockService:
         
         return 0
     
+    @staticmethod
+    def _parse_index_data(data):
+        """지수 데이터에서 최신값과 전일값 추출 (NaN/중복 제거)"""
+        if data is None or data.empty:
+            return None, None
+        clean = data.dropna(subset=['Close'])
+        if clean.empty:
+            return None, None
+        # 중복 종가 제거 (주말에 같은 값이 반복되는 경우)
+        closes = clean['Close'].tolist()
+        unique_closes = []
+        for i in range(len(closes) - 1, -1, -1):
+            if not unique_closes or closes[i] != unique_closes[-1]:
+                unique_closes.append(closes[i])
+            if len(unique_closes) >= 2:
+                break
+        latest_val = unique_closes[0] if unique_closes else None
+        prev_val = unique_closes[1] if len(unique_closes) >= 2 else latest_val
+        return latest_val, prev_val
+
     def get_market_indices(self):
         """주요 시장 지수 정보 조회"""
         indices = []
-        
-        try:
-            # 코스피 지수
-            kospi_data = fdr.DataReader('KS11', datetime.now() - timedelta(days=7), datetime.now())
-            if not kospi_data.empty:
-                latest = kospi_data.iloc[-1]
-                prev = kospi_data.iloc[-2] if len(kospi_data) >= 2 else latest
-                indices.append({
-                    'name': '코스피',
-                    'symbol': 'KOSPI',
-                    'value': safe_float(latest['Close']),
-                    'change': safe_float(latest['Close'] - prev['Close']),
-                    'change_percent': safe_float((latest['Close'] - prev['Close']) / prev['Close'] * 100)
-                })
-        except Exception as e:
-            logging.debug(f"코스피 지수 조회 실패: {e}")
-            indices.append({
-                'name': '코스피',
-                'symbol': 'KOSPI',
-                'value': 2500.0,
-                'change': 10.0,
-                'change_percent': 0.4
-            })
-        
-        try:
-            # 코스닥 지수
-            kosdaq_data = fdr.DataReader('KQ11', datetime.now() - timedelta(days=7), datetime.now())
-            if not kosdaq_data.empty:
-                latest = kosdaq_data.iloc[-1]
-                prev = kosdaq_data.iloc[-2] if len(kosdaq_data) >= 2 else latest
-                indices.append({
-                    'name': '코스닥',
-                    'symbol': 'KOSDAQ',
-                    'value': safe_float(latest['Close']),
-                    'change': safe_float(latest['Close'] - prev['Close']),
-                    'change_percent': safe_float((latest['Close'] - prev['Close']) / prev['Close'] * 100)
-                })
-        except Exception as e:
-            logging.debug(f"코스닥 지수 조회 실패: {e}")
-            indices.append({
-                'name': '코스닥',
-                'symbol': 'KOSDAQ',
-                'value': 800.0,
-                'change': -5.0,
-                'change_percent': -0.6
-            })
-        
-        try:
-            # S&P 500 지수
-            sp500_data = fdr.DataReader('US500', datetime.now() - timedelta(days=7), datetime.now())
-            if not sp500_data.empty:
-                latest = sp500_data.iloc[-1]
-                prev = sp500_data.iloc[-2] if len(sp500_data) >= 2 else latest
-                indices.append({
-                    'name': 'S&P 500',
-                    'symbol': 'SP500',
-                    'value': safe_float(latest['Close']),
-                    'change': safe_float(latest['Close'] - prev['Close']),
-                    'change_percent': safe_float((latest['Close'] - prev['Close']) / prev['Close'] * 100)
-                })
-        except Exception as e:
-            logging.debug(f"S&P 500 지수 조회 실패: {e}")
-            indices.append({
-                'name': 'S&P 500',
-                'symbol': 'SP500',
-                'value': 4500.0,
-                'change': 20.0,
-                'change_percent': 0.45
-            })
-        
-        try:
-            # 나스닥 지수
-            nasdaq_data = fdr.DataReader('NASDAQCOM', datetime.now() - timedelta(days=7), datetime.now())
-            if not nasdaq_data.empty:
-                latest = nasdaq_data.iloc[-1]
-                prev = nasdaq_data.iloc[-2] if len(nasdaq_data) >= 2 else latest
-                indices.append({
-                    'name': '나스닥',
-                    'symbol': 'NASDAQ',
-                    'value': safe_float(latest['Close']),
-                    'change': safe_float(latest['Close'] - prev['Close']),
-                    'change_percent': safe_float((latest['Close'] - prev['Close']) / prev['Close'] * 100)
-                })
-        except Exception as e:
-            logging.debug(f"나스닥 지수 조회 실패: {e}")
-            indices.append({
-                'name': '나스닥',
-                'symbol': 'NASDAQ',
-                'value': 14000.0,
-                'change': 50.0,
-                'change_percent': 0.36
-            })
 
-        # 항셍 지수 (홍콩)
-        try:
-            hsi_data = fdr.DataReader('HSI', datetime.now() - timedelta(days=7), datetime.now())
-            if not hsi_data.empty:
-                latest = hsi_data.iloc[-1]
-                prev = hsi_data.iloc[-2] if len(hsi_data) >= 2 else latest
-                indices.append({
-                    'name': '항셍',
-                    'symbol': 'HSI',
-                    'value': safe_float(latest['Close']),
-                    'change': safe_float(latest['Close'] - prev['Close']),
-                    'change_percent': safe_float((latest['Close'] - prev['Close']) / prev['Close'] * 100)
-                })
-        except Exception as e:
-            logging.debug(f"항셍 지수 조회 실패: {e}")
-            indices.append({
-                'name': '항셍',
-                'symbol': 'HSI',
-                'value': 18000.0,
-                'change': 0.0,
-                'change_percent': 0.0
-            })
+        index_list = [
+            ('KS11',  '코스피',   'KOSPI'),
+            ('KQ11',  '코스닥',   'KOSDAQ'),
+            ('^GSPC', 'S&P 500', 'SP500'),
+            ('^IXIC', '나스닥',   'NASDAQ'),
+            ('^HSI',  '항셍',    'HSI'),
+            ('^GDAXI','DAX',     'DAX'),
+            ('^FTSE', 'FTSE',    'FTSE'),
+        ]
 
-        # DAX 지수 (독일/유럽)
-        try:
-            dax_data = fdr.DataReader('DE40', datetime.now() - timedelta(days=7), datetime.now())
-            if not dax_data.empty:
-                latest = dax_data.iloc[-1]
-                prev = dax_data.iloc[-2] if len(dax_data) >= 2 else latest
-                indices.append({
-                    'name': 'DAX',
-                    'symbol': 'DAX',
-                    'value': safe_float(latest['Close']),
-                    'change': safe_float(latest['Close'] - prev['Close']),
-                    'change_percent': safe_float((latest['Close'] - prev['Close']) / prev['Close'] * 100)
-                })
-        except Exception as e:
-            logging.debug(f"DAX 지수 조회 실패: {e}")
-            indices.append({
-                'name': 'DAX',
-                'symbol': 'DAX',
-                'value': 18000.0,
-                'change': 0.0,
-                'change_percent': 0.0
-            })
-
-        # FTSE 100 지수 (영국)
-        try:
-            ftse_data = fdr.DataReader('UK100', datetime.now() - timedelta(days=5), datetime.now())
-            if not ftse_data.empty:
-                latest = ftse_data.iloc[-1]
-                prev = ftse_data.iloc[-2] if len(ftse_data) >= 2 else latest
-                indices.append({
-                    'name': 'FTSE 100',
-                    'symbol': 'FTSE',
-                    'value': safe_float(latest['Close']),
-                    'change': safe_float(latest['Close'] - prev['Close']),
-                    'change_percent': safe_float((latest['Close'] - prev['Close']) / prev['Close'] * 100)
-                })
-        except Exception as e:
-            logging.debug(f"FTSE 지수 조회 실패: {e}")
-            indices.append({
-                'name': 'FTSE 100',
-                'symbol': 'FTSE',
-                'value': 8000.0,
-                'change': 0.0,
-                'change_percent': 0.0
-            })
+        for ticker, name, symbol in index_list:
+            try:
+                data = fdr.DataReader(ticker, datetime.now() - timedelta(days=14), datetime.now())
+                latest_val, prev_val = self._parse_index_data(data)
+                if latest_val is not None and prev_val is not None and prev_val != 0:
+                    change = latest_val - prev_val
+                    change_pct = change / prev_val * 100
+                    indices.append({
+                        'name': name,
+                        'symbol': symbol,
+                        'value': safe_float(latest_val),
+                        'change': safe_float(change),
+                        'change_percent': safe_float(change_pct),
+                    })
+                else:
+                    indices.append({'name': name, 'symbol': symbol, 'value': safe_float(latest_val or 0), 'change': 0.0, 'change_percent': 0.0})
+            except Exception as e:
+                logging.debug(f"{name} 지수 조회 실패: {e}")
+                indices.append({'name': name, 'symbol': symbol, 'value': 0.0, 'change': 0.0, 'change_percent': 0.0})
 
         return indices
     
