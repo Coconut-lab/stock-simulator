@@ -39,6 +39,7 @@ class StockService:
             'EUR': 1450,
             'GBP': 1700,
         }
+        self.prev_exchange_rates = dict(self.exchange_rates)
         self.last_exchange_update = None
         
         # 확장된 한국 주식 티커 목록
@@ -405,6 +406,7 @@ class StockService:
     def update_exchange_rate(self):
         """실시간 환율 업데이트 (USD, HKD, EUR, GBP → KRW)"""
         try:
+            self.prev_exchange_rates = dict(self.exchange_rates)
             # USD/KRW
             try:
                 usd_krw = fdr.DataReader('USD/KRW', datetime.now() - timedelta(days=1))
@@ -1568,7 +1570,14 @@ class StockService:
             'eu_market': eu_stocks_data,
             'market_indices': self.get_market_indices(),
             'exchange_rate': self.get_exchange_rate(),
-            'exchange_rates': {k: v for k, v in self.exchange_rates.items()},
+            'exchange_rates': {
+                k: {
+                    'rate': v,
+                    'change': v - self.prev_exchange_rates.get(k, v),
+                    'change_percent': ((v - self.prev_exchange_rates.get(k, v)) / self.prev_exchange_rates.get(k, v) * 100) if self.prev_exchange_rates.get(k, v) else 0
+                }
+                for k, v in self.exchange_rates.items()
+            },
             'market_status': self.get_all_market_status(),
             'updated_at': datetime.utcnow()
         }

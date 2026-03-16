@@ -269,17 +269,23 @@ const TickerBanner = ({ indices, exchangeRates }) => {
   // 환율
   if (exchangeRates) {
     const currencies = [
-      { key: 'USD', name: 'USD/KRW', flag: '🇺🇸' },
-      { key: 'EUR', name: 'EUR/KRW', flag: '🇪🇺' },
-      { key: 'GBP', name: 'GBP/KRW', flag: '🇬🇧' },
-      { key: 'HKD', name: 'HKD/KRW', flag: '🇭🇰' },
+      { key: 'USD', name: 'USD/KRW', flag: '\u{1F1FA}\u{1F1F8}' },
+      { key: 'EUR', name: 'EUR/KRW', flag: '\u{1F1EA}\u{1F1FA}' },
+      { key: 'GBP', name: 'GBP/KRW', flag: '\u{1F1EC}\u{1F1E7}' },
+      { key: 'HKD', name: 'HKD/KRW', flag: '\u{1F1ED}\u{1F1F0}' },
     ];
     for (const c of currencies) {
-      if (exchangeRates[c.key]) {
+      const data = exchangeRates[c.key];
+      if (data) {
+        const rate = typeof data === 'object' ? data.rate : data;
+        const change = typeof data === 'object' ? (data.change || 0) : 0;
+        const changePercent = typeof data === 'object' ? (data.change_percent || 0) : 0;
         items.push({
           type: 'fx',
           name: `${c.flag} ${c.name}`,
-          value: formatNumber(Math.round(exchangeRates[c.key])),
+          value: formatNumber(Math.round(rate * 100) / 100),
+          change,
+          changePercent,
         });
       }
     }
@@ -298,7 +304,7 @@ const TickerBanner = ({ indices, exchangeRates }) => {
           <TickerItem key={i}>
             <TickerName>{item.name}</TickerName>
             <TickerValue>{item.value}</TickerValue>
-            {item.type === 'index' && (
+            {item.change !== undefined && (
               <TickerChange
                 $up={item.change > 0}
                 $down={item.change < 0}
@@ -337,10 +343,19 @@ const Markets = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const PER_PAGE = 30;
 
+  const [marketStatus, setMarketStatus] = useState(null);
+
   useEffect(() => {
     loadMarketData();
-    const timer = setInterval(loadMarketData, 5 * 60 * 1000); // 5분마다 갱신
-    return () => clearInterval(timer);
+    const dataTimer = setInterval(loadMarketData, 5 * 60 * 1000); // 5분마다 시세 갱신
+    // 시장 상태는 1분마다 체크 (개장/폐장 전환 반영)
+    const statusTimer = setInterval(async () => {
+      try {
+        const res = await stockService.getMarketHours();
+        setMarketStatus(res.data);
+      } catch {}
+    }, 60 * 1000);
+    return () => { clearInterval(dataTimer); clearInterval(statusTimer); };
   }, []);
 
   useEffect(() => {
@@ -566,11 +581,11 @@ const Markets = () => {
             ))}
           </MarketTabs>
 
-          {marketData?.market_status && (
+          {(marketStatus || marketData?.market_status) && (
             <div style={{
               display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px'
             }}>
-              {Object.entries(marketData.market_status).map(([key, status]) => (
+              {Object.entries(marketStatus || marketData.market_status).map(([key, status]) => (
                 <div key={key} style={{
                   flex: '1 1 200px', padding: '10px 14px', borderRadius: '8px',
                   background: status.is_open ? '#eafaf1' : '#f9f9f9',

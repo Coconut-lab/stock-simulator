@@ -382,6 +382,9 @@ const StockDetail = () => {
     loadStockData();
     loadMarketStatus();
     loadHolding();
+    // 시장 상태 1분마다 자동 체크
+    const statusTimer = setInterval(loadMarketStatus, 60 * 1000);
+    return () => clearInterval(statusTimer);
   }, [symbol]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
