@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { portfolioService } from '../services/portfolioService';
 import { stockService } from '../services/stockService';
 import { useAuth } from '../context/AuthContext';
@@ -131,10 +132,17 @@ const Table = styled.table`
 `;
 
 const StockCell = styled.div`
+  cursor: pointer;
+
+  &:hover .symbol {
+    color: #667eea;
+  }
+
   .symbol {
     font-weight: 700;
     color: #333;
     margin-bottom: 4px;
+    transition: color 0.15s;
   }
 
   .name {
@@ -254,30 +262,10 @@ const RefreshButton = styled.button`
   }
 `;
 
-const SummaryFooter = styled.div`
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 24px;
-  padding: 16px 20px;
-  background: #f8f9fa;
-  border-top: 1px solid #eee;
+const CommissionCell = styled.div`
   font-size: 13px;
-  color: #666;
-
-  .label {
-    font-weight: 500;
-  }
-
-  .value {
-    font-weight: 700;
-    margin-left: 6px;
-  }
-
-  .profit {
-    font-weight: 700;
-    margin-left: 6px;
-  }
+  color: #e67e22;
+  font-weight: 600;
 `;
 
 const MarketLabel = styled.div`
@@ -316,6 +304,7 @@ const MARKET_NAMES = {
 
 const Portfolio = () => {
   const { user, updateUser } = useAuth();
+  const navigate = useNavigate();
   const [portfolio, setPortfolio] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -551,6 +540,7 @@ const Portfolio = () => {
                               <th>현재가</th>
                               <th>평가액</th>
                               <th>손익</th>
+                              <th>매도 수수료</th>
                               <th>액션</th>
                             </tr>
                           </thead>
@@ -558,7 +548,7 @@ const Portfolio = () => {
                             {marketGroups[market].map((holding) => (
                               <tr key={holding.symbol}>
                                 <td>
-                                  <StockCell>
+                                  <StockCell onClick={() => navigate(`/stock/${holding.symbol}`)}>
                                     <div className="symbol">{holding.symbol}</div>
                                     <div className="name">{holding.name}</div>
                                   </StockCell>
@@ -591,6 +581,9 @@ const Portfolio = () => {
                                 <td>{renderHoldingValue(holding)}</td>
                                 <td>{renderHoldingProfit(holding)}</td>
                                 <td>
+                                  <CommissionCell>₩{formatNumber(holding.estimated_sell_commission || 0)}</CommissionCell>
+                                </td>
+                                <td>
                                   <ActionButton
                                     variant="sell"
                                     onClick={() => handleQuickSell(holding.symbol, holding.quantity)}
@@ -606,14 +599,6 @@ const Portfolio = () => {
                     </CardContent>
                   </Card>
                 ))}
-              {(portfolio.total_commission || 0) > 0 && (
-                <SummaryFooter>
-                  <span>
-                    <span className="label">총 수수료</span>
-                    <span className="value">₩{formatNumber(Math.round(portfolio.total_commission || 0))}</span>
-                  </span>
-                </SummaryFooter>
-              )}
             </>
           ) : (
             <Card>
@@ -652,6 +637,7 @@ const Portfolio = () => {
                           <th>현재가</th>
                           <th>평가액</th>
                           <th>손익</th>
+                          <th>매도 수수료</th>
                           <th>액션</th>
                         </tr>
                       </thead>
@@ -659,7 +645,7 @@ const Portfolio = () => {
                         {marketGroups[market].map((holding) => (
                           <tr key={holding.symbol}>
                             <td>
-                              <StockCell>
+                              <StockCell onClick={() => navigate(`/stock/${holding.symbol}`)}>
                                 <div className="symbol">{holding.symbol}</div>
                                 <div className="name">{holding.name}</div>
                               </StockCell>
@@ -668,7 +654,7 @@ const Portfolio = () => {
                             <td>
                               <PriceCell>
                                 <div className="current-price">
-                                  {formatNumber(Math.round(holding.purchase_price))}
+                                  ₩{formatNumber(Math.round(holding.purchase_price))}
                                 </div>
                                 {holding.purchase_price_original != null && (
                                   <div className="original-price">
@@ -680,7 +666,7 @@ const Portfolio = () => {
                             <td>
                               <PriceCell>
                                 <div className="current-price">
-                                  {formatNumber(Math.round(holding.current_price))}
+                                  ₩{formatNumber(Math.round(holding.current_price))}
                                 </div>
                                 {holding.original_price && (
                                   <div className="original-price">
@@ -691,6 +677,9 @@ const Portfolio = () => {
                             </td>
                             <td>{renderHoldingValue(holding)}</td>
                             <td>{renderHoldingProfit(holding)}</td>
+                            <td>
+                              <CommissionCell>₩{formatNumber(holding.estimated_sell_commission || 0)}</CommissionCell>
+                            </td>
                             <td>
                               <ActionButton
                                 variant="sell"

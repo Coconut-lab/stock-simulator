@@ -91,6 +91,10 @@ def get_portfolio():
                     if purchase_price_original > 0:
                         original_profit_loss_percent = ((current_price - purchase_price_original) / purchase_price_original) * 100
 
+                # 전량 매도 예상 수수료 계산
+                sell_amount = holding['quantity'] * current_price_krw
+                estimated_sell_commission = int(round(calculate_commission(sell_amount, holding['market'])))
+
                 portfolio_item = {
                     'symbol': symbol,
                     'name': stock_data.get('name', symbol),
@@ -106,7 +110,8 @@ def get_portfolio():
                     'original_profit_loss_percent': original_profit_loss_percent,
                     'market': holding['market'],
                     'currency': stock_data.get('currency', 'KRW'),
-                    'exchange_rate': stock_data.get('exchange_rate') if stock_data.get('currency') != 'KRW' else None
+                    'exchange_rate': stock_data.get('exchange_rate') if stock_data.get('currency') != 'KRW' else None,
+                    'estimated_sell_commission': estimated_sell_commission
                 }
                 
                 portfolio_with_prices.append(portfolio_item)
