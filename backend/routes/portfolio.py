@@ -114,12 +114,17 @@ def get_portfolio():
         # 포트폴리오 총 가치 계산
         total_value = portfolio_model.calculate_portfolio_value(user_id, current_prices)
         total_profit_loss = portfolio_model.calculate_profit_loss(user_id, current_prices)
-        
+
+        # 실현 손익 및 수수료
+        pnl_data = portfolio_model.get_realized_pnl_and_commissions(user_id)
+
         return jsonify({
             'data': {
                 'holdings': portfolio_with_prices,
                 'total_value': total_value,
                 'total_profit_loss': total_profit_loss,
+                'realized_pnl': pnl_data['realized_pnl'],
+                'total_commission': pnl_data['total_commission'],
                 'cash': user_data['balance']
             }
         }), 200
@@ -321,19 +326,20 @@ def sell_stock():
         new_quantity = holding['quantity'] - quantity
         portfolio_model.update_holding(user_id, symbol, new_quantity, holding['avg_price'], holding.get('original_avg_price'))
         
-        # 거래 기록 저장
+        # 거래 기록 저장 (매수 단가 포함)
         stock_name = stock_data.get('name', symbol)
         original_price_val = current_price if market != 'KRW' else None
         ex_rate = stock_data.get('exchange_rate') if market != 'KRW' else None
         portfolio_model.record_transaction(
             user_id, symbol, 'sell', quantity, current_price_krw, commission, market,
-            name=stock_name, original_price=original_price_val, exchange_rate=ex_rate
+            name=stock_name, original_price=original_price_val, exchange_rate=ex_rate,
+            cost_price=holding['avg_price']
         )
 
         # 사용자 잔액 업데이트 (정수로 보장)
         new_balance = int(round(user_data['balance'] + net_amount))
         user_model.update_balance(user_id, new_balance)
-        
+
         # 손익 계산
         profit_loss = (current_price_krw - holding['avg_price']) * quantity
         

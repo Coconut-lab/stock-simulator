@@ -63,7 +63,7 @@ class Portfolio:
             )
             return result.modified_count > 0
     
-    def record_transaction(self, user_id, symbol, transaction_type, quantity, price, commission, market, name=None, original_price=None, exchange_rate=None):
+    def record_transaction(self, user_id, symbol, transaction_type, quantity, price, commission, market, name=None, original_price=None, exchange_rate=None, cost_price=None):
         """거래 기록 저장"""
         transaction_data = {
             'user_id': ObjectId(user_id),
@@ -79,6 +79,8 @@ class Portfolio:
             'market': market,
             'timestamp': datetime.utcnow()
         }
+        if cost_price is not None:
+            transaction_data['cost_price'] = cost_price
         
         result = self.transactions_collection.insert_one(transaction_data)
         return str(result.inserted_id)
@@ -112,15 +114,36 @@ class Portfolio:
         """손익 계산"""
         portfolio = self.get_user_portfolio(user_id)
         total_profit_loss = 0
-        
+
         for holding in portfolio:
             symbol = holding['symbol']
             quantity = holding['quantity']
             avg_price = holding['avg_price']
-            
+
             if symbol in current_prices:
                 current_price = current_prices[symbol]
                 profit_loss = (current_price - avg_price) * quantity
                 total_profit_loss += profit_loss
-        
+
         return total_profit_loss
+
+    def get_realized_pnl_and_commissions(self, user_id):
+        """실현 손익 및 총 수수료 계산"""
+        all_transactions = list(
+            self.transactions_collection.find({'user_id': ObjectId(user_id)})
+        )
+
+        total_commission = 0
+        realized_pnl = 0
+
+        for t in all_transactions:
+            total_commission += t.get('commission', 0)
+
+            if t['type'] == 'sell' and t.get('cost_price') is not None:
+                # 실현 손익 = (매도가 - 매수 평균가) * 수량 - 매도 수수료
+                realized_pnl += (t['price'] - t['cost_price']) * t['quantity'] - t['commission']
+
+        return {
+            'realized_pnl': realized_pnl,
+            'total_commission': total_commission,
+        }

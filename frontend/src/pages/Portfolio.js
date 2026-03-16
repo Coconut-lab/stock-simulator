@@ -468,13 +468,25 @@ const Portfolio = () => {
             </StatCard>
 
             <StatCard color={getProfitColor(totalProfitLoss.amount)}>
-              <StatTitle>총 손익</StatTitle>
+              <StatTitle>평가 손익</StatTitle>
               <StatValue color={getProfitColor(totalProfitLoss.amount)}>
                 {totalProfitLoss.amount >= 0 ? '+' : '-'}₩{formatNumber(Math.round(Math.abs(totalProfitLoss.amount)))}
                 <div className="original-amount">
                   {totalProfitLoss.amount >= 0 ? '+' : ''}{formatPercent(totalProfitLoss.percentage)}
                 </div>
               </StatValue>
+            </StatCard>
+
+            <StatCard color={getProfitColor(portfolio.realized_pnl || 0)}>
+              <StatTitle>실현 손익</StatTitle>
+              <StatValue color={getProfitColor(portfolio.realized_pnl || 0)}>
+                {(portfolio.realized_pnl || 0) >= 0 ? '+' : '-'}₩{formatNumber(Math.round(Math.abs(portfolio.realized_pnl || 0)))}
+              </StatValue>
+            </StatCard>
+
+            <StatCard color="#e67e22">
+              <StatTitle>총 수수료</StatTitle>
+              <StatValue>₩{formatNumber(Math.round(portfolio.total_commission || 0))}</StatValue>
             </StatCard>
           </StatsGrid>
 
