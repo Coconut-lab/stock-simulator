@@ -1352,7 +1352,7 @@ class StockService:
         
         try:
             # 코스피 지수
-            kospi_data = fdr.DataReader('KS11', datetime.now() - timedelta(days=2), datetime.now())
+            kospi_data = fdr.DataReader('KS11', datetime.now() - timedelta(days=7), datetime.now())
             if not kospi_data.empty:
                 latest = kospi_data.iloc[-1]
                 prev = kospi_data.iloc[-2] if len(kospi_data) >= 2 else latest
@@ -1375,7 +1375,7 @@ class StockService:
         
         try:
             # 코스닥 지수
-            kosdaq_data = fdr.DataReader('KQ11', datetime.now() - timedelta(days=2), datetime.now())
+            kosdaq_data = fdr.DataReader('KQ11', datetime.now() - timedelta(days=7), datetime.now())
             if not kosdaq_data.empty:
                 latest = kosdaq_data.iloc[-1]
                 prev = kosdaq_data.iloc[-2] if len(kosdaq_data) >= 2 else latest
@@ -1398,7 +1398,7 @@ class StockService:
         
         try:
             # S&P 500 지수
-            sp500_data = fdr.DataReader('US500', datetime.now() - timedelta(days=5), datetime.now())
+            sp500_data = fdr.DataReader('US500', datetime.now() - timedelta(days=7), datetime.now())
             if not sp500_data.empty:
                 latest = sp500_data.iloc[-1]
                 prev = sp500_data.iloc[-2] if len(sp500_data) >= 2 else latest
@@ -1421,7 +1421,7 @@ class StockService:
         
         try:
             # 나스닥 지수
-            nasdaq_data = fdr.DataReader('NASDAQCOM', datetime.now() - timedelta(days=5), datetime.now())
+            nasdaq_data = fdr.DataReader('NASDAQCOM', datetime.now() - timedelta(days=7), datetime.now())
             if not nasdaq_data.empty:
                 latest = nasdaq_data.iloc[-1]
                 prev = nasdaq_data.iloc[-2] if len(nasdaq_data) >= 2 else latest
@@ -1444,7 +1444,7 @@ class StockService:
 
         # 항셍 지수 (홍콩)
         try:
-            hsi_data = fdr.DataReader('HSI', datetime.now() - timedelta(days=5), datetime.now())
+            hsi_data = fdr.DataReader('HSI', datetime.now() - timedelta(days=7), datetime.now())
             if not hsi_data.empty:
                 latest = hsi_data.iloc[-1]
                 prev = hsi_data.iloc[-2] if len(hsi_data) >= 2 else latest
@@ -1467,7 +1467,7 @@ class StockService:
 
         # DAX 지수 (독일/유럽)
         try:
-            dax_data = fdr.DataReader('DE40', datetime.now() - timedelta(days=5), datetime.now())
+            dax_data = fdr.DataReader('DE40', datetime.now() - timedelta(days=7), datetime.now())
             if not dax_data.empty:
                 latest = dax_data.iloc[-1]
                 prev = dax_data.iloc[-2] if len(dax_data) >= 2 else latest
