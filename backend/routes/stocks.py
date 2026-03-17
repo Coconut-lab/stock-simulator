@@ -94,10 +94,10 @@ def get_stock_detail(symbol):
         if error:
             return jsonify({'error': error}), 401
         
-        # 캐시에서 먼저 조회
-        stock_data = stock_service.get_cached_stock_data(symbol)
+        # 캐시에서 먼저 조회 (3분 이내만 사용)
+        stock_data = stock_service.get_cached_stock_data(symbol, max_age_minutes=3)
         if not stock_data:
-            # 캐시에 없으면 실시간 조회
+            # 캐시 만료 또는 없으면 실시간 조회
             stock_data = stock_service.get_stock_info(symbol)
 
         if not stock_data:

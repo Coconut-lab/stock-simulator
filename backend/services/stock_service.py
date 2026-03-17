@@ -1302,7 +1302,7 @@ class StockService:
                 results.append(stock_data)
         return results
     
-    def get_cached_stock_data(self, symbol):
+    def get_cached_stock_data(self, symbol, max_age_minutes=None):
         """캐시된 주식 데이터 조회 (MongoDB, 시장 정보 검증 포함)"""
         expected_market = self.get_stock_market(symbol)
 
@@ -1310,6 +1310,17 @@ class StockService:
             cached_data = self.cache_collection.find_one({'symbol': symbol})
             if cached_data:
                 cached_data.pop('_id', None)
+
+                # 캐시 유효 시간 체크
+                if max_age_minutes is not None:
+                    updated_at = cached_data.get('updated_at')
+                    if updated_at:
+                        if isinstance(updated_at, str):
+                            updated_at = datetime.fromisoformat(updated_at)
+                        age_minutes = (datetime.utcnow() - updated_at).total_seconds() / 60
+                        if age_minutes > max_age_minutes:
+                            return None  # 캐시 만료
+
                 # datetime → ISO 문자열 변환 (JSON 직렬화 호환)
                 for key, val in cached_data.items():
                     if isinstance(val, datetime):
@@ -1411,9 +1422,9 @@ class StockService:
         hk_stocks_data = []
         eu_stocks_data = []
 
-        # 주요 한국 주식 10개
+        # 주요 한국 주식 10개 (캐시 5분 이내만 사용)
         for symbol in self.kr_stocks[:10]:
-            data = self.get_cached_stock_data(symbol)
+            data = self.get_cached_stock_data(symbol, max_age_minutes=5)
             if not data:
                 data = self.get_fallback_data(symbol, is_korean=True)
             if data:
@@ -1421,7 +1432,7 @@ class StockService:
 
         # 주요 미국 주식 10개
         for symbol in self.us_stocks[:10]:
-            data = self.get_cached_stock_data(symbol)
+            data = self.get_cached_stock_data(symbol, max_age_minutes=5)
             if not data:
                 data = self.get_fallback_data(symbol, is_korean=False)
             if data:
@@ -1429,7 +1440,7 @@ class StockService:
 
         # 주요 홍콩 주식 10개
         for symbol in self.hk_stocks[:10]:
-            data = self.get_cached_stock_data(symbol)
+            data = self.get_cached_stock_data(symbol, max_age_minutes=5)
             if not data:
                 data = self.get_fallback_data(symbol, market='HKD')
             if data:
@@ -1437,7 +1448,7 @@ class StockService:
 
         # 주요 유럽 주식 10개
         for symbol in self.eu_stocks[:10]:
-            data = self.get_cached_stock_data(symbol)
+            data = self.get_cached_stock_data(symbol, max_age_minutes=5)
             if not data:
                 data = self.get_fallback_data(symbol, market='EUR')
             if data:
@@ -1484,7 +1495,7 @@ class StockService:
             for doc in cursor:
                 sym = doc['symbol']
                 name = doc.get('name', sym)
-                data = self.get_cached_stock_data(sym)
+                data = self.get_cached_stock_data(sym, max_age_minutes=3)
                 if not data:
                     if market == 'KRW':
                         data = self.get_fallback_data(sym, is_korean=True)

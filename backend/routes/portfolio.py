@@ -61,7 +61,7 @@ def get_portfolio():
             symbol = holding['symbol']
             
             # 상세 주식 정보 조회 (환율 포함)
-            stock_data = stock_service.get_cached_stock_data(symbol)
+            stock_data = stock_service.get_cached_stock_data(symbol, max_age_minutes=3)
             if not stock_data:
                 stock_data = stock_service.get_stock_info(symbol)
             
@@ -164,7 +164,7 @@ def buy_stock():
             return jsonify({'error': '수량은 0보다 커야 합니다.'}), 400
         
         # 현재 주식 가격 조회 - 상세 정보 포함
-        stock_data = stock_service.get_cached_stock_data(symbol)
+        stock_data = stock_service.get_cached_stock_data(symbol, max_age_minutes=3)
         if not stock_data:
             stock_data = stock_service.get_stock_info(symbol)
         
@@ -299,7 +299,7 @@ def sell_stock():
             return jsonify({'error': '보유 수량이 부족합니다.'}), 400
         
         # 현재 주식 가격 조회 - 상세 정보 포함
-        stock_data = stock_service.get_cached_stock_data(symbol)
+        stock_data = stock_service.get_cached_stock_data(symbol, max_age_minutes=3)
         if not stock_data:
             stock_data = stock_service.get_stock_info(symbol)
         
@@ -409,7 +409,7 @@ def calculate_max_buy(symbol):
             return jsonify({'error': error}), 401
         
         # 현재 주식 가격 조회 - 상세 정보 포함
-        stock_data = stock_service.get_cached_stock_data(symbol)
+        stock_data = stock_service.get_cached_stock_data(symbol, max_age_minutes=3)
         if not stock_data:
             stock_data = stock_service.get_stock_info(symbol)
         
@@ -512,7 +512,7 @@ def get_portfolio_summary():
             symbol = holding['symbol']
             
             # 상세 주식 정보 조회 (환율 포함)
-            stock_data = stock_service.get_cached_stock_data(symbol)
+            stock_data = stock_service.get_cached_stock_data(symbol, max_age_minutes=3)
             if not stock_data:
                 stock_data = stock_service.get_stock_info(symbol)
             
