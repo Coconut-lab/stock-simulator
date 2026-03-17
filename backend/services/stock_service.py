@@ -21,15 +21,11 @@ def safe_float(value, default=0.0):
 
 class StockService:
     def __init__(self):
-        self.stock_cache = {}
         self.cache_collection = get_collection('stock_cache')
+        self.listing_collection = get_collection('stock_listings')
         self.update_thread = None
         self.is_running = False
 
-        # 전체 종목 리스트 캐시
-        self.krx_listing = None
-        self.us_listing = None
-        self.hk_listing = None
         self.listing_loaded = False
 
         # 환율 정보 저장
@@ -237,75 +233,95 @@ class StockService:
         # 서버 시작 시 종목 리스트 백그라운드 로드
         threading.Thread(target=self._load_stock_listings, daemon=True).start()
 
+    def _save_listings(self, market, listings_dict):
+        """종목 리스트를 MongoDB에 벌크 저장"""
+        if not listings_dict:
+            return
+        ops = []
+        from pymongo import UpdateOne
+        for symbol, name in listings_dict.items():
+            ops.append(UpdateOne(
+                {'symbol': symbol, 'market': market},
+                {'$set': {'symbol': symbol, 'name': name, 'market': market}},
+                upsert=True
+            ))
+        if ops:
+            try:
+                self.listing_collection.bulk_write(ops, ordered=False)
+            except Exception as e:
+                logging.error(f"{market} 종목 벌크 저장 실패: {e}")
+
     def _load_stock_listings(self):
-        """KRX + US + HKEX 전체 종목 리스트를 메모리에 캐싱"""
+        """KRX + US + HKEX 전체 종목 리스트를 MongoDB에 저장"""
+        # 인덱스 생성 (최초 1회)
+        try:
+            self.listing_collection.create_index([('market', 1)])
+            self.listing_collection.create_index([('symbol', 1), ('market', 1)], unique=True)
+            self.listing_collection.create_index([('name', 1)])
+        except Exception:
+            pass
+
         # KRX (코스피 + 코스닥)
         try:
             df = fdr.StockListing('KRX')
-            self.krx_listing = {}
+            krx = {}
             for _, row in df.iterrows():
                 code = str(row['Code']).strip()
                 name = str(row['Name']).strip()
                 if code and name:
-                    self.krx_listing[code] = name
-            logging.info(f"KRX 종목 리스트 로드 완료: {len(self.krx_listing)}개")
+                    krx[code] = name
+            self._save_listings('KRW', krx)
+            logging.info(f"KRX 종목 리스트 로드 완료: {len(krx)}개")
         except Exception as e:
             logging.error(f"KRX 종목 리스트 로드 실패: {e}")
-            self.krx_listing = {}
 
         # US (NASDAQ + NYSE + S&P500)
         try:
-            self.us_listing = {}
+            us = {}
             for market in ['NASDAQ', 'NYSE', 'S&P500']:
                 try:
                     df = fdr.StockListing(market)
                     for _, row in df.iterrows():
                         symbol = str(row.get('Symbol', row.get('Code', ''))).strip()
                         name = str(row.get('Name', '')).strip()
-                        if symbol and name and symbol not in self.us_listing:
-                            self.us_listing[symbol] = name
+                        if symbol and name and symbol not in us:
+                            us[symbol] = name
                 except Exception as e:
                     logging.warning(f"{market} 종목 리스트 로드 실패: {e}")
-            logging.info(f"US 종목 리스트 로드 완료: {len(self.us_listing)}개")
+            self._save_listings('USD', us)
+            logging.info(f"US 종목 리스트 로드 완료: {len(us)}개")
         except Exception as e:
             logging.error(f"US 종목 리스트 로드 실패: {e}")
-            self.us_listing = {}
 
         # HKEX (홍콩)
         try:
             df = fdr.StockListing('HKEX')
-            self.hk_listing = {}
+            hk = {}
             for _, row in df.iterrows():
                 code = str(row.get('Code', row.get('Symbol', ''))).strip()
                 name = str(row.get('Name', '')).strip()
                 if code and name:
-                    # 5자리 코드(00700)를 앱에서 쓰는 형식으로 정규화
-                    # 80xxx, 89xxx 등 특수 코드는 제외
                     if code.isdigit() and not code.startswith('8'):
-                        code = code.lstrip('0') or '0'  # 00700 → 700, 00005 → 5
-                        code = code.zfill(4)  # 700 → 0700, 5 → 0005
-                    if code not in self.hk_listing:
-                        self.hk_listing[code] = name
-            logging.info(f"HKEX 종목 리스트 로드 완료: {len(self.hk_listing)}개")
+                        code = code.lstrip('0') or '0'
+                        code = code.zfill(4)
+                    if code not in hk:
+                        hk[code] = name
+            self._save_listings('HKD', hk)
+            logging.info(f"HKEX 종목 리스트 로드 완료: {len(hk)}개")
         except Exception as e:
             logging.error(f"HKEX 종목 리스트 로드 실패: {e}")
-            self.hk_listing = {}
 
-        # 유럽 종목: Wikipedia 지수 구성종목 자동 로드 + 수동 fallback
-        self.eu_listing = {}
+        # 유럽 종목
         self._load_eu_listings()
-        logging.info(f"EU 종목 리스트 로드 완료: {len(self.eu_listing)}개")
 
         self.listing_loaded = True
 
     def _load_eu_listings(self):
-        """유럽 주요 지수 구성 종목을 Wikipedia에서 자동 로드"""
+        """유럽 주요 지수 구성 종목을 Wikipedia에서 자동 로드 → MongoDB 저장"""
         import pandas as pd
         from io import StringIO
 
         wiki_indices = {
-            # (URL, suffix for tickers without exchange suffix)
-            # 대형주 지수
             'FTSE100': ('https://en.wikipedia.org/wiki/FTSE_100_Index', '.L'),
             'FTSE250': ('https://en.wikipedia.org/wiki/FTSE_250_Index', '.L'),
             'DAX': ('https://en.wikipedia.org/wiki/DAX', ''),
@@ -316,7 +332,6 @@ class StockService:
             'FTSE_MIB': ('https://en.wikipedia.org/wiki/FTSE_MIB', ''),
             'IBEX35': ('https://en.wikipedia.org/wiki/IBEX_35', ''),
             'OMX30': ('https://en.wikipedia.org/wiki/OMX_Stockholm_30', ''),
-            # 소국 지수
             'BEL20': ('https://en.wikipedia.org/wiki/BEL_20', '.BR'),
             'PSI20': ('https://en.wikipedia.org/wiki/PSI-20', '.LS'),
             'OBX': ('https://en.wikipedia.org/wiki/OBX_Index', '.OL'),
@@ -328,6 +343,7 @@ class StockService:
         eu_suffixes = ('.L', '.DE', '.PA', '.AS', '.MI', '.MC', '.SW', '.ST', '.CO',
                        '.BR', '.LS', '.OL', '.HE', '.VI')
 
+        eu = {}
         for index_name, (url, suffix) in wiki_indices.items():
             try:
                 html = requests.get(url, headers=headers, timeout=10).text
@@ -335,7 +351,6 @@ class StockService:
 
                 for table in tables:
                     cols_lower = {str(c).lower(): c for c in table.columns}
-                    # ticker/symbol 컬럼 찾기
                     tk_col = None
                     nm_col = None
                     for key, orig in cols_lower.items():
@@ -354,29 +369,24 @@ class StockService:
 
                         if not ticker or ticker == 'nan':
                             continue
-
-                        # "Euronext Brussels: ABI" → "ABI", "OSE: AKRBP" → "AKRBP"
                         if ':' in ticker:
                             ticker = ticker.split(':')[-1].strip()
-                        # 공백이 있으면 첫 단어만 (예: "MAERSK B" → "MAERSK-B")
                         if ' ' in ticker:
                             ticker = ticker.replace(' ', '-')
-
-                        # 거래소 suffix가 없으면 추가
                         if suffix and not any(ticker.endswith(s) for s in eu_suffixes):
                             ticker = ticker + suffix
 
-                        if ticker not in self.eu_listing:
-                            self.eu_listing[ticker] = company if company and company != 'nan' else ticker
+                        if ticker not in eu:
+                            eu[ticker] = company if company and company != 'nan' else ticker
                             count += 1
 
                     logging.info(f"{index_name} 종목 {count}개 로드 완료")
-                    break  # 올바른 테이블을 찾았으면 다음 지수로
+                    break
 
             except Exception as e:
                 logging.warning(f"{index_name} 종목 로드 실패: {e}")
 
-        # fallback: Wikipedia 로드 실패 시 수동 목록 보충
+        # fallback
         fallback = {
             'AZN.L': 'AstraZeneca', 'SHEL.L': 'Shell plc', 'HSBA.L': 'HSBC Holdings',
             'ULVR.L': 'Unilever plc', 'BP.L': 'BP plc', 'GSK.L': 'GSK plc',
@@ -401,8 +411,11 @@ class StockService:
             'VOLV-B.ST': 'Volvo', 'ERIC-B.ST': 'Ericsson',
         }
         for ticker, name in fallback.items():
-            if ticker not in self.eu_listing:
-                self.eu_listing[ticker] = name
+            if ticker not in eu:
+                eu[ticker] = name
+
+        self._save_listings('EUR', eu)
+        logging.info(f"EU 종목 리스트 로드 완료: {len(eu)}개")
 
     def update_exchange_rate(self):
         """실시간 환율 업데이트 (USD, HKD, EUR, GBP → KRW)"""
@@ -550,69 +563,35 @@ class StockService:
                     results.append(stock_data)
                     found_symbols.add(symbol)
 
-        # 2) KRX 전체 종목에서 추가 검색
-        if len(results) < 20 and self.krx_listing:
-            for code, name in self.krx_listing.items():
-                if code in found_symbols:
-                    continue
-                if (query_upper in code or query_lower in name.lower()):
-                    stock_data = self.get_cached_stock_data(code)
-                    if not stock_data:
-                        stock_data = self.get_fallback_data(code, is_korean=True)
-                    if stock_data:
-                        stock_data['name'] = name
-                        results.append(stock_data)
-                        found_symbols.add(code)
-                    if len(results) >= 20:
-                        break
+        # 2) MongoDB 종목 리스트에서 추가 검색
+        if len(results) < 20:
+            import re
+            regex = re.compile(re.escape(query), re.IGNORECASE)
+            remaining = 20 - len(results)
+            try:
+                cursor = self.listing_collection.find(
+                    {'$or': [{'symbol': regex}, {'name': regex}],
+                     'symbol': {'$nin': list(found_symbols)}},
+                ).limit(remaining)
 
-        # 3) US 전체 종목에서 추가 검색
-        if len(results) < 20 and self.us_listing:
-            for symbol, name in self.us_listing.items():
-                if symbol in found_symbols:
-                    continue
-                if (query_upper in symbol.upper() or query_lower in name.lower()):
-                    stock_data = self.get_cached_stock_data(symbol)
+                for doc in cursor:
+                    sym = doc['symbol']
+                    name = doc.get('name', sym)
+                    market = doc.get('market', 'KRW')
+                    stock_data = self.get_cached_stock_data(sym)
                     if not stock_data:
-                        stock_data = self.get_fallback_data(symbol, is_korean=False)
+                        if market == 'KRW':
+                            stock_data = self.get_fallback_data(sym, is_korean=True)
+                        elif market == 'USD':
+                            stock_data = self.get_fallback_data(sym, is_korean=False)
+                        else:
+                            stock_data = self.get_fallback_data(sym, market=market)
                     if stock_data:
                         stock_data['name'] = name
                         results.append(stock_data)
-                        found_symbols.add(symbol)
-                    if len(results) >= 20:
-                        break
-
-        # 4) HKEX 전체 종목에서 추가 검색
-        if len(results) < 20 and self.hk_listing:
-            for code, name in self.hk_listing.items():
-                if code in found_symbols:
-                    continue
-                if (query_upper in code or query_lower in name.lower()):
-                    stock_data = self.get_cached_stock_data(code)
-                    if not stock_data:
-                        stock_data = self.get_fallback_data(code, market='HKD')
-                    if stock_data:
-                        stock_data['name'] = name
-                        results.append(stock_data)
-                        found_symbols.add(code)
-                    if len(results) >= 20:
-                        break
-
-        # 5) 유럽 전체 종목에서 추가 검색
-        if len(results) < 20 and getattr(self, 'eu_listing', None):
-            for symbol, name in self.eu_listing.items():
-                if symbol in found_symbols:
-                    continue
-                if (query_upper in symbol.upper() or query_lower in name.lower()):
-                    stock_data = self.get_cached_stock_data(symbol)
-                    if not stock_data:
-                        stock_data = self.get_fallback_data(symbol, market='EUR')
-                    if stock_data:
-                        stock_data['name'] = name
-                        results.append(stock_data)
-                        found_symbols.add(symbol)
-                    if len(results) >= 20:
-                        break
+                        found_symbols.add(sym)
+            except Exception as e:
+                logging.error(f"종목 검색 DB 조회 실패: {e}")
 
         return results[:20]
     
@@ -644,7 +623,7 @@ class StockService:
                 else:
                     previous_close = current_price * 0.99  # 1% 하락으로 가정
                 
-                stock_name = self.kr_stock_names.get(symbol) or (self.krx_listing or {}).get(symbol) or symbol
+                stock_name = self.kr_stock_names.get(symbol) or self._get_listing_name(symbol) or symbol
 
                 stock_data = {
                     'symbol': symbol,
@@ -703,7 +682,7 @@ class StockService:
                 else:
                     previous_close = current_price * 0.99
                 
-                stock_name = self.us_stock_names.get(symbol) or (self.us_listing or {}).get(symbol)
+                stock_name = self.us_stock_names.get(symbol) or self._get_listing_name(symbol)
                 if not stock_name or stock_name == symbol:
                     try:
                         import yfinance as yf
@@ -751,12 +730,23 @@ class StockService:
             return True
         return False
 
+    def _get_listing_name(self, symbol):
+        """MongoDB에서 종목 이름 조회"""
+        try:
+            doc = self.listing_collection.find_one({'symbol': symbol}, {'name': 1})
+            return doc['name'] if doc else None
+        except Exception:
+            return None
+
     def is_hk_stock(self, symbol):
         """홍콩 주식인지 확인"""
         if symbol in self.hk_stocks:
             return True
-        if self.hk_listing and symbol in self.hk_listing:
-            return True
+        try:
+            if self.listing_collection.find_one({'symbol': symbol, 'market': 'HKD'}, {'_id': 1}):
+                return True
+        except Exception:
+            pass
         # 4자리 이하 숫자이고 한국 주식이 아닌 경우
         if symbol.isdigit() and len(symbol) <= 4:
             return True
@@ -771,8 +761,11 @@ class StockService:
         """유럽 주식인지 확인"""
         if symbol in self.eu_stocks:
             return True
-        if hasattr(self, 'eu_listing') and symbol in self.eu_listing:
-            return True
+        try:
+            if self.listing_collection.find_one({'symbol': symbol, 'market': 'EUR'}, {'_id': 1}):
+                return True
+        except Exception:
+            pass
         eu_suffixes = ('.L', '.DE', '.PA', '.AS', '.MI', '.MC', '.SW', '.ST', '.CO',
                        '.BR', '.LS', '.OL', '.HE', '.VI')
         if any(symbol.endswith(s) for s in eu_suffixes):
@@ -791,10 +784,10 @@ class StockService:
             return 'USD'
 
     def _save_to_cache(self, symbol, data):
-        """캐시에 주식 데이터 저장 (메모리 + MongoDB)"""
-        self.stock_cache[symbol] = data
+        """캐시에 주식 데이터 저장 (MongoDB)"""
         try:
             save_data = {k: v for k, v in data.items() if k != '_id'}
+            save_data = self._clean_nan(save_data)
             self.cache_collection.replace_one(
                 {'symbol': symbol}, save_data, upsert=True
             )
@@ -811,6 +804,9 @@ class StockService:
             data = self.get_eu_stock_info(symbol)
         else:
             data = self.get_us_stock_info(symbol)
+
+        if data:
+            data = self._clean_nan(data)
 
         # 실시간 조회 결과를 캐시에 저장
         if data and data.get('current_price', 0) > 0:
@@ -845,7 +841,7 @@ class StockService:
                 current_price = float(latest_data['Close'])
                 previous_close = float(df.iloc[-2]['Close']) if len(df) >= 2 else current_price * 0.99
 
-                stock_name = self.hk_stock_names.get(symbol) or (self.hk_listing or {}).get(symbol)
+                stock_name = self.hk_stock_names.get(symbol) or self._get_listing_name(symbol)
                 if not stock_name or stock_name == symbol:
                     try:
                         info = ticker.info
@@ -935,13 +931,13 @@ class StockService:
         """fallback 데이터 생성"""
         # market이 명시되면 그걸 사용
         if market == 'HKD':
-            stock_name = self.hk_stock_names.get(symbol) or (self.hk_listing or {}).get(symbol) or symbol
+            stock_name = self.hk_stock_names.get(symbol) or self._get_listing_name(symbol) or symbol
             base_prices = {
                 '0700': 350, '9988': 80, '0005': 60, '1299': 70, '0388': 250,
                 '0941': 60, '2318': 40, '0883': 10, '1810': 15, '3690': 120,
             }
             base_price = base_prices.get(symbol, 50)
-            last_price = self.stock_cache.get(symbol, {}).get('current_price', base_price)
+            last_price = (self.get_cached_stock_data(symbol) or {}).get('current_price', base_price)
             variation = random.uniform(-0.01, 0.01)
             current_price = max(base_price * 0.7, min(base_price * 1.5, last_price * (1 + variation)))
             previous_close = last_price
@@ -966,7 +962,7 @@ class StockService:
                 'SAP.DE': 200, 'SIE.DE': 170, 'ALV.DE': 260, 'BMW.DE': 80, 'BAS.DE': 45,
             }
             base_price = base_prices.get(symbol, 100)
-            last_price = self.stock_cache.get(symbol, {}).get('current_price', base_price)
+            last_price = (self.get_cached_stock_data(symbol) or {}).get('current_price', base_price)
             variation = random.uniform(-0.01, 0.01)
             current_price = max(base_price * 0.7, min(base_price * 1.5, last_price * (1 + variation)))
             previous_close = last_price
@@ -993,7 +989,7 @@ class StockService:
                 '373220': 400000, '005490': 300000, '000270': 80000,
                 '105560': 60000, '055550': 35000, '032830': 70000,
             }
-            stock_name = self.kr_stock_names.get(symbol) or (self.krx_listing or {}).get(symbol) or symbol
+            stock_name = self.kr_stock_names.get(symbol) or self._get_listing_name(symbol) or symbol
             market = 'KRW'
             default_price = 50000
         else:
@@ -1003,14 +999,14 @@ class StockService:
                 'META': 350, 'NVDA': 800, 'NFLX': 450, 'AMD': 140, 'INTC': 25,
                 'JPM': 150, 'V': 250, 'JNJ': 160, 'WMT': 150, 'PG': 150,
             }
-            stock_name = self.us_stock_names.get(symbol) or (self.us_listing or {}).get(symbol) or symbol
+            stock_name = self.us_stock_names.get(symbol) or self._get_listing_name(symbol) or symbol
             market = 'USD'
             default_price = 100
         
         base_price = base_prices.get(symbol, default_price)
         
         # 이전 가격이 있으면 사용, 없으면 기본 가격 사용
-        last_price = self.stock_cache.get(symbol, {}).get('current_price', base_price)
+        last_price = (self.get_cached_stock_data(symbol) or {}).get('current_price', base_price)
         
         # 작은 변동 (-1% ~ +1%)
         variation = random.uniform(-0.01, 0.01)
@@ -1307,28 +1303,20 @@ class StockService:
         return results
     
     def get_cached_stock_data(self, symbol):
-        """캐시된 주식 데이터 조회 (시장 정보 검증 포함)"""
+        """캐시된 주식 데이터 조회 (MongoDB, 시장 정보 검증 포함)"""
         expected_market = self.get_stock_market(symbol)
 
-        # 메모리 캐시 먼저 확인
-        if symbol in self.stock_cache:
-            data = self.stock_cache[symbol]
-            if data.get('market') == expected_market:
-                return data
-            # 시장이 다르면 캐시 무효화 (이전에 잘못 저장된 데이터)
-            del self.stock_cache[symbol]
-
-        # MongoDB 캐시 확인
         try:
             cached_data = self.cache_collection.find_one({'symbol': symbol})
             if cached_data:
                 cached_data.pop('_id', None)
+                # datetime → ISO 문자열 변환 (JSON 직렬화 호환)
+                for key, val in cached_data.items():
+                    if isinstance(val, datetime):
+                        cached_data[key] = val.isoformat()
                 if cached_data.get('market') == expected_market:
-                    self.stock_cache[symbol] = cached_data
                     return cached_data
-                # 시장이 다르면 MongoDB에서도 제거
                 self.cache_collection.delete_one({'symbol': symbol})
-                logging.info(f"캐시 시장 불일치 제거: {symbol} (캐시: {cached_data.get('market')}, 예상: {expected_market})")
         except Exception as e:
             logging.error(f"캐시 조회 실패 {symbol}: {e}")
 
@@ -1405,9 +1393,11 @@ class StockService:
     
     @staticmethod
     def _clean_nan(obj):
-        """재귀적으로 NaN/Inf 값을 0으로 변환 (JSON 직렬화 오류 방지)"""
+        """재귀적으로 NaN/Inf/datetime 값을 JSON 직렬화 가능 값으로 변환"""
         if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
             return 0.0
+        elif isinstance(obj, datetime):
+            return obj.isoformat()
         elif isinstance(obj, dict):
             return {k: StockService._clean_nan(v) for k, v in obj.items()}
         elif isinstance(obj, list):
@@ -1474,43 +1464,40 @@ class StockService:
         return self._clean_nan(result)
     
     def get_market_list(self, market, page=1, per_page=30):
-        """시장별 전체 종목 리스트 (페이지네이션)"""
-        # 시장별 listing 선택
-        if market == 'KRW':
-            listing = self.krx_listing or {}
-        elif market == 'USD':
-            listing = self.us_listing or {}
-        elif market == 'HKD':
-            listing = self.hk_listing or {}
-        elif market == 'EUR':
-            listing = getattr(self, 'eu_listing', {}) or {}
-        else:
+        """시장별 전체 종목 리스트 (페이지네이션, MongoDB)"""
+        market_map = {'KRW': 'KRW', 'USD': 'USD', 'HKD': 'HKD', 'EUR': 'EUR'}
+        db_market = market_map.get(market)
+        if not db_market:
             return {'stocks': [], 'total': 0, 'page': page, 'total_pages': 0}
 
-        all_symbols = list(listing.keys())
-        total = len(all_symbols)
+        try:
+            total = self.listing_collection.count_documents({'market': db_market})
+        except Exception:
+            total = 0
         total_pages = max(1, (total + per_page - 1) // per_page)
         page = max(1, min(page, total_pages))
-
-        start = (page - 1) * per_page
-        end = start + per_page
-        page_symbols = all_symbols[start:end]
+        skip = (page - 1) * per_page
 
         stocks = []
-        for symbol in page_symbols:
-            data = self.get_cached_stock_data(symbol)
-            if not data:
-                if market == 'KRW':
-                    data = self.get_fallback_data(symbol, is_korean=True)
-                elif market == 'USD':
-                    data = self.get_fallback_data(symbol, is_korean=False)
-                else:
-                    data = self.get_fallback_data(symbol, market=market)
-            if data:
-                name = listing.get(symbol, symbol)
-                if not data.get('name') or data['name'] == symbol:
-                    data['name'] = name
-                stocks.append(data)
+        try:
+            cursor = self.listing_collection.find({'market': db_market}).skip(skip).limit(per_page)
+            for doc in cursor:
+                sym = doc['symbol']
+                name = doc.get('name', sym)
+                data = self.get_cached_stock_data(sym)
+                if not data:
+                    if market == 'KRW':
+                        data = self.get_fallback_data(sym, is_korean=True)
+                    elif market == 'USD':
+                        data = self.get_fallback_data(sym, is_korean=False)
+                    else:
+                        data = self.get_fallback_data(sym, market=market)
+                if data:
+                    if not data.get('name') or data['name'] == sym:
+                        data['name'] = name
+                    stocks.append(data)
+        except Exception as e:
+            logging.error(f"시장 목록 DB 조회 실패: {e}")
 
         return self._clean_nan({
             'stocks': stocks,

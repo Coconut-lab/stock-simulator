@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from services.auth_service import auth_service
-from services.stock_service import stock_service
+from services.stock_service import stock_service, StockService
 from models.portfolio import Portfolio
 from models.user import User
 from config import Config
@@ -124,14 +124,14 @@ def get_portfolio():
         pnl_data = portfolio_model.get_realized_pnl_and_commissions(user_id)
 
         return jsonify({
-            'data': {
+            'data': StockService._clean_nan({
                 'holdings': portfolio_with_prices,
                 'total_value': total_value,
                 'total_profit_loss': total_profit_loss,
                 'realized_pnl': pnl_data['realized_pnl'],
                 'total_commission': pnl_data['total_commission'],
                 'cash': user_data['balance']
-            }
+            })
         }), 200
         
     except Exception as e:

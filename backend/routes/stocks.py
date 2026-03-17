@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from services.stock_service import stock_service
+from services.stock_service import stock_service, StockService
 from services.auth_service import auth_service
 import logging
 
@@ -76,9 +76,9 @@ def search_stocks():
             return jsonify({'error': '검색어는 최소 1자 이상이어야 합니다.'}), 400
         
         results = stock_service.search_stocks(query)
-        
+
         return jsonify({
-            'data': results
+            'data': StockService._clean_nan(results)
         }), 200
         
     except Exception as e:
@@ -99,12 +99,12 @@ def get_stock_detail(symbol):
         if not stock_data:
             # 캐시에 없으면 실시간 조회
             stock_data = stock_service.get_stock_info(symbol)
-        
+
         if not stock_data:
             return jsonify({'error': '주식 정보를 찾을 수 없습니다.'}), 404
-        
+
         return jsonify({
-            'data': stock_data
+            'data': StockService._clean_nan(stock_data)
         }), 200
         
     except Exception as e:
@@ -159,9 +159,9 @@ def get_multiple_stocks():
             return jsonify({'error': '한번에 최대 50개까지만 조회 가능합니다.'}), 400
         
         stock_data = stock_service.get_multiple_stocks(symbols)
-        
+
         return jsonify({
-            'data': stock_data
+            'data': StockService._clean_nan(stock_data)
         }), 200
         
     except Exception as e:
@@ -230,12 +230,12 @@ def get_stock_history(symbol):
             interval = 'daily'
         
         history_data = stock_service.get_stock_history(symbol, period_days, interval)
-        
+
         if not history_data:
             return jsonify({'error': '주식 이력 데이터를 찾을 수 없습니다.'}), 404
-        
+
         return jsonify({
-            'data': history_data
+            'data': StockService._clean_nan(history_data)
         }), 200
         
     except Exception as e:
@@ -270,9 +270,9 @@ def get_market_indices():
             return jsonify({'error': error}), 401
         
         indices = stock_service.get_market_indices()
-        
+
         return jsonify({
-            'data': indices
+            'data': StockService._clean_nan(indices)
         }), 200
         
     except Exception as e:
