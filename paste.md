@@ -1,3 +1,23 @@
-내가 지금 도커말고 그냥 클라우드 인스턴스에서 할려고 하는데 stock_service.py의 308번 줄에서 FTSE100 종목 목록을 Wikipedia URL에서 파싱해서 가져오려는데,
-HTML 페이지를 파일 경로로 잘못 처리해서 "No such file or directory" 오류가 발생하고 있어.
-Wikipedia에서 종목 목록을 올바르게 파싱하도록 수정해줘.
+2026-03-17 14:11:27 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:11:27] "GET /api/health HTTP/1.1" 200 -
+2026-03-17 14:11:32 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:11:32] "GET /api/health HTTP/1.1" 200 -
+2026-03-17 14:11:37 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:11:37] "GET /api/health HTTP/1.1" 200 -
+2026-03-17 14:11:38 INFO:werkzeug:10.124.6.5 - - [17/Mar/2026 05:11:38] "GET /api/announcements/active HTTP/1.1" 200 -
+2026-03-17 14:11:38 INFO:werkzeug:10.124.6.5 - - [17/Mar/2026 05:11:38] "GET /api/stocks/market-hours HTTP/1.1" 200 -
+2026-03-17 14:11:42 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:11:42] "GET /api/health HTTP/1.1" 200 -
+2026-03-17 14:11:47 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:11:47] "GET /api/health HTTP/1.1" 200 -
+2026-03-17 14:11:52 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:11:52] "GET /api/health HTTP/1.1" 200 -
+2026-03-17 14:11:57 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:11:57] "GET /api/health HTTP/1.1" 200 -
+2026-03-17 14:12:02 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:12:02] "GET /api/health HTTP/1.1" 200 -
+2026-03-17 14:12:07 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:12:07] "GET /api/health HTTP/1.1" 200 -
+2026-03-17 14:12:12 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:12:12] "GET /api/health HTTP/1.1" 200 -
+2026-03-17 14:12:17 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:12:17] "GET /api/health HTTP/1.1" 200 -
+2026-03-17 14:12:22 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:12:22] "GET /api/health HTTP/1.1" 200 -
+2026-03-17 14:12:27 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:12:27] "GET /api/health HTTP/1.1" 200 -
+2026-03-17 14:12:32 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:12:32] "GET /api/health HTTP/1.1" 200 -
+2026-03-17 14:12:37 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:12:37] "GET /api/health HTTP/1.1" 200 -
+2026-03-17 14:12:37 INFO:werkzeug:10.124.6.5 - - [17/Mar/2026 05:12:37] "GET /api/stocks/market-list/USD?page=1&per_page=30 HTTP/1.1" 200 -
+2026-03-17 14:12:37 INFO:werkzeug:10.124.6.5 - - [17/Mar/2026 05:12:37] "GET /api/announcements/active HTTP/1.1" 200 -
+2026-03-17 14:12:37 INFO:werkzeug:10.124.6.5 - - [17/Mar/2026 05:12:37] "GET /api/stocks/NVDA HTTP/1.1" 200 -
+2026-03-17 14:12:37 INFO:werkzeug:10.124.6.5 - - [17/Mar/2026 05:12:37] "GET /api/stocks/market-hours HTTP/1.1" 200 -
+2026-03-17 14:12:37 INFO:werkzeug:10.124.6.5 - - [17/Mar/2026 05:12:37] "GET /api/portfolio/ HTTP/1.1" 200 -
+2026-03-17 14:12:42 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:12:42] "GET /api/health HTTP/1.1" 200 -

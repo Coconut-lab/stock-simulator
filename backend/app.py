@@ -1,9 +1,18 @@
 from flask import Flask, jsonify
+from flask.json.provider import DefaultJSONProvider
 from flask_cors import CORS
 import logging
 import time
 import threading
 from datetime import datetime
+
+
+class CustomJSONProvider(DefaultJSONProvider):
+    """datetime 등 기본 직렬화 불가 타입 처리"""
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
 
 # 설정 및 서비스 임포트
 from config import Config
@@ -18,6 +27,8 @@ from routes.prediction import prediction_bp
 def create_app():
     """Flask 애플리케이션 팩토리"""
     app = Flask(__name__)
+    app.json_provider_class = CustomJSONProvider
+    app.json = CustomJSONProvider(app)
 
     # 설정 로드
     app.config.from_object(Config)
