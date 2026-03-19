@@ -78,6 +78,10 @@ class Config:
     PREDICTION_MIN_BET = 1000
     PREDICTION_MAX_BET = 500000
 
+    # 추천인 설정
+    REFERRAL_BONUS = 300000        # 추천 보너스 30만원 (추천인 + 가입자 둘 다)
+    REFERRAL_MAX_COUNT = 10        # 최대 추천 가능 횟수
+
     # Flask 설정
     DEBUG = True
     TESTING = False

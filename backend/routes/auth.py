@@ -16,6 +16,7 @@ def register():
         username = data.get('username')
         name = data.get('name', '')
         password = data.get('password')
+        referral_code = data.get('referral_code', '').strip() or None
 
         # 필수 필드 검증
         if not username or not password:
@@ -24,7 +25,7 @@ def register():
         if len(password) < 6:
             return jsonify({'error': '비밀번호는 최소 6자 이상이어야 합니다.'}), 400
 
-        result, error = auth_service.register(username, name, password)
+        result, error = auth_service.register(username, name, password, referral_code)
         
         if error:
             return jsonify({'error': error}), 400

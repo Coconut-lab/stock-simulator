@@ -147,6 +147,69 @@ def update_user_balance(user_id):
         return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
 
 
+# ── 전체 유저 잔액 지급 ──
+
+@admin_bp.route('/users/bulk-payment', methods=['POST'])
+def bulk_payment():
+    """모든 유저에게 일괄 지급"""
+    admin, error = verify_admin()
+    if error:
+        return jsonify({'error': error}), 403
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': '요청 데이터가 필요합니다.'}), 400
+
+        amount = data.get('amount')
+        memo = data.get('memo', '').strip() or '관리자 일괄 지급'
+
+        if amount is None or int(amount) <= 0:
+            return jsonify({'error': '지급 금액은 1원 이상이어야 합니다.'}), 400
+        amount = int(amount)
+
+        # 모든 유저 조회
+        all_users = list(user_model.collection.find({}))
+        updated_count = 0
+
+        for u in all_users:
+            uid = u['_id']
+            new_balance = u['balance'] + amount
+
+            user_model.collection.update_one(
+                {'_id': uid},
+                {'$set': {'balance': new_balance, 'updated_at': datetime.utcnow()}}
+            )
+
+            portfolio_model.transactions_collection.insert_one({
+                'user_id': uid,
+                'symbol': '-',
+                'name': '관리자 조정',
+                'type': 'admin_deposit',
+                'quantity': 0,
+                'price': amount,
+                'original_price': None,
+                'exchange_rate': None,
+                'commission': 0,
+                'total_amount': amount,
+                'market': 'KRW',
+                'memo': memo,
+                'timestamp': datetime.utcnow()
+            })
+            updated_count += 1
+
+        return jsonify({
+            'message': f'{updated_count}명에게 {amount:,}원이 지급되었습니다.',
+            'data': {
+                'updated_count': updated_count,
+                'amount': amount,
+                'memo': memo
+            }
+        }), 200
+    except Exception as e:
+        logging.error(f"전체 유저 일괄 지급 에러: {e}")
+        return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
+
+
 # ── 유저 역할 변경 ──
 
 @admin_bp.route('/users/<user_id>/role', methods=['PUT'])

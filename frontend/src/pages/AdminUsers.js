@@ -46,6 +46,18 @@ const BackBtn = styled.button`
   &:hover { background: rgba(102, 126, 234, 0.35); }
 `;
 
+const BulkBtn = styled.button`
+  background: linear-gradient(135deg, #2ecc71, #27ae60);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  &:hover { opacity: 0.85; }
+`;
+
 /* ── 검색 ── */
 
 const SearchBar = styled.div`
@@ -340,6 +352,13 @@ const AdminUsers = () => {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState(null);
 
+  // 일괄 지급 모달
+  const [showBulk, setShowBulk] = useState(false);
+  const [bulkAmount, setBulkAmount] = useState('');
+  const [bulkMemo, setBulkMemo] = useState('');
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkMsg, setBulkMsg] = useState(null);
+
   useEffect(() => {
     loadUsers();
   }, [page]); // eslint-disable-line
@@ -414,6 +433,27 @@ const AdminUsers = () => {
     }
   };
 
+  const handleBulkPayment = async () => {
+    if (!bulkAmount || parseInt(bulkAmount) <= 0) {
+      setBulkMsg({ error: true, text: '금액을 입력해주세요.' });
+      return;
+    }
+    if (!window.confirm(`전체 ${total}명에게 ${formatNumber(parseInt(bulkAmount))}원을 지급하시겠습니까?`)) return;
+    setBulkSaving(true);
+    setBulkMsg(null);
+    try {
+      const res = await adminService.bulkPayment(parseInt(bulkAmount), bulkMemo || undefined);
+      setBulkMsg({ error: false, text: res.message });
+      setBulkAmount('');
+      setBulkMemo('');
+      loadUsers();
+    } catch (err) {
+      setBulkMsg({ error: true, text: err.error || '일괄 지급에 실패했습니다.' });
+    } finally {
+      setBulkSaving(false);
+    }
+  };
+
   const totalBalance = users.reduce((s, u) => s + u.balance, 0);
   const adminCount = users.filter(u => u.role === 'admin').length;
 
@@ -422,7 +462,12 @@ const AdminUsers = () => {
       <Inner>
         <Header>
           <h1>유저 관리</h1>
-          <BackBtn onClick={() => navigate('/admin/predictions')}>예측 관리로</BackBtn>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <BulkBtn onClick={() => { setShowBulk(true); setBulkMsg(null); setBulkAmount(''); setBulkMemo(''); }}>
+              전체 지급
+            </BulkBtn>
+            <BackBtn onClick={() => navigate('/admin/predictions')}>예측 관리로</BackBtn>
+          </div>
         </Header>
 
         <SearchBar>
@@ -504,6 +549,50 @@ const AdminUsers = () => {
           </Pagination>
         )}
       </Inner>
+
+      {/* 일괄 지급 모달 */}
+      {showBulk && (
+        <Overlay onClick={() => setShowBulk(false)}>
+          <Modal onClick={e => e.stopPropagation()}>
+            <ModalTitle>전체 유저 일괄 지급</ModalTitle>
+            <ModalSub>모든 유저({total}명)에게 동일 금액을 지급합니다.</ModalSub>
+
+            {bulkMsg && <ModalMsg $error={bulkMsg.error}>{bulkMsg.text}</ModalMsg>}
+
+            <ModalLabel>지급 금액 (원)</ModalLabel>
+            <ModalInput
+              type="number"
+              value={bulkAmount}
+              onChange={e => setBulkAmount(e.target.value)}
+              placeholder="지급할 금액 입력"
+              min="0"
+              step="10000"
+            />
+
+            <ModalLabel>메모 (선택)</ModalLabel>
+            <ModalInput
+              type="text"
+              value={bulkMemo}
+              onChange={e => setBulkMemo(e.target.value)}
+              placeholder="예: 이벤트 보상, 시스템 보상 등"
+            />
+
+            {bulkAmount && parseInt(bulkAmount) > 0 && (
+              <CurrentBalance>
+                <span>총 지급액</span>
+                <span>{formatNumber(parseInt(bulkAmount) * total)}원</span>
+              </CurrentBalance>
+            )}
+
+            <ModalBtnRow>
+              <CancelBtn onClick={() => setShowBulk(false)}>취소</CancelBtn>
+              <ConfirmBtn onClick={handleBulkPayment} disabled={bulkSaving || !bulkAmount}>
+                {bulkSaving ? '지급 중...' : '전체 지급'}
+              </ConfirmBtn>
+            </ModalBtnRow>
+          </Modal>
+        </Overlay>
+      )}
 
       {/* 잔액 수정 모달 */}
       {selected && (

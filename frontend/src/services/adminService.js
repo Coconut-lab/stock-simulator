@@ -21,6 +21,15 @@ export const adminService = {
     }
   },
 
+  bulkPayment: async (amount, memo) => {
+    try {
+      const response = await api.post('/admin/users/bulk-payment', { amount, memo });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { error: '일괄 지급에 실패했습니다.' };
+    }
+  },
+
   updateRole: async (userId, role) => {
     try {
       const response = await api.put(`/admin/users/${userId}/role`, { role });

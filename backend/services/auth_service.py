@@ -1,4 +1,5 @@
 import jwt
+from bson.objectid import ObjectId
 from datetime import datetime, timedelta
 from config import Config
 from models.user import User
@@ -28,21 +29,78 @@ class AuthService:
         except jwt.InvalidTokenError:
             return None
     
-    def register(self, username, name, password):
+    def register(self, username, name, password, referral_code=None):
         """사용자 등록"""
+        from models.portfolio import Portfolio
+
         # 아이디 중복 확인
         if self.user_model.find_by_username(username):
             return None, "이미 존재하는 아이디입니다."
 
+        # 추천 코드 검증
+        referrer = None
+        if referral_code:
+            referral_code = referral_code.strip().upper()
+            referrer = self.user_model.find_by_referral_code(referral_code)
+            if not referrer:
+                return None, "유효하지 않은 추천 코드입니다."
+            if referrer.get('referral_count', 0) >= Config.REFERRAL_MAX_COUNT:
+                return None, "해당 추천 코드의 추천 한도가 초과되었습니다."
+
         # 사용자 생성
         try:
             user_id = self.user_model.create_user(username, name, password)
+
+            # 추천인 보너스 처리
+            if referrer:
+                bonus = Config.REFERRAL_BONUS
+                referrer_id = str(referrer['_id'])
+                portfolio_model = Portfolio()
+
+                # 신규 유저에 추천인 정보 기록 + 보너스 지급
+                self.user_model.collection.update_one(
+                    {'_id': ObjectId(user_id)},
+                    {'$set': {
+                        'referred_by': referrer_id,
+                        'balance': Config.INITIAL_BALANCE + bonus
+                    }}
+                )
+
+                # 추천인에게 보너스 지급 + 추천 횟수 증가
+                self.user_model.collection.update_one(
+                    {'_id': referrer['_id']},
+                    {'$inc': {'balance': bonus, 'referral_count': 1}}
+                )
+
+                # 거래 기록 - 신규 유저
+                portfolio_model.transactions_collection.insert_one({
+                    'user_id': ObjectId(user_id),
+                    'symbol': '-', 'name': '추천인 보너스',
+                    'type': 'referral_bonus', 'quantity': 0,
+                    'price': bonus, 'total_amount': bonus,
+                    'commission': 0, 'market': 'KRW',
+                    'memo': f"추천 코드 {referral_code} 사용 보너스",
+                    'timestamp': datetime.utcnow()
+                })
+
+                # 거래 기록 - 추천인
+                portfolio_model.transactions_collection.insert_one({
+                    'user_id': referrer['_id'],
+                    'symbol': '-', 'name': '추천 보너스',
+                    'type': 'referral_bonus', 'quantity': 0,
+                    'price': bonus, 'total_amount': bonus,
+                    'commission': 0, 'market': 'KRW',
+                    'memo': f"{username}님이 추천 코드로 가입 (보너스 {bonus:,}원)",
+                    'timestamp': datetime.utcnow()
+                })
+
             token = self.generate_token(user_id)
             user_data = self.user_model.get_user_stats(user_id)
 
             return {
                 'token': token,
-                'user': user_data
+                'user': user_data,
+                'referral_applied': referrer is not None
             }, None
 
         except Exception as e:

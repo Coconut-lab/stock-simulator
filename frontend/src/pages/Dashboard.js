@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { stockService } from '../services/stockService';
 import { portfolioService } from '../services/portfolioService';
 import { formatCurrency, formatPercent, formatNumber, getProfitColor, formatErrorMessage } from '../utils/helpers';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 
 const Container = styled.div`
   min-height: 100vh;
@@ -185,6 +185,53 @@ const ErrorMessage = styled.div`
   margin: 20px 0;
 `;
 
+const ReferralCard = styled.div`
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px 24px;
+  border-radius: 12px;
+  margin-bottom: 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: white;
+`;
+
+const ReferralInfo = styled.div``;
+
+const ReferralTitle = styled.div`
+  font-size: 14px;
+  opacity: 0.85;
+  margin-bottom: 6px;
+`;
+
+const ReferralCode = styled.div`
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 4px;
+  margin-bottom: 4px;
+`;
+
+const ReferralSub = styled.div`
+  font-size: 13px;
+  opacity: 0.75;
+`;
+
+const CopyButton = styled.button`
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: background 0.2s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+`;
+
 const LoadingSpinner = styled.div`
   display: flex;
   justify-content: center;
@@ -213,6 +260,7 @@ const Dashboard = () => {
   const [marketData, setMarketData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     loadDashboardData();
@@ -270,6 +318,27 @@ const Dashboard = () => {
 
       {error && (
         <ErrorMessage>{error}</ErrorMessage>
+      )}
+
+      {user && (
+        <ReferralCard>
+          <ReferralInfo>
+            <ReferralTitle>내 추천 코드</ReferralTitle>
+            <ReferralCode>{user.referral_code || '생성 중...'}</ReferralCode>
+            <ReferralSub>
+              추천 횟수: {user.referral_count || 0}/10
+            </ReferralSub>
+          </ReferralInfo>
+          <CopyButton onClick={() => {
+            if (user.referral_code) {
+              navigator.clipboard.writeText(user.referral_code);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            }
+          }}>
+            {copied ? '복사됨!' : '코드 복사'}
+          </CopyButton>
+        </ReferralCard>
       )}
 
       {portfolioSummary && (

@@ -176,6 +176,11 @@ const Badge = styled.span`
     background: #fff3e0;
     color: #e65100;
   }
+
+  &.referral_bonus {
+    background: #f3e5f5;
+    color: #7b1fa2;
+  }
 `;
 
 const EmptyState = styled.div`
@@ -259,6 +264,7 @@ const Transactions = () => {
   const filteredTransactions = transactions.filter(transaction => {
     if (filter === 'all') return true;
     if (filter === 'admin') return transaction.type === 'admin_deposit' || transaction.type === 'admin_withdraw';
+    if (filter === 'referral') return transaction.type === 'referral_bonus';
     return transaction.type === filter;
   });
 
@@ -391,6 +397,7 @@ const Transactions = () => {
               <option value="buy">매수만</option>
               <option value="sell">매도만</option>
               <option value="admin">관리자 조정</option>
+              <option value="referral">추천 보너스</option>
             </Select>
             <Select value={limit} onChange={(e) => setLimit(parseInt(e.target.value))}>
               <option value={20}>최근 20건</option>
@@ -418,18 +425,23 @@ const Transactions = () => {
                 <tbody>
                   {filteredTransactions.map((transaction) => {
                     const isAdmin = transaction.type === 'admin_deposit' || transaction.type === 'admin_withdraw';
+                    const isReferral = transaction.type === 'referral_bonus';
+                    const isSpecial = isAdmin || isReferral;
                     const typeLabel = {
                       buy: '매수', sell: '매도',
-                      admin_deposit: '입금', admin_withdraw: '출금'
+                      admin_deposit: '입금', admin_withdraw: '출금',
+                      referral_bonus: '추천 보너스'
                     }[transaction.type] || transaction.type;
 
                     return (
                       <tr key={transaction._id}>
                         <td>{formatDate(transaction.timestamp)}</td>
                         <td>
-                          {isAdmin ? (
+                          {isSpecial ? (
                             <StockCell>
-                              <div className="symbol" style={{ color: '#888' }}>관리자 조정</div>
+                              <div className="symbol" style={{ color: isReferral ? '#7b1fa2' : '#888' }}>
+                                {isReferral ? '추천 보너스' : '관리자 조정'}
+                              </div>
                               {transaction.memo && <div className="name">{transaction.memo}</div>}
                             </StockCell>
                           ) : (
@@ -444,20 +456,20 @@ const Transactions = () => {
                         <td>
                           <Badge className={transaction.type}>{typeLabel}</Badge>
                         </td>
-                        <td>{isAdmin ? '-' : formatNumber(transaction.quantity)}</td>
-                        <td>{isAdmin ? '-' : renderPrice(transaction)}</td>
+                        <td>{isSpecial ? '-' : formatNumber(transaction.quantity)}</td>
+                        <td>{isSpecial ? '-' : renderPrice(transaction)}</td>
                         <td>
-                          {isAdmin ? (
-                            <span style={{ fontWeight: 600, color: transaction.type === 'admin_deposit' ? '#2e7d32' : '#e65100' }}>
-                              {transaction.type === 'admin_deposit' ? '+' : '-'}₩{formatNumber(Math.round(transaction.total_amount))}
+                          {isSpecial ? (
+                            <span style={{ fontWeight: 600, color: isReferral ? '#7b1fa2' : transaction.type === 'admin_deposit' ? '#2e7d32' : '#e65100' }}>
+                              {(isReferral || transaction.type === 'admin_deposit') ? '+' : '-'}₩{formatNumber(Math.round(transaction.total_amount))}
                             </span>
                           ) : renderAmount(transaction.quantity * transaction.price)}
                         </td>
-                        <td>{isAdmin ? '-' : renderAmount(transaction.commission)}</td>
-                        <td className={isAdmin ? '' : transaction.type}>
-                          {isAdmin ? (
-                            <span style={{ fontWeight: 700, color: transaction.type === 'admin_deposit' ? '#2e7d32' : '#e65100' }}>
-                              {transaction.type === 'admin_deposit' ? '+' : '-'}₩{formatNumber(Math.round(transaction.total_amount))}
+                        <td>{isSpecial ? '-' : renderAmount(transaction.commission)}</td>
+                        <td className={isSpecial ? '' : transaction.type}>
+                          {isSpecial ? (
+                            <span style={{ fontWeight: 700, color: isReferral ? '#7b1fa2' : transaction.type === 'admin_deposit' ? '#2e7d32' : '#e65100' }}>
+                              {(isReferral || transaction.type === 'admin_deposit') ? '+' : '-'}₩{formatNumber(Math.round(transaction.total_amount))}
                             </span>
                           ) : renderAmount(transaction.total_amount)}
                         </td>

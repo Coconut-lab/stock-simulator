@@ -126,7 +126,8 @@ const Register = () => {
     username: '',
     name: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    referralCode: ''
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -192,7 +193,8 @@ const Register = () => {
       await register({
         username: formData.username,
         name: formData.name,
-        password: formData.password
+        password: formData.password,
+        referral_code: formData.referralCode || undefined
       });
       
       setSuccessMessage('회원가입이 완료되었습니다!');
@@ -281,6 +283,19 @@ const Register = () => {
             {errors.confirmPassword && (
               <ErrorMessage>{errors.confirmPassword}</ErrorMessage>
             )}
+          </InputGroup>
+
+          <InputGroup>
+            <Label htmlFor="referralCode">추천 코드 (선택)</Label>
+            <Input
+              id="referralCode"
+              type="text"
+              name="referralCode"
+              value={formData.referralCode}
+              onChange={handleChange}
+              placeholder="추천 코드가 있으면 입력하세요"
+              style={{ textTransform: 'uppercase' }}
+            />
           </InputGroup>
 
           <Button type="submit" disabled={loading}>

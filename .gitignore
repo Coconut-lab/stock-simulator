@@ -27,7 +27,7 @@ backend/*.py[cod]
 backend/*$py.class
 backend/*.so
 backend/.Python
-backend/env/
+backend/.env
 backend/venv/
 backend/ENV/
 backend/env.bak/
