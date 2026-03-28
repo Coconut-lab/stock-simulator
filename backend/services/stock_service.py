@@ -890,6 +890,13 @@ class StockService:
                 current_price = float(latest_data['Close'])
                 previous_close = float(df.iloc[-2]['Close']) if len(df) >= 2 else current_price * 0.99
 
+                # NaN/Inf 검증 - 유효하지 않은 가격이면 재시도
+                if math.isnan(current_price) or math.isinf(current_price) or current_price <= 0:
+                    logging.warning(f"유럽 주식 {symbol} 가격 무효: {current_price}, 재시도")
+                    continue
+                if math.isnan(previous_close) or math.isinf(previous_close) or previous_close <= 0:
+                    previous_close = current_price * 0.99
+
                 stock_name = self.eu_stock_names.get(symbol)
                 if not stock_name or stock_name == symbol:
                     try:

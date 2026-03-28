@@ -577,7 +577,15 @@ const Predictions = () => {
                   {myBet && (
                     <MyResultBadge $result={myBet.result}>
                       <span>
-                        {myBet.choices.map(c => c === 'yes' ? 'YES' : 'NO').join('+')}
+                        {myBet.choices.map(c => c === 'yes' ? 'YES' : 'NO')
+                          .reduce((acc, c) => {
+                            const existing = acc.find(x => x.name === c);
+                            if (existing) existing.count++;
+                            else acc.push({ name: c, count: 1 });
+                            return acc;
+                          }, [])
+                          .map(x => x.count > 1 ? `${x.name}x${x.count}` : x.name)
+                          .join(' + ')}
                         {' '}
                         {formatNumber(myBet.totalAmount)}원 베팅
                       </span>

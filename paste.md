@@ -1,23 +1,10 @@
-2026-03-17 14:11:27 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:11:27] "GET /api/health HTTP/1.1" 200 -
-2026-03-17 14:11:32 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:11:32] "GET /api/health HTTP/1.1" 200 -
-2026-03-17 14:11:37 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:11:37] "GET /api/health HTTP/1.1" 200 -
-2026-03-17 14:11:38 INFO:werkzeug:10.124.6.5 - - [17/Mar/2026 05:11:38] "GET /api/announcements/active HTTP/1.1" 200 -
-2026-03-17 14:11:38 INFO:werkzeug:10.124.6.5 - - [17/Mar/2026 05:11:38] "GET /api/stocks/market-hours HTTP/1.1" 200 -
-2026-03-17 14:11:42 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:11:42] "GET /api/health HTTP/1.1" 200 -
-2026-03-17 14:11:47 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:11:47] "GET /api/health HTTP/1.1" 200 -
-2026-03-17 14:11:52 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:11:52] "GET /api/health HTTP/1.1" 200 -
-2026-03-17 14:11:57 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:11:57] "GET /api/health HTTP/1.1" 200 -
-2026-03-17 14:12:02 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:12:02] "GET /api/health HTTP/1.1" 200 -
-2026-03-17 14:12:07 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:12:07] "GET /api/health HTTP/1.1" 200 -
-2026-03-17 14:12:12 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:12:12] "GET /api/health HTTP/1.1" 200 -
-2026-03-17 14:12:17 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:12:17] "GET /api/health HTTP/1.1" 200 -
-2026-03-17 14:12:22 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:12:22] "GET /api/health HTTP/1.1" 200 -
-2026-03-17 14:12:27 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:12:27] "GET /api/health HTTP/1.1" 200 -
-2026-03-17 14:12:32 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:12:32] "GET /api/health HTTP/1.1" 200 -
-2026-03-17 14:12:37 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:12:37] "GET /api/health HTTP/1.1" 200 -
-2026-03-17 14:12:37 INFO:werkzeug:10.124.6.5 - - [17/Mar/2026 05:12:37] "GET /api/stocks/market-list/USD?page=1&per_page=30 HTTP/1.1" 200 -
-2026-03-17 14:12:37 INFO:werkzeug:10.124.6.5 - - [17/Mar/2026 05:12:37] "GET /api/announcements/active HTTP/1.1" 200 -
-2026-03-17 14:12:37 INFO:werkzeug:10.124.6.5 - - [17/Mar/2026 05:12:37] "GET /api/stocks/NVDA HTTP/1.1" 200 -
-2026-03-17 14:12:37 INFO:werkzeug:10.124.6.5 - - [17/Mar/2026 05:12:37] "GET /api/stocks/market-hours HTTP/1.1" 200 -
-2026-03-17 14:12:37 INFO:werkzeug:10.124.6.5 - - [17/Mar/2026 05:12:37] "GET /api/portfolio/ HTTP/1.1" 200 -
-2026-03-17 14:12:42 INFO:werkzeug:10.178.0.151 - - [17/Mar/2026 05:12:42] "GET /api/health HTTP/1.1" 200 -
+- 주식 소수점 거래 기능
+- 선물 거래
+- ETF 추가
+- 옵션 거래
+- 공매도 거래
+
+---
+# 가능한지 궁금함!
+- AI 펀드 메니저 - Gemini 무료 API 사용
+- 기업 상세 페이지 하단에 재무제표나 관련 소식 추가
