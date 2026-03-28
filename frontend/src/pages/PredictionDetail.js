@@ -163,19 +163,69 @@ const MyBetTitle = styled.div`
   gap: 8px;
 `;
 
-const MyBetGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 10px;
+const MyBetSummary = styled.div`
+  display: flex;
+  gap: 16px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
 `;
 
-const MyBetStat = styled.div`
+const MyBetSummaryItem = styled.div`
   background: rgba(0,0,0,0.2);
   border-radius: 10px;
-  padding: 12px;
+  padding: 10px 16px;
+  font-size: 13px;
+  color: #aaa;
+  span { font-weight: 700; color: ${p => p.$color || '#e8e8e8'}; margin-left: 6px; }
+`;
+
+const MyBetList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`;
+
+const MyBetRow = styled.div`
+  display: grid;
+  grid-template-columns: 60px 1fr 80px 1fr;
+  gap: 12px;
+  align-items: center;
+  background: rgba(0,0,0,0.2);
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 14px;
+`;
+
+const MyBetChoice = styled.span`
+  font-weight: 700;
+  font-size: 15px;
+  color: ${p => p.$yes ? '#5dade2' : '#ec7063'};
+`;
+
+const MyBetAmount = styled.span`
+  color: #e8e8e8;
+  font-weight: 600;
+`;
+
+const MyBetStatus = styled.span`
+  font-weight: 600;
+  font-size: 12px;
   text-align: center;
-  .label { font-size: 11px; color: #888; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
-  .value { font-size: 18px; font-weight: 700; color: ${p => p.$color || '#e8e8e8'}; }
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: ${p =>
+    p.$s === 'won' ? 'rgba(46,204,113,0.15)' :
+    p.$s === 'lost' ? 'rgba(231,76,60,0.15)' :
+    'rgba(243,156,18,0.15)'};
+  color: ${p =>
+    p.$s === 'won' ? '#2ecc71' :
+    p.$s === 'lost' ? '#ec7063' : '#f39c12'};
+`;
+
+const MyBetPayout = styled.span`
+  text-align: right;
+  font-weight: 700;
+  color: ${p => p.$color || '#aaa'};
 `;
 
 const ProfitValue = styled.div`
@@ -499,40 +549,44 @@ const PredictionDetail = () => {
             <MyBetTitle $color={hasWon ? '#2ecc71' : hasLost ? '#ec7063' : '#f39c12'}>
               {hasWon ? '축하합니다! 당첨되었습니다!' : hasLost ? '아쉽지만 미당첨입니다' : '베팅 진행중'}
             </MyBetTitle>
-            <MyBetGrid>
-              {myBets.map((bet, i) => (
-                <React.Fragment key={bet.bet_id}>
-                  <MyBetStat $color={bet.choice === 'yes' ? '#5dade2' : '#ec7063'}>
-                    <div className="label">선택</div>
-                    <div className="value">{bet.choice === 'yes' ? 'YES' : 'NO'}</div>
-                  </MyBetStat>
-                  <MyBetStat>
-                    <div className="label">베팅금</div>
-                    <div className="value">{formatNumber(bet.amount)}원</div>
-                  </MyBetStat>
-                  <MyBetStat $color={
+            {myBets.length > 1 && (
+              <MyBetSummary>
+                <MyBetSummaryItem>
+                  총 베팅<span>{myBets.length}회</span>
+                </MyBetSummaryItem>
+                <MyBetSummaryItem $color="#e8e8e8">
+                  총 금액<span>{formatNumber(myTotalAmount)}원</span>
+                </MyBetSummaryItem>
+                {hasSettled && (
+                  <MyBetSummaryItem $color={myTotalPayout > 0 ? '#2ecc71' : '#ec7063'}>
+                    총 당첨금<span>{formatNumber(myTotalPayout)}원</span>
+                  </MyBetSummaryItem>
+                )}
+              </MyBetSummary>
+            )}
+            <MyBetList>
+              {myBets.map((bet) => (
+                <MyBetRow key={bet.bet_id}>
+                  <MyBetChoice $yes={bet.choice === 'yes'}>
+                    {bet.choice === 'yes' ? 'YES' : 'NO'}
+                  </MyBetChoice>
+                  <MyBetAmount>{formatNumber(bet.amount)}원</MyBetAmount>
+                  <MyBetStatus $s={bet.status}>
+                    {bet.status === 'won' ? '당첨' : bet.status === 'lost' ? '미당첨' : '대기중'}
+                  </MyBetStatus>
+                  <MyBetPayout $color={
                     bet.status === 'won' ? '#2ecc71' :
-                    bet.status === 'lost' ? '#e74c3c' : '#f39c12'
+                    bet.status === 'lost' ? '#ec7063' : '#888'
                   }>
-                    <div className="label">상태</div>
-                    <div className="value">{
-                      bet.status === 'won' ? '당첨' :
-                      bet.status === 'lost' ? '미당첨' : '대기중'
-                    }</div>
-                  </MyBetStat>
-                  <MyBetStat $color={bet.status === 'won' ? '#2ecc71' : '#aaa'}>
-                    <div className="label">{bet.status === 'pending' ? '예상 당첨금' : '당첨금'}</div>
-                    <div className="value">
-                      {bet.status === 'won'
-                        ? `${formatNumber(bet.payout)}원`
-                        : bet.status === 'lost'
-                        ? '0원'
-                        : `~${formatNumber(bet.potential_payout)}원`}
-                    </div>
-                  </MyBetStat>
-                </React.Fragment>
+                    {bet.status === 'won'
+                      ? `+${formatNumber(bet.payout)}원`
+                      : bet.status === 'lost'
+                      ? '0원'
+                      : `~${formatNumber(bet.potential_payout)}원`}
+                  </MyBetPayout>
+                </MyBetRow>
               ))}
-            </MyBetGrid>
+            </MyBetList>
             {hasSettled && (
               <ProfitValue $positive={myTotalProfit >= 0}>
                 {myTotalProfit >= 0 ? '+' : ''}{formatNumber(myTotalProfit)}원
