@@ -36,14 +36,15 @@ class FuturesService:
                 expiry = second_thursday
 
                 # 기준 가격 설정
-                if spec_key == 'KOSPI200':
-                    base_price = 350.0
-                elif spec_key == 'ES':
-                    base_price = 5500.0
-                elif spec_key == 'NQ':
-                    base_price = 19500.0
-                else:
-                    base_price = 100.0
+                base_prices = {
+                    'KOSPI200': 350.0,
+                    'MES': 5500.0,
+                    'MNQ': 19500.0,
+                    'MCL': 70.0,
+                    'MGC': 2400.0,
+                    'M6E': 1.08,
+                }
+                base_price = base_prices.get(spec_key, 100.0)
 
                 contract_data = {
                     'symbol': f"{spec_key}_{expiry.strftime('%Y%m')}",

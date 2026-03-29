@@ -89,87 +89,60 @@ class Config:
     SHORT_MARGIN_RATE = 1.5       # 증거금률 150%
     SHORT_BORROW_RATE = 0.0001    # 일일 대여료율 0.01%
 
-    # 선물 거래 설정
+    # 선물 거래 설정 (마이크로/미니 계약 — 100만원 기본금 기준)
     FUTURES_CONTRACTS = {
         'KOSPI200': {
-            'name': 'KOSPI200 선물',
+            'name': 'KOSPI200 미니선물',
             'underlying': 'KOSPI200',
-            'contract_size': 250000,    # 1포인트 = 25만원
+            'contract_size': 5000,       # 1포인트 = 5,000원 (실제 미니선물 수준)
             'tick_size': 0.05,
-            'initial_margin_rate': 0.15,  # 개시증거금률 15%
-            'maintenance_margin_rate': 0.10,  # 유지증거금률 10%
+            'initial_margin_rate': 0.10,
+            'maintenance_margin_rate': 0.07,
             'currency': 'KRW',
         },
-        'ES': {
-            'name': 'S&P500 E-mini 선물',
-            'underlying': 'ES',
-            'contract_size': 50,        # 1포인트 = $50
+        'MES': {
+            'name': 'S&P500 마이크로 선물',
+            'underlying': 'MES',
+            'contract_size': 1,          # 1포인트 = $1
             'tick_size': 0.25,
-            'initial_margin_rate': 0.10,
-            'maintenance_margin_rate': 0.07,
+            'initial_margin_rate': 0.05,
+            'maintenance_margin_rate': 0.03,
             'currency': 'USD',
         },
-        'NQ': {
-            'name': 'NASDAQ E-mini 선물',
-            'underlying': 'NQ',
-            'contract_size': 20,        # 1포인트 = $20
+        'MNQ': {
+            'name': 'NASDAQ 마이크로 선물',
+            'underlying': 'MNQ',
+            'contract_size': 0.5,        # 1포인트 = $0.5
             'tick_size': 0.25,
-            'initial_margin_rate': 0.10,
-            'maintenance_margin_rate': 0.07,
+            'initial_margin_rate': 0.05,
+            'maintenance_margin_rate': 0.03,
             'currency': 'USD',
         },
-        'CL': {
-            'name': 'WTI 원유 선물',
-            'underlying': 'CL',
-            'contract_size': 1000,      # 1배럴 × 1000
+        'MCL': {
+            'name': 'WTI 원유 마이크로 선물',
+            'underlying': 'MCL',
+            'contract_size': 20,         # 20배럴
             'tick_size': 0.01,
-            'initial_margin_rate': 0.10,
-            'maintenance_margin_rate': 0.07,
+            'initial_margin_rate': 0.08,
+            'maintenance_margin_rate': 0.05,
             'currency': 'USD',
         },
-        'GC': {
-            'name': '금 선물',
-            'underlying': 'GC',
-            'contract_size': 100,       # 1온스 × 100
+        'MGC': {
+            'name': '금 마이크로 선물',
+            'underlying': 'MGC',
+            'contract_size': 1,          # 1온스
             'tick_size': 0.10,
-            'initial_margin_rate': 0.10,
-            'maintenance_margin_rate': 0.07,
+            'initial_margin_rate': 0.05,
+            'maintenance_margin_rate': 0.03,
             'currency': 'USD',
         },
-        '6E': {
-            'name': '유로/달러 선물',
-            'underlying': '6E',
-            'contract_size': 125000,    # €125,000
-            'tick_size': 0.00005,
-            'initial_margin_rate': 0.03,
-            'maintenance_margin_rate': 0.02,
-            'currency': 'USD',
-        },
-        'ZN': {
-            'name': '미국 10년 국채 선물',
-            'underlying': 'ZN',
-            'contract_size': 1000,      # $1,000 × 포인트
-            'tick_size': 0.015625,
-            'initial_margin_rate': 0.03,
-            'maintenance_margin_rate': 0.02,
-            'currency': 'USD',
-        },
-        'NK': {
-            'name': '니케이225 선물',
-            'underlying': 'NK',
-            'contract_size': 1000,      # ¥1,000 × 포인트
-            'tick_size': 5,
-            'initial_margin_rate': 0.10,
-            'maintenance_margin_rate': 0.07,
-            'currency': 'USD',
-        },
-        'FDAX': {
-            'name': 'DAX 선물',
-            'underlying': 'FDAX',
-            'contract_size': 25,        # €25 × 포인트
-            'tick_size': 0.5,
-            'initial_margin_rate': 0.10,
-            'maintenance_margin_rate': 0.07,
+        'M6E': {
+            'name': '유로/달러 마이크로 선물',
+            'underlying': 'M6E',
+            'contract_size': 12500,      # €12,500
+            'tick_size': 0.0001,
+            'initial_margin_rate': 0.02,
+            'maintenance_margin_rate': 0.01,
             'currency': 'USD',
         },
     }

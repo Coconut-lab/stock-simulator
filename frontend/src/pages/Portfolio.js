@@ -671,7 +671,11 @@ const Portfolio = () => {
                     <tbody>
                       {portfolio.options_positions.map((pos) => (
                         <tr key={pos._id}>
-                          <td style={{ fontWeight: 600 }}>{pos.underlying}</td>
+                          <td>
+                            <StockCell onClick={() => navigate(`/options/${pos.underlying}`)}>
+                              <div className="symbol">{pos.underlying}</div>
+                            </StockCell>
+                          </td>
                           <td>
                             <span style={{
                               padding: '3px 10px', borderRadius: '4px', fontWeight: 700, fontSize: '12px',
@@ -725,7 +729,11 @@ const Portfolio = () => {
                     <tbody>
                       {portfolio.futures_positions.map((pos) => (
                         <tr key={pos._id}>
-                          <td style={{ fontWeight: 600 }}>{pos.contract_name || pos.contract_symbol}</td>
+                          <td>
+                            <StockCell onClick={() => navigate(`/futures/${pos.contract_id}`)}>
+                              <div className="symbol">{pos.contract_name || pos.contract_symbol}</div>
+                            </StockCell>
+                          </td>
                           <td>
                             <span style={{
                               padding: '3px 10px', borderRadius: '4px', fontWeight: 700, fontSize: '12px',
