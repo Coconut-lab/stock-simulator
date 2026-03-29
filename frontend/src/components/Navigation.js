@@ -55,11 +55,7 @@ const NavLinks = styled.div`
   gap: 4px;
   flex-shrink: 1;
   min-width: 0;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-  &::-webkit-scrollbar { display: none; }
+  flex-wrap: wrap;
 `;
 
 const NavLink = styled(Link)`
