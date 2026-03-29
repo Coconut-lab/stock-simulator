@@ -219,8 +219,20 @@ const StockHeader = styled.div`
 
 const StockInfo = styled.div`
   .symbol { font-size: 14px; color: #666; margin-bottom: 8px; }
-  .name { font-size: 18px; font-weight: 700; color: #333; margin-bottom: 4px; }
+  .name { font-size: 18px; font-weight: 700; color: #333; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
   .market { font-size: 12px; color: #999; text-transform: uppercase; letter-spacing: 0.5px; }
+`;
+
+const ETFBadge = styled.span`
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
 `;
 
 const StockPrice = styled.div`
@@ -471,6 +483,10 @@ const Markets = () => {
 
   const getDisplayStocks = () => {
     if (searchResults.length > 0) return searchResults;
+    if (activeTab === 'etf') {
+      if (!marketData) return [];
+      return marketData.etf_market || [];
+    }
     if (activeTab !== 'all' && marketList) return marketList.stocks || [];
     if (!marketData) return [];
     return [
@@ -576,7 +592,7 @@ const Markets = () => {
   }
 
   const displayStocks = getDisplayStocks();
-  const tabLabels = { all: '전체', korean: '한국', us: '미국', hk: '홍콩', eu: '유럽' };
+  const tabLabels = { all: '전체', korean: '한국', us: '미국', hk: '홍콩', eu: '유럽', etf: 'ETF' };
 
   return (
     <>
@@ -667,10 +683,13 @@ const Markets = () => {
                 <StockCard key={stock.symbol} onClick={() => handleStockClick(stock)}>
                   <StockHeader>
                     <StockInfo>
-                      <div className="name">{stock.name}</div>
+                      <div className="name">
+                        {stock.name}
+                        {stock.type === 'etf' && <ETFBadge>ETF</ETFBadge>}
+                      </div>
                       <div className="symbol">{stock.symbol}</div>
                       <div className="market">
-                        {{ KRW: '한국', USD: '미국', HKD: '홍콩', EUR: '유럽' }[stock.market || getMarketFromSymbol(stock.symbol)] || '기타'} 주식
+                        {{ KRW: '한국', USD: '미국', HKD: '홍콩', EUR: '유럽' }[stock.market || getMarketFromSymbol(stock.symbol)] || '기타'} {stock.type === 'etf' ? 'ETF' : '주식'}
                       </div>
                     </StockInfo>
                     {renderStockPrice(stock)}

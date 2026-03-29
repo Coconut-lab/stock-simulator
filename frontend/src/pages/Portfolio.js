@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   formatPercent,
   formatNumber,
+  formatQuantity,
   getProfitColor,
   formatErrorMessage,
   validateQuantity,
@@ -178,7 +179,11 @@ const ValueCell = styled.div`
 `;
 
 const ActionButton = styled.button`
-  background: ${props => props.variant === 'sell' ? '#3498db' : '#e74c3c'};
+  background: ${props => {
+    if (props.variant === 'sell') return '#3498db';
+    if (props.variant === 'cover') return '#e67e22';
+    return '#e74c3c';
+  }};
   color: white;
   border: none;
   padding: 6px 12px;
@@ -195,6 +200,17 @@ const ActionButton = styled.button`
     opacity: 0.5;
     cursor: not-allowed;
   }
+`;
+
+const ShortBadge = styled.span`
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(231, 76, 60, 0.1);
+  color: #e74c3c;
+  margin-left: 8px;
 `;
 
 const EmptyState = styled.div`
@@ -351,13 +367,28 @@ const Portfolio = () => {
   };
 
   const handleQuickSell = async (symbol, quantity) => {
-    if (!window.confirm(`${symbol} ${quantity}주를 전량 매도하시겠습니까?`)) {
+    if (!window.confirm(`${symbol} ${formatQuantity(quantity)}주를 전량 매도하시겠습니까?`)) {
       return;
     }
 
     try {
       const response = await portfolioService.sellStock(symbol, quantity);
-      // 상단 잔고 즉시 갱신
+      if (response.data?.remaining_balance !== undefined && user) {
+        updateUser({ ...user, balance: response.data.remaining_balance });
+      }
+      await loadPortfolio();
+    } catch (error) {
+      setError(formatErrorMessage(error));
+    }
+  };
+
+  const handleShortCover = async (symbol, quantity) => {
+    if (!window.confirm(`${symbol} ${formatQuantity(quantity)}주 숏커버 하시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      const response = await portfolioService.shortCoverStock(symbol, quantity);
       if (response.data?.remaining_balance !== undefined && user) {
         updateUser({ ...user, balance: response.data.remaining_balance });
       }
@@ -553,7 +584,7 @@ const Portfolio = () => {
                                     <div className="name">{holding.name}</div>
                                   </StockCell>
                                 </td>
-                                <td>{formatNumber(holding.quantity)}</td>
+                                <td>{formatQuantity(holding.quantity)}</td>
                                 <td>
                                   <PriceCell>
                                     <div className="current-price">
@@ -612,6 +643,196 @@ const Portfolio = () => {
             </Card>
           )}
 
+          {/* 옵션 포지션 */}
+          {portfolio.options_positions && portfolio.options_positions.length > 0 && (
+            <Card>
+              <CardHeader>
+                <h2>
+                  옵션 포지션
+                  <span style={{ fontSize: '14px', color: '#999', fontWeight: 400, marginLeft: '8px' }}>
+                    ({portfolio.options_positions.length}건)
+                  </span>
+                </h2>
+              </CardHeader>
+              <CardContent>
+                <HoldingsTable>
+                  <Table>
+                    <thead>
+                      <tr>
+                        <th>기초자산</th>
+                        <th>유형</th>
+                        <th>행사가</th>
+                        <th>만기</th>
+                        <th>수량</th>
+                        <th>현재가치</th>
+                        <th>미실현 손익</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {portfolio.options_positions.map((pos) => (
+                        <tr key={pos._id}>
+                          <td style={{ fontWeight: 600 }}>{pos.underlying}</td>
+                          <td>
+                            <span style={{
+                              padding: '3px 10px', borderRadius: '4px', fontWeight: 700, fontSize: '12px',
+                              background: pos.option_type === 'call' ? 'rgba(231,76,60,0.1)' : 'rgba(52,152,219,0.1)',
+                              color: pos.option_type === 'call' ? '#e74c3c' : '#3498db',
+                            }}>
+                              {pos.option_type?.toUpperCase()}
+                            </span>
+                          </td>
+                          <td>{formatNumber(pos.strike_price)}</td>
+                          <td>{pos.expiry_date ? new Date(pos.expiry_date).toLocaleDateString('ko-KR') : '-'}</td>
+                          <td>{pos.quantity}</td>
+                          <td>₩{formatNumber(pos.current_value || 0)}</td>
+                          <td style={{ color: getProfitColor(pos.unrealized_pnl), fontWeight: 600 }}>
+                            {pos.unrealized_pnl >= 0 ? '+' : ''}₩{formatNumber(pos.unrealized_pnl || 0)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </HoldingsTable>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 선물 포지션 */}
+          {portfolio.futures_positions && portfolio.futures_positions.length > 0 && (
+            <Card>
+              <CardHeader>
+                <h2>
+                  선물 포지션
+                  <span style={{ fontSize: '14px', color: '#999', fontWeight: 400, marginLeft: '8px' }}>
+                    ({portfolio.futures_positions.length}건)
+                  </span>
+                </h2>
+              </CardHeader>
+              <CardContent>
+                <HoldingsTable>
+                  <Table>
+                    <thead>
+                      <tr>
+                        <th>계약</th>
+                        <th>방향</th>
+                        <th>수량</th>
+                        <th>진입가</th>
+                        <th>현재가</th>
+                        <th>만기</th>
+                        <th>미실현 손익</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {portfolio.futures_positions.map((pos) => (
+                        <tr key={pos._id}>
+                          <td style={{ fontWeight: 600 }}>{pos.contract_name || pos.contract_symbol}</td>
+                          <td>
+                            <span style={{
+                              padding: '3px 10px', borderRadius: '4px', fontWeight: 700, fontSize: '12px',
+                              background: pos.direction === 'long' ? 'rgba(231,76,60,0.1)' : 'rgba(52,152,219,0.1)',
+                              color: pos.direction === 'long' ? '#e74c3c' : '#3498db',
+                            }}>
+                              {pos.direction === 'long' ? '롱' : '숏'}
+                            </span>
+                          </td>
+                          <td>{pos.quantity}</td>
+                          <td>{formatNumber(pos.entry_price)}</td>
+                          <td>{formatNumber(pos.current_price)}</td>
+                          <td>{pos.expiry_date ? new Date(pos.expiry_date).toLocaleDateString('ko-KR') : '-'}</td>
+                          <td style={{ color: getProfitColor(pos.unrealized_pnl), fontWeight: 600 }}>
+                            {pos.unrealized_pnl >= 0 ? '+' : ''}₩{formatNumber(pos.unrealized_pnl || 0)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </HoldingsTable>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 숏 포지션 */}
+          {portfolio.short_positions && portfolio.short_positions.length > 0 && (
+            <Card>
+              <CardHeader>
+                <h2>
+                  숏 포지션 <ShortBadge>SHORT</ShortBadge>
+                  <span style={{ fontSize: '14px', color: '#999', fontWeight: 400, marginLeft: '8px' }}>
+                    ({portfolio.short_positions.length}종목)
+                  </span>
+                </h2>
+              </CardHeader>
+              <CardContent>
+                <HoldingsTable>
+                  <Table>
+                    <thead>
+                      <tr>
+                        <th>종목</th>
+                        <th>수량</th>
+                        <th>공매도가</th>
+                        <th>현재가</th>
+                        <th>평가 손익</th>
+                        <th>증거금</th>
+                        <th>액션</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {portfolio.short_positions.map((pos) => {
+                        const profitLoss = (pos.entry_price - pos.current_price) * pos.quantity;
+                        const profitLossPercent = pos.entry_price > 0
+                          ? ((pos.entry_price - pos.current_price) / pos.entry_price) * 100
+                          : 0;
+
+                        return (
+                          <tr key={`short-${pos.symbol}`}>
+                            <td>
+                              <StockCell onClick={() => navigate(`/stock/${pos.symbol}`)}>
+                                <div className="symbol">{pos.symbol}</div>
+                                <div className="name">{pos.name}</div>
+                              </StockCell>
+                            </td>
+                            <td>{formatQuantity(pos.quantity)}</td>
+                            <td>
+                              <PriceCell>
+                                <div className="current-price">₩{formatNumber(Math.round(pos.entry_price))}</div>
+                              </PriceCell>
+                            </td>
+                            <td>
+                              <PriceCell>
+                                <div className="current-price">₩{formatNumber(Math.round(pos.current_price))}</div>
+                              </PriceCell>
+                            </td>
+                            <td>
+                              <ValueCell style={{ color: getProfitColor(profitLoss) }}>
+                                <div className="main-value">
+                                  {profitLoss >= 0 ? '+' : '-'}₩{formatNumber(Math.round(Math.abs(profitLoss)))}
+                                  <span style={{ fontSize: '12px', marginLeft: '4px' }}>
+                                    ({profitLoss >= 0 ? '+' : ''}{formatPercent(profitLossPercent)})
+                                  </span>
+                                </div>
+                              </ValueCell>
+                            </td>
+                            <td>
+                              <CommissionCell>₩{formatNumber(Math.round(pos.margin || 0))}</CommissionCell>
+                            </td>
+                            <td>
+                              <ActionButton
+                                variant="cover"
+                                onClick={() => handleShortCover(pos.symbol, pos.quantity)}
+                              >
+                                숏커버
+                              </ActionButton>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </Table>
+                </HoldingsTable>
+              </CardContent>
+            </Card>
+          )}
+
           {/* 그룹에 포함되지 않은 기타 시장 */}
           {Object.keys(marketGroups)
             .filter(m => !marketOrder.includes(m))
@@ -650,7 +871,7 @@ const Portfolio = () => {
                                 <div className="name">{holding.name}</div>
                               </StockCell>
                             </td>
-                            <td>{formatNumber(holding.quantity)}</td>
+                            <td>{formatQuantity(holding.quantity)}</td>
                             <td>
                               <PriceCell>
                                 <div className="current-price">

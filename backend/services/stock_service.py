@@ -227,6 +227,62 @@ class StockService:
             'BAS.DE': 'BASF SE',
         }
 
+        # ETF 심볼 및 이름
+        self.kr_etfs = [
+            '069500',  # KODEX 200
+            '102110',  # TIGER 200
+            '114800',  # KODEX 인버스
+            '091160',  # KODEX 반도체
+            '226490',  # KODEX KOSPI100
+            '229200',  # KODEX 코스닥150
+            '252670',  # KODEX 200선물인버스2X
+            '305720',  # KODEX 2차전지산업
+            '371460',  # TIGER 차이나전기차SOLACTIVE
+            '161513',  # TIGER 200IT
+        ]
+        self.us_etfs = [
+            'SPY', 'QQQ', 'VOO', 'VTI', 'IWM',
+            'GLD', 'TLT', 'ARKK', 'XLF', 'EEM',
+        ]
+
+        self.kr_etf_names = {
+            '069500': 'KODEX 200',
+            '102110': 'TIGER 200',
+            '114800': 'KODEX 인버스',
+            '091160': 'KODEX 반도체',
+            '226490': 'KODEX KOSPI100',
+            '229200': 'KODEX 코스닥150',
+            '252670': 'KODEX 200선물인버스2X',
+            '305720': 'KODEX 2차전지산업',
+            '371460': 'TIGER 차이나전기차SOLACTIVE',
+            '161513': 'TIGER 200IT',
+        }
+        self.us_etf_names = {
+            'SPY': 'SPDR S&P 500 ETF',
+            'QQQ': 'Invesco QQQ Trust',
+            'VOO': 'Vanguard S&P 500 ETF',
+            'VTI': 'Vanguard Total Stock Market ETF',
+            'IWM': 'iShares Russell 2000 ETF',
+            'GLD': 'SPDR Gold Shares',
+            'TLT': 'iShares 20+ Year Treasury Bond ETF',
+            'ARKK': 'ARK Innovation ETF',
+            'XLF': 'Financial Select Sector SPDR',
+            'EEM': 'iShares MSCI Emerging Markets ETF',
+        }
+
+        # ETF 심볼 집합 (type 판별용)
+        self.etf_symbols = set(self.kr_etfs + self.us_etfs)
+
+        # ETF를 기존 목록에 병합
+        self.kr_stocks = self.kr_stocks + self.kr_etfs
+        self.us_stocks = self.us_stocks + self.us_etfs
+        self.kr_stock_names.update(self.kr_etf_names)
+        self.us_stock_names.update(self.us_etf_names)
+
+        # 재무제표/뉴스 캐시
+        self.financial_cache = {}
+        self.news_cache = {}
+
         # 모든 주식 목록
         self.all_stocks = self.kr_stocks + self.us_stocks + self.hk_stocks + self.eu_stocks
 
@@ -807,6 +863,9 @@ class StockService:
 
         if data:
             data = self._clean_nan(data)
+            # ETF 여부 표시
+            if symbol in self.etf_symbols:
+                data['type'] = 'etf'
 
         # 실시간 조회 결과를 캐시에 저장
         if data and data.get('current_price', 0) > 0:
@@ -1411,15 +1470,24 @@ class StockService:
     
     @staticmethod
     def _clean_nan(obj):
-        """재귀적으로 NaN/Inf/datetime 값을 JSON 직렬화 가능 값으로 변환"""
+        """재귀적으로 NaN/Inf/datetime/numpy 값을 JSON 직렬화 가능 값으로 변환"""
         if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
             return 0.0
         elif isinstance(obj, datetime):
             return obj.isoformat()
         elif isinstance(obj, dict):
-            return {k: StockService._clean_nan(v) for k, v in obj.items()}
+            return {str(k): StockService._clean_nan(v) for k, v in obj.items()}
         elif isinstance(obj, list):
             return [StockService._clean_nan(item) for item in obj]
+        elif hasattr(obj, 'item'):
+            # numpy scalar (int64, float64 등) → Python native type
+            val = obj.item()
+            if isinstance(val, float) and (math.isnan(val) or math.isinf(val)):
+                return 0.0
+            return val
+        elif hasattr(obj, 'isoformat') and not isinstance(obj, datetime):
+            # pandas Timestamp 등
+            return obj.isoformat()
         return obj
 
     def get_market_summary(self):
@@ -1435,6 +1503,8 @@ class StockService:
             if not data:
                 data = self.get_fallback_data(symbol, is_korean=True)
             if data:
+                if symbol in self.etf_symbols:
+                    data['type'] = 'etf'
                 kr_stocks_data.append(data)
 
         # 주요 미국 주식 10개
@@ -1443,6 +1513,8 @@ class StockService:
             if not data:
                 data = self.get_fallback_data(symbol, is_korean=False)
             if data:
+                if symbol in self.etf_symbols:
+                    data['type'] = 'etf'
                 us_stocks_data.append(data)
 
         # 주요 홍콩 주식 10개
@@ -1451,6 +1523,8 @@ class StockService:
             if not data:
                 data = self.get_fallback_data(symbol, market='HKD')
             if data:
+                if symbol in self.etf_symbols:
+                    data['type'] = 'etf'
                 hk_stocks_data.append(data)
 
         # 주요 유럽 주식 10개
@@ -1459,13 +1533,30 @@ class StockService:
             if not data:
                 data = self.get_fallback_data(symbol, market='EUR')
             if data:
+                if symbol in self.etf_symbols:
+                    data['type'] = 'etf'
                 eu_stocks_data.append(data)
+
+        # ETF 전용 데이터
+        etf_stocks_data = []
+        for symbol in self.kr_etfs + self.us_etfs:
+            data = self.get_cached_stock_data(symbol, max_age_minutes=5)
+            if not data:
+                is_kr = symbol in self.kr_etfs
+                if is_kr:
+                    data = self.get_fallback_data(symbol, is_korean=True)
+                else:
+                    data = self.get_fallback_data(symbol, is_korean=False)
+            if data:
+                data['type'] = 'etf'
+                etf_stocks_data.append(data)
 
         result = {
             'korean_market': kr_stocks_data,
             'us_market': us_stocks_data,
             'hk_market': hk_stocks_data,
             'eu_market': eu_stocks_data,
+            'etf_market': etf_stocks_data,
             'market_indices': self.get_market_indices(),
             'exchange_rate': self.get_exchange_rate(),
             'exchange_rates': {
@@ -1513,6 +1604,8 @@ class StockService:
                 if data:
                     if not data.get('name') or data['name'] == sym:
                         data['name'] = name
+                    if sym in self.etf_symbols:
+                        data['type'] = 'etf'
                     stocks.append(data)
         except Exception as e:
             logging.error(f"시장 목록 DB 조회 실패: {e}")
@@ -1551,6 +1644,195 @@ class StockService:
         if self.update_thread:
             self.update_thread.join()
         logging.info("주식 자동 업데이트 중지")
+
+    def _to_yf_symbol(self, symbol):
+        """심볼을 yfinance 형식으로 변환"""
+        # 한국 주식 (6자리 숫자) → 005930.KS
+        if symbol.isdigit() and len(symbol) == 6:
+            return f"{symbol}.KS"
+        # 홍콩 주식
+        if self.is_hk_stock(symbol):
+            return self._hk_yf_symbol(symbol)
+        return symbol
+
+    def _parse_financial_df(self, df):
+        """DataFrame을 JSON 직렬화 가능한 dict로 변환"""
+        if df is None or not hasattr(df, 'columns') or df.empty:
+            return {}
+        result = {}
+        for col in df.columns:
+            col_key = str(col.date()) if hasattr(col, 'date') else str(col)
+            col_data = {}
+            for idx, val in df[col].items():
+                row_key = str(idx)
+                col_data[row_key] = val
+            result[col_key] = col_data
+        return self._clean_nan(result)
+
+    def get_stock_financials(self, symbol):
+        """주식 재무제표 조회 (yfinance 사용)"""
+        cache_key = f"fin_{symbol}"
+        cached = self.financial_cache.get(cache_key)
+        if cached and (datetime.utcnow() - cached['time']).total_seconds() < 86400:
+            return cached['data']
+
+        try:
+            import yfinance as yf
+            yf_symbol = self._to_yf_symbol(symbol)
+            ticker = yf.Ticker(yf_symbol)
+
+            result = {}
+
+            # 손익계산서
+            try:
+                income = getattr(ticker, 'income_stmt', None)
+                if income is None or (hasattr(income, 'empty') and income.empty):
+                    income = getattr(ticker, 'financials', None)
+                result['income_statement'] = self._parse_financial_df(income)
+            except Exception as e:
+                logging.warning(f"손익계산서 조회 실패 ({symbol}): {e}")
+                result['income_statement'] = {}
+
+            # 대차대조표
+            try:
+                balance = getattr(ticker, 'balance_sheet', None)
+                result['balance_sheet'] = self._parse_financial_df(balance)
+            except Exception as e:
+                logging.warning(f"대차대조표 조회 실패 ({symbol}): {e}")
+                result['balance_sheet'] = {}
+
+            # 현금흐름표
+            try:
+                cashflow = getattr(ticker, 'cashflow', None)
+                result['cashflow'] = self._parse_financial_df(cashflow)
+            except Exception as e:
+                logging.warning(f"현금흐름표 조회 실패 ({symbol}): {e}")
+                result['cashflow'] = {}
+
+            self.financial_cache[cache_key] = {'data': result, 'time': datetime.utcnow()}
+            return result
+
+        except Exception as e:
+            logging.error(f"재무제표 조회 실패 ({symbol}): {e}")
+            return {}
+
+    def _parse_news_item(self, item):
+        """뉴스 아이템을 통일된 형식으로 파싱 (yfinance 버전 호환)"""
+        if not isinstance(item, dict):
+            return None
+
+        # 새 형식 (yfinance 0.2.36+): content 안에 데이터
+        content = item.get('content', item)
+        if not isinstance(content, dict):
+            content = item
+
+        title = content.get('title', '')
+        if not title:
+            return None
+
+        # link
+        canonical = content.get('canonicalUrl')
+        if isinstance(canonical, dict):
+            link = canonical.get('url', '')
+        else:
+            link = content.get('link', content.get('url', ''))
+
+        # publisher
+        provider = content.get('provider')
+        if isinstance(provider, dict):
+            publisher = provider.get('displayName', '')
+        else:
+            publisher = content.get('publisher', content.get('source', ''))
+
+        # published
+        published = content.get('pubDate', content.get('providerPublishTime', content.get('publish_time', '')))
+
+        return {
+            'title': title,
+            'link': link,
+            'publisher': publisher,
+            'published': published,
+        }
+
+    def _get_naver_news(self, symbol):
+        """한국 주식 네이버 뉴스 조회"""
+        try:
+            import requests as req
+            url = f'https://m.stock.naver.com/api/news/stock/{symbol}?pageSize=15'
+            headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'}
+            r = req.get(url, headers=headers, timeout=5)
+            if r.status_code != 200:
+                return []
+
+            data = r.json()
+            news_list = []
+            for group in data:
+                items = group.get('items', [])
+                for item in items:
+                    title = item.get('titleFull') or item.get('title', '')
+                    # HTML 엔티티 디코딩
+                    import html
+                    title = html.unescape(title)
+                    if not title:
+                        continue
+                    news_list.append({
+                        'title': title,
+                        'link': item.get('mobileNewsUrl', ''),
+                        'publisher': item.get('officeName', ''),
+                        'published': self._parse_naver_datetime(item.get('datetime', '')),
+                    })
+            return news_list
+        except Exception as e:
+            logging.warning(f"네이버 뉴스 조회 실패 ({symbol}): {e}")
+            return []
+
+    @staticmethod
+    def _parse_naver_datetime(dt_str):
+        """네이버 날짜 형식 (202603290011) 파싱"""
+        if not dt_str or len(dt_str) < 12:
+            return ''
+        try:
+            return f"{dt_str[:4]}-{dt_str[4:6]}-{dt_str[6:8]}T{dt_str[8:10]}:{dt_str[10:12]}:00"
+        except Exception:
+            return dt_str
+
+    def get_stock_news(self, symbol):
+        """주식 뉴스 조회"""
+        cache_key = f"news_{symbol}"
+        cached = self.news_cache.get(cache_key)
+        if cached and (datetime.utcnow() - cached['time']).total_seconds() < 1800:
+            return cached['data']
+
+        news_list = []
+
+        # 한국 주식이면 네이버 뉴스 우선 사용
+        if symbol.isdigit() and len(symbol) == 6:
+            news_list = self._get_naver_news(symbol)
+
+        # 네이버 뉴스가 없거나 해외 주식이면 yfinance 사용
+        if not news_list:
+            try:
+                import yfinance as yf
+                yf_symbol = self._to_yf_symbol(symbol)
+                ticker = yf.Ticker(yf_symbol)
+
+                raw_news = None
+                try:
+                    raw_news = ticker.news
+                except Exception as e:
+                    logging.warning(f"ticker.news 조회 실패 ({symbol}): {e}")
+
+                if raw_news:
+                    for item in raw_news[:20]:
+                        news_item = self._parse_news_item(item)
+                        if news_item:
+                            news_list.append(news_item)
+            except Exception as e:
+                logging.error(f"yfinance 뉴스 조회 실패 ({symbol}): {e}")
+
+        self.news_cache[cache_key] = {'data': news_list, 'time': datetime.utcnow()}
+        return news_list
+
 
 # 전역 주식 서비스 인스턴스
 stock_service = StockService()

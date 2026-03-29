@@ -25,6 +25,8 @@ from routes.portfolio import portfolio_bp
 from routes.prediction import prediction_bp
 from routes.admin import admin_bp
 from routes.announcement import announcement_bp
+from routes.futures import futures_bp
+from routes.options import options_bp
 
 def create_app():
     """Flask 애플리케이션 팩토리"""
@@ -51,6 +53,8 @@ def create_app():
     app.register_blueprint(prediction_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(announcement_bp)
+    app.register_blueprint(futures_bp)
+    app.register_blueprint(options_bp)
 
     # 기본 라우트
     @app.route('/')

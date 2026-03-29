@@ -18,6 +18,12 @@ import MyBets from './pages/MyBets';
 import AdminPredictions from './pages/AdminPredictions';
 import AdminUsers from './pages/AdminUsers';
 import AdminAnnouncements from './pages/AdminAnnouncements';
+import Futures from './pages/Futures';
+import FuturesDetail from './pages/FuturesDetail';
+import FuturesPositions from './pages/FuturesPositions';
+import Options from './pages/Options';
+import OptionsDetail from './pages/OptionsDetail';
+import OptionsPositions from './pages/OptionsPositions';
 import './App.css';
 
 function App() {
@@ -94,6 +100,54 @@ function App() {
               element={
                 <PrivateRoute>
                   <MyBets />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/futures"
+              element={
+                <PrivateRoute>
+                  <Futures />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/futures/:contractId"
+              element={
+                <PrivateRoute>
+                  <FuturesDetail />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/futures/positions"
+              element={
+                <PrivateRoute>
+                  <FuturesPositions />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/options"
+              element={
+                <PrivateRoute>
+                  <Options />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/options/:underlying"
+              element={
+                <PrivateRoute>
+                  <OptionsDetail />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/options/positions"
+              element={
+                <PrivateRoute>
+                  <OptionsPositions />
                 </PrivateRoute>
               }
             />

@@ -82,6 +82,107 @@ class Config:
     REFERRAL_BONUS = 300000        # 추천 보너스 30만원 (추천인 + 가입자 둘 다)
     REFERRAL_MAX_COUNT = 10        # 최대 추천 가능 횟수
 
+    # 소수점 거래 설정
+    FRACTIONAL_DECIMALS = 4
+
+    # 공매도 설정
+    SHORT_MARGIN_RATE = 1.5       # 증거금률 150%
+    SHORT_BORROW_RATE = 0.0001    # 일일 대여료율 0.01%
+
+    # 선물 거래 설정
+    FUTURES_CONTRACTS = {
+        'KOSPI200': {
+            'name': 'KOSPI200 선물',
+            'underlying': 'KOSPI200',
+            'contract_size': 250000,    # 1포인트 = 25만원
+            'tick_size': 0.05,
+            'initial_margin_rate': 0.15,  # 개시증거금률 15%
+            'maintenance_margin_rate': 0.10,  # 유지증거금률 10%
+            'currency': 'KRW',
+        },
+        'ES': {
+            'name': 'S&P500 E-mini 선물',
+            'underlying': 'ES',
+            'contract_size': 50,        # 1포인트 = $50
+            'tick_size': 0.25,
+            'initial_margin_rate': 0.10,
+            'maintenance_margin_rate': 0.07,
+            'currency': 'USD',
+        },
+        'NQ': {
+            'name': 'NASDAQ E-mini 선물',
+            'underlying': 'NQ',
+            'contract_size': 20,        # 1포인트 = $20
+            'tick_size': 0.25,
+            'initial_margin_rate': 0.10,
+            'maintenance_margin_rate': 0.07,
+            'currency': 'USD',
+        },
+        'CL': {
+            'name': 'WTI 원유 선물',
+            'underlying': 'CL',
+            'contract_size': 1000,      # 1배럴 × 1000
+            'tick_size': 0.01,
+            'initial_margin_rate': 0.10,
+            'maintenance_margin_rate': 0.07,
+            'currency': 'USD',
+        },
+        'GC': {
+            'name': '금 선물',
+            'underlying': 'GC',
+            'contract_size': 100,       # 1온스 × 100
+            'tick_size': 0.10,
+            'initial_margin_rate': 0.10,
+            'maintenance_margin_rate': 0.07,
+            'currency': 'USD',
+        },
+        '6E': {
+            'name': '유로/달러 선물',
+            'underlying': '6E',
+            'contract_size': 125000,    # €125,000
+            'tick_size': 0.00005,
+            'initial_margin_rate': 0.03,
+            'maintenance_margin_rate': 0.02,
+            'currency': 'USD',
+        },
+        'ZN': {
+            'name': '미국 10년 국채 선물',
+            'underlying': 'ZN',
+            'contract_size': 1000,      # $1,000 × 포인트
+            'tick_size': 0.015625,
+            'initial_margin_rate': 0.03,
+            'maintenance_margin_rate': 0.02,
+            'currency': 'USD',
+        },
+        'NK': {
+            'name': '니케이225 선물',
+            'underlying': 'NK',
+            'contract_size': 1000,      # ¥1,000 × 포인트
+            'tick_size': 5,
+            'initial_margin_rate': 0.10,
+            'maintenance_margin_rate': 0.07,
+            'currency': 'USD',
+        },
+        'FDAX': {
+            'name': 'DAX 선물',
+            'underlying': 'FDAX',
+            'contract_size': 25,        # €25 × 포인트
+            'tick_size': 0.5,
+            'initial_margin_rate': 0.10,
+            'maintenance_margin_rate': 0.07,
+            'currency': 'USD',
+        },
+    }
+
+    # 옵션 거래 설정
+    OPTIONS_RISK_FREE_RATE = 0.04   # 무위험이자율 4%
+    OPTIONS_CONTRACT_SIZE = 100      # 1계약 = 100주
+    OPTIONS_SUPPORTED_UNDERLYINGS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 'SPY', 'QQQ', '005930', 'NFLX', 'AMD', 'INTC', 'JPM', 'V', 'BA', 'DIS', 'COIN', 'SOFI', '000660', '035420']
+    OPTIONS_STRIKE_INTERVAL = {
+        'default': 0.05,  # 현재가 대비 5% 간격
+        'narrow': 0.025,  # 현재가 대비 2.5% 간격
+    }
+
     # Flask 설정
     DEBUG = True
     TESTING = False

@@ -30,6 +30,18 @@ export const formatNumber = (number) => {
   return number.toLocaleString();
 };
 
+// 수량 포맷팅 (소수점 거래 지원, trailing zero 제거)
+export const formatQuantity = (quantity) => {
+  if (typeof quantity !== 'number') return '0';
+  // 정수면 정수로 표시
+  if (Number.isInteger(quantity)) return quantity.toLocaleString();
+  // 소수면 trailing zero 제거
+  return parseFloat(quantity.toFixed(4)).toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 4,
+  });
+};
+
 // 퍼센트 포맷팅
 export const formatPercent = (number, decimals = 2) => {
   if (typeof number !== 'number') return '0.00%';
