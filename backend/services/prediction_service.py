@@ -1,4 +1,5 @@
 from models.prediction import Prediction
+from models.portfolio import Portfolio
 from models.user import User
 from config import Config
 from datetime import datetime
@@ -72,6 +73,9 @@ class PredictionService:
 
         total_payout = 0
         winners = 0
+        portfolio_model = Portfolio()
+        title_short = pred['title'][:30]
+
         for bet in winning_bets:
             if winning_pool > 0 and total_pool > 0:
                 payout = int(bet['amount'] * total_pool / winning_pool)
@@ -84,11 +88,23 @@ class PredictionService:
                 {'$inc': {'balance': payout}}
             )
             self.prediction_model.update_bet_result(str(bet['_id']), 'won', payout)
+
+            profit = payout - bet['amount']
+            portfolio_model.record_transaction(
+                str(bet['user_id']), 'PREDICTION', 'bet_win', 1,
+                payout, 0, 'PREDICTION',
+                name=f"예측 적중 (+{profit:,}원) - {title_short}"
+            )
             total_payout += payout
             winners += 1
 
         for bet in losing_bets:
             self.prediction_model.update_bet_result(str(bet['_id']), 'lost', 0)
+            portfolio_model.record_transaction(
+                str(bet['user_id']), 'PREDICTION', 'bet_loss', 1,
+                bet['amount'], 0, 'PREDICTION',
+                name=f"예측 실패 (-{bet['amount']:,}원) - {title_short}"
+            )
 
         self.prediction_model.settle_prediction(prediction_id, result)
 
@@ -190,6 +206,14 @@ class PredictionService:
             estimated_payout = int(amount * new_total / new_no) if new_no > 0 else amount
 
         self.prediction_model.place_bet(prediction_id, user_id, choice, amount, estimated_payout)
+
+        # 거래 기록
+        portfolio_model = Portfolio()
+        portfolio_model.record_transaction(
+            user_id, 'PREDICTION', 'bet_place', 1,
+            amount, 0, 'PREDICTION',
+            name=f"예측 베팅 ({choice.upper()}) - {pred['title'][:30]}"
+        )
 
         updated_user = self.user_model.find_by_id(user_id)
         bet_data = {

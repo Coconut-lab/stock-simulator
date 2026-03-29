@@ -221,6 +221,21 @@ const Badge = styled.span`
     background: #fff8e1;
     color: #f57f17;
   }
+
+  &.bet_place {
+    background: #fff3e0;
+    color: #e65100;
+  }
+
+  &.bet_win {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+
+  &.bet_loss {
+    background: #ffeaea;
+    color: #c62828;
+  }
 `;
 
 const EmptyState = styled.div`
@@ -308,6 +323,7 @@ const Transactions = () => {
     if (filter === 'short') return transaction.type === 'short_sell' || transaction.type === 'short_cover';
     if (filter === 'option') return ['option_buy', 'option_sell', 'option_exercise'].includes(transaction.type);
     if (filter === 'futures') return ['futures_long', 'futures_short', 'futures_close'].includes(transaction.type);
+    if (filter === 'prediction') return ['bet_place', 'bet_win', 'bet_loss'].includes(transaction.type);
     return transaction.type === filter;
   });
 
@@ -442,6 +458,7 @@ const Transactions = () => {
               <option value="short">공매도</option>
               <option value="option">옵션</option>
               <option value="futures">선물</option>
+              <option value="prediction">예측마켓</option>
               <option value="admin">관리자 조정</option>
               <option value="referral">추천 보너스</option>
             </Select>
@@ -472,12 +489,14 @@ const Transactions = () => {
                   {filteredTransactions.map((transaction) => {
                     const isAdmin = transaction.type === 'admin_deposit' || transaction.type === 'admin_withdraw';
                     const isReferral = transaction.type === 'referral_bonus';
-                    const isSpecial = isAdmin || isReferral;
+                    const isPrediction = ['bet_place', 'bet_win', 'bet_loss'].includes(transaction.type);
+                    const isSpecial = isAdmin || isReferral || isPrediction;
                     const typeLabel = {
                       buy: '매수', sell: '매도',
                       short_sell: '공매도', short_cover: '숏커버',
                       option_buy: '옵션 매수', option_sell: '옵션 매도', option_exercise: '옵션 행사',
                       futures_long: '선물 롱', futures_short: '선물 숏', futures_close: '선물 청산',
+                      bet_place: '베팅', bet_win: '적중', bet_loss: '실패',
                       admin_deposit: '입금', admin_withdraw: '출금',
                       referral_bonus: '추천 보너스'
                     }[transaction.type] || transaction.type;
@@ -488,10 +507,10 @@ const Transactions = () => {
                         <td>
                           {isSpecial ? (
                             <StockCell>
-                              <div className="symbol" style={{ color: isReferral ? '#7b1fa2' : '#888' }}>
-                                {isReferral ? '추천 보너스' : '관리자 조정'}
+                              <div className="symbol" style={{ color: isPrediction ? '#e65100' : isReferral ? '#7b1fa2' : '#888' }}>
+                                {isPrediction ? '예측마켓' : isReferral ? '추천 보너스' : '관리자 조정'}
                               </div>
-                              {transaction.memo && <div className="name">{transaction.memo}</div>}
+                              {(transaction.memo || transaction.name) && <div className="name">{transaction.memo || transaction.name}</div>}
                             </StockCell>
                           ) : (
                             <StockCell>
@@ -509,16 +528,16 @@ const Transactions = () => {
                         <td>{isSpecial ? '-' : renderPrice(transaction)}</td>
                         <td>
                           {isSpecial ? (
-                            <span style={{ fontWeight: 600, color: isReferral ? '#7b1fa2' : transaction.type === 'admin_deposit' ? '#2e7d32' : '#e65100' }}>
-                              {(isReferral || transaction.type === 'admin_deposit') ? '+' : '-'}₩{formatNumber(Math.round(transaction.total_amount))}
+                            <span style={{ fontWeight: 600, color: transaction.type === 'bet_win' ? '#2e7d32' : transaction.type === 'bet_loss' ? '#c62828' : isPrediction ? '#e65100' : isReferral ? '#7b1fa2' : transaction.type === 'admin_deposit' ? '#2e7d32' : '#e65100' }}>
+                              {(isReferral || transaction.type === 'admin_deposit' || transaction.type === 'bet_win') ? '+' : '-'}₩{formatNumber(Math.round(transaction.total_amount))}
                             </span>
                           ) : renderAmount(transaction.quantity * transaction.price)}
                         </td>
                         <td>{isSpecial ? '-' : renderAmount(transaction.commission)}</td>
                         <td className={isSpecial ? '' : transaction.type}>
                           {isSpecial ? (
-                            <span style={{ fontWeight: 700, color: isReferral ? '#7b1fa2' : transaction.type === 'admin_deposit' ? '#2e7d32' : '#e65100' }}>
-                              {(isReferral || transaction.type === 'admin_deposit') ? '+' : '-'}₩{formatNumber(Math.round(transaction.total_amount))}
+                            <span style={{ fontWeight: 700, color: transaction.type === 'bet_win' ? '#2e7d32' : transaction.type === 'bet_loss' ? '#c62828' : isPrediction ? '#e65100' : isReferral ? '#7b1fa2' : transaction.type === 'admin_deposit' ? '#2e7d32' : '#e65100' }}>
+                              {(isReferral || transaction.type === 'admin_deposit' || transaction.type === 'bet_win') ? '+' : '-'}₩{formatNumber(Math.round(transaction.total_amount))}
                             </span>
                           ) : renderAmount(transaction.total_amount)}
                         </td>

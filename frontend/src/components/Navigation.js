@@ -24,34 +24,54 @@ const NavContent = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  height: 70px;
+  height: 60px;
+  gap: 12px;
+
+  @media (max-width: 1100px) {
+    padding: 0 12px;
+  }
 `;
 
 const Logo = styled(Link)`
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 700;
   color: #667eea;
   text-decoration: none;
   display: flex;
   align-items: center;
   gap: 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
   &:hover { color: #764ba2; }
+
+  @media (max-width: 900px) {
+    font-size: 17px;
+  }
 `;
 
 const NavLinks = styled.div`
   display: flex;
   align-items: center;
-  gap: 30px;
-  @media (max-width: 768px) { gap: 20px; }
+  gap: 4px;
+  flex-shrink: 1;
+  min-width: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
 `;
 
 const NavLink = styled(Link)`
   color: ${p => p.$dark ? '#999' : '#666'};
   text-decoration: none;
   font-weight: 500;
-  padding: 8px 16px;
+  font-size: 14px;
+  padding: 6px 12px;
   border-radius: 8px;
   transition: all 0.3s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
 
   &:hover {
     color: #667eea;
@@ -62,6 +82,11 @@ const NavLink = styled(Link)`
     color: ${p => p.$dark ? '#a5b4fc' : '#667eea'};
     background: ${p => p.$dark ? 'rgba(102,126,234,0.18)' : '#f0f2ff'};
     font-weight: 600;
+  }
+
+  @media (max-width: 900px) {
+    font-size: 13px;
+    padding: 5px 8px;
   }
 `;
 
@@ -79,7 +104,8 @@ const DerivDropdown = styled.div`
 const DerivTrigger = styled.span`
   color: ${p => p.$dark ? '#a5b4fc' : '#667eea'};
   font-weight: 600;
-  padding: 8px 16px;
+  font-size: 14px;
+  padding: 6px 12px;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -87,6 +113,8 @@ const DerivTrigger = styled.span`
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
 
   &:hover {
     background: ${p => p.$dark ? 'rgba(102,126,234,0.12)' : 'rgba(102,126,234,0.08)'};
@@ -161,7 +189,8 @@ const AdminDropdown = styled.div`
 const AdminTrigger = styled.span`
   color: ${p => p.$dark ? '#ff6b6b' : '#e74c3c'};
   font-weight: 700;
-  padding: 8px 16px;
+  font-size: 14px;
+  padding: 6px 12px;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -169,6 +198,8 @@ const AdminTrigger = styled.span`
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
 
   &:hover {
     background: ${p => p.$dark ? 'rgba(231,76,60,0.12)' : 'rgba(231,76,60,0.08)'};
@@ -231,10 +262,12 @@ const DropdownItem = styled(Link)`
 const UserInfo = styled.div`
   display: flex;
   align-items: center;
-  gap: 16px;
-  font-size: 14px;
+  gap: 10px;
+  font-size: 13px;
   color: ${p => p.$dark ? '#aaa' : '#666'};
   transition: color 0.35s ease;
+  flex-shrink: 0;
+  white-space: nowrap;
 
   .username {
     font-weight: 600;
@@ -244,18 +277,27 @@ const UserInfo = styled.div`
     color: #27ae60;
     font-weight: 600;
   }
+
+  @media (max-width: 900px) {
+    gap: 6px;
+    font-size: 12px;
+
+    .username { display: none; }
+  }
 `;
 
 const LogoutButton = styled.button`
   background: ${p => p.$dark ? 'rgba(231,76,60,0.2)' : '#e74c3c'};
   color: ${p => p.$dark ? '#e74c3c' : 'white'};
   border: ${p => p.$dark ? '1px solid rgba(231,76,60,0.3)' : 'none'};
-  padding: 8px 16px;
+  padding: 6px 12px;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
   &:hover {
     background: ${p => p.$dark ? 'rgba(231,76,60,0.35)' : '#c0392b'};
   }
