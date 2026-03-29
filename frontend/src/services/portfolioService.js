@@ -57,6 +57,26 @@ export const portfolioService = {
     }
   },
 
+  // 공매도
+  shortSellStock: async (symbol, quantity) => {
+    try {
+      const response = await api.post('/portfolio/short-sell', { symbol, quantity });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { error: '공매도에 실패했습니다.' };
+    }
+  },
+
+  // 숏 커버
+  shortCoverStock: async (symbol, quantity) => {
+    try {
+      const response = await api.post('/portfolio/short-cover', { symbol, quantity });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { error: '숏 커버에 실패했습니다.' };
+    }
+  },
+
   // 포트폴리오 요약 정보
   getPortfolioSummary: async () => {
     try {

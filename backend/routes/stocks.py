@@ -260,6 +260,42 @@ def get_market_hours():
         logging.error(f"장시간 조회 에러: {e}")
         return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
 
+@stocks_bp.route('/<symbol>/financials', methods=['GET'])
+def get_stock_financials(symbol):
+    """주식 재무제표 조회"""
+    try:
+        user_data, error = verify_auth()
+        if error:
+            return jsonify({'error': error}), 401
+
+        financials = stock_service.get_stock_financials(symbol)
+
+        return jsonify({
+            'data': StockService._clean_nan(financials)
+        }), 200
+
+    except Exception as e:
+        logging.error(f"재무제표 조회 에러: {e}")
+        return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
+
+@stocks_bp.route('/<symbol>/news', methods=['GET'])
+def get_stock_news(symbol):
+    """주식 뉴스 조회"""
+    try:
+        user_data, error = verify_auth()
+        if error:
+            return jsonify({'error': error}), 401
+
+        news = stock_service.get_stock_news(symbol)
+
+        return jsonify({
+            'data': news
+        }), 200
+
+    except Exception as e:
+        logging.error(f"뉴스 조회 에러: {e}")
+        return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
+
 @stocks_bp.route('/indices', methods=['GET'])
 def get_market_indices():
     """시장 지수 정보 조회"""

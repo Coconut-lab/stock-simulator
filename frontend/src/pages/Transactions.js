@@ -181,6 +181,46 @@ const Badge = styled.span`
     background: #f3e5f5;
     color: #7b1fa2;
   }
+
+  &.short_sell {
+    background: #fce4ec;
+    color: #c62828;
+  }
+
+  &.short_cover {
+    background: #fff3e0;
+    color: #e65100;
+  }
+
+  &.option_buy {
+    background: #ede7f6;
+    color: #4527a0;
+  }
+
+  &.option_sell {
+    background: #e8eaf6;
+    color: #283593;
+  }
+
+  &.option_exercise {
+    background: #e0f2f1;
+    color: #00695c;
+  }
+
+  &.futures_long {
+    background: #ffeaea;
+    color: #e74c3c;
+  }
+
+  &.futures_short {
+    background: #e3f2fd;
+    color: #1565c0;
+  }
+
+  &.futures_close {
+    background: #fff8e1;
+    color: #f57f17;
+  }
 `;
 
 const EmptyState = styled.div`
@@ -265,6 +305,9 @@ const Transactions = () => {
     if (filter === 'all') return true;
     if (filter === 'admin') return transaction.type === 'admin_deposit' || transaction.type === 'admin_withdraw';
     if (filter === 'referral') return transaction.type === 'referral_bonus';
+    if (filter === 'short') return transaction.type === 'short_sell' || transaction.type === 'short_cover';
+    if (filter === 'option') return ['option_buy', 'option_sell', 'option_exercise'].includes(transaction.type);
+    if (filter === 'futures') return ['futures_long', 'futures_short', 'futures_close'].includes(transaction.type);
     return transaction.type === filter;
   });
 
@@ -396,6 +439,9 @@ const Transactions = () => {
               <option value="all">전체</option>
               <option value="buy">매수만</option>
               <option value="sell">매도만</option>
+              <option value="short">공매도</option>
+              <option value="option">옵션</option>
+              <option value="futures">선물</option>
               <option value="admin">관리자 조정</option>
               <option value="referral">추천 보너스</option>
             </Select>
@@ -429,6 +475,9 @@ const Transactions = () => {
                     const isSpecial = isAdmin || isReferral;
                     const typeLabel = {
                       buy: '매수', sell: '매도',
+                      short_sell: '공매도', short_cover: '숏커버',
+                      option_buy: '옵션 매수', option_sell: '옵션 매도', option_exercise: '옵션 행사',
+                      futures_long: '선물 롱', futures_short: '선물 숏', futures_close: '선물 청산',
                       admin_deposit: '입금', admin_withdraw: '출금',
                       referral_bonus: '추천 보너스'
                     }[transaction.type] || transaction.type;

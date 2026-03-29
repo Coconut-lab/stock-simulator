@@ -13,15 +13,16 @@ class Portfolio:
         portfolio = list(self.collection.find({'user_id': ObjectId(user_id)}))
         return portfolio
     
-    def get_holding(self, user_id, symbol):
+    def get_holding(self, user_id, symbol, position_type='long'):
         """특정 종목 보유량 조회"""
         holding = self.collection.find_one({
             'user_id': ObjectId(user_id),
-            'symbol': symbol
+            'symbol': symbol,
+            'position_type': position_type
         })
         return holding
-    
-    def add_holding(self, user_id, symbol, quantity, avg_price, market, original_avg_price=None):
+
+    def add_holding(self, user_id, symbol, quantity, avg_price, market, original_avg_price=None, position_type='long'):
         """새 보유 종목 추가"""
         holding_data = {
             'user_id': ObjectId(user_id),
@@ -30,20 +31,22 @@ class Portfolio:
             'avg_price': avg_price,
             'original_avg_price': original_avg_price,
             'market': market,
+            'position_type': position_type,
             'created_at': datetime.utcnow(),
             'updated_at': datetime.utcnow()
         }
 
         result = self.collection.insert_one(holding_data)
         return str(result.inserted_id)
-    
-    def update_holding(self, user_id, symbol, new_quantity, new_avg_price, original_avg_price=None):
+
+    def update_holding(self, user_id, symbol, new_quantity, new_avg_price, original_avg_price=None, position_type='long'):
         """보유 종목 업데이트"""
-        if new_quantity <= 0:
-            # 수량이 0 이하면 삭제
+        if new_quantity < 0.0001:
+            # 수량이 거의 0이면 삭제
             result = self.collection.delete_one({
                 'user_id': ObjectId(user_id),
-                'symbol': symbol
+                'symbol': symbol,
+                'position_type': position_type
             })
             return result.deleted_count > 0
         else:
@@ -57,7 +60,8 @@ class Portfolio:
             result = self.collection.update_one(
                 {
                     'user_id': ObjectId(user_id),
-                    'symbol': symbol
+                    'symbol': symbol,
+                    'position_type': position_type
                 },
                 {'$set': update_fields}
             )
@@ -95,27 +99,31 @@ class Portfolio:
         return transactions
     
     def calculate_portfolio_value(self, user_id, current_prices):
-        """포트폴리오 총 가치 계산"""
+        """포트폴리오 총 가치 계산 (롱 포지션만)"""
         portfolio = self.get_user_portfolio(user_id)
         total_value = 0
-        
+
         for holding in portfolio:
+            if holding.get('position_type', 'long') != 'long':
+                continue
             symbol = holding['symbol']
             quantity = holding['quantity']
-            
+
             if symbol in current_prices:
                 current_price = current_prices[symbol]
                 holding_value = quantity * current_price
                 total_value += holding_value
-        
+
         return total_value
-    
+
     def calculate_profit_loss(self, user_id, current_prices):
-        """손익 계산"""
+        """손익 계산 (롱 포지션만, 숏은 별도 계산)"""
         portfolio = self.get_user_portfolio(user_id)
         total_profit_loss = 0
 
         for holding in portfolio:
+            if holding.get('position_type', 'long') != 'long':
+                continue
             symbol = holding['symbol']
             quantity = holding['quantity']
             avg_price = holding['avg_price']

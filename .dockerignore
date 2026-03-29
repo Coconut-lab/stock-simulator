@@ -48,7 +48,7 @@ DOCKER_README.md
 
 # 기타
 .DS_Store
-test.py
+remove_pycache.py
 docker-compose.yml
 backend/Dockerfile
 frontend/Dockerfile

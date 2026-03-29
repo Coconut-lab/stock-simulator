@@ -101,6 +101,26 @@ export const stockService = {
     }
   },
 
+  // 주식 재무제표 조회
+  getStockFinancials: async (symbol) => {
+    try {
+      const response = await api.get(`/stocks/${symbol}/financials`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { error: '재무제표 조회에 실패했습니다.' };
+    }
+  },
+
+  // 주식 뉴스 조회
+  getStockNews: async (symbol) => {
+    try {
+      const response = await api.get(`/stocks/${symbol}/news`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { error: '뉴스 조회에 실패했습니다.' };
+    }
+  },
+
   // 시장별 전체 종목 리스트 (페이지네이션)
   getMarketList: async (market, page = 1, perPage = 30) => {
     try {
