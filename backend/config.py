@@ -156,6 +156,9 @@ class Config:
         'narrow': 0.025,  # 현재가 대비 2.5% 간격
     }
 
+    # 디스코드 웹훅
+    DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
+
     # Flask 설정
     DEBUG = True
     TESTING = False

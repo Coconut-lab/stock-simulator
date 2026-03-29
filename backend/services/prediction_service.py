@@ -2,6 +2,7 @@ from models.prediction import Prediction
 from models.portfolio import Portfolio
 from models.user import User
 from config import Config
+from utils.discord import send_discord
 from datetime import datetime
 import logging
 
@@ -39,6 +40,14 @@ class PredictionService:
             deadline=deadline,
             created_by=admin_user_id
         )
+        send_discord(
+            "새 예측 등록",
+            f"**{title.strip()}**\n{(description or '').strip()}",
+            color=0x667eea,
+            fields=[
+                {"name": "마감", "value": deadline_str, "inline": True},
+            ]
+        )
         return pred_id, None
 
     def close_prediction(self, prediction_id):
@@ -48,6 +57,15 @@ class PredictionService:
         if pred['status'] == 'settled':
             return '이미 정산된 예측입니다.'
         self.prediction_model.update_status(prediction_id, 'closed')
+        send_discord(
+            "예측 마감",
+            f"**{pred['title']}**\n베팅이 마감되었습니다.",
+            color=0xf39c12,
+            fields=[
+                {"name": "YES", "value": f"₩{pred.get('total_yes_amount',0):,} ({pred.get('total_yes_bettors',0)}명)", "inline": True},
+                {"name": "NO", "value": f"₩{pred.get('total_no_amount',0):,} ({pred.get('total_no_bettors',0)}명)", "inline": True},
+            ]
+        )
         return None
 
     def settle_prediction(self, prediction_id, result):
@@ -107,6 +125,18 @@ class PredictionService:
             )
 
         self.prediction_model.settle_prediction(prediction_id, result)
+
+        result_kr = "YES" if result == "yes" else "NO"
+        send_discord(
+            "예측 정산 완료",
+            f"**{pred['title']}**",
+            color=0x2ecc71 if winners > 0 else 0xe74c3c,
+            fields=[
+                {"name": "결과", "value": result_kr, "inline": True},
+                {"name": "승자", "value": f"{winners}명", "inline": True},
+                {"name": "총 배당", "value": f"₩{total_payout:,}", "inline": True},
+            ]
+        )
 
         summary = {
             'result': result,
