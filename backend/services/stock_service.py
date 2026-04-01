@@ -37,7 +37,10 @@ class StockService:
         }
         self.prev_exchange_rates = dict(self.exchange_rates)
         self.last_exchange_update = None
-        
+
+        # 시작 시 오염된 캐시 정리
+        self._cleanup_invalid_cache()
+
         # 확장된 한국 주식 티커 목록
         self.kr_stocks = [
             '005930',  # 삼성전자
@@ -473,6 +476,26 @@ class StockService:
         self._save_listings('EUR', eu)
         logging.info(f"EU 종목 리스트 로드 완료: {len(eu)}개")
 
+    def _cleanup_invalid_cache(self):
+        """시작 시 exchange_rate이 0이거나 current_price가 0인 캐시 정리"""
+        try:
+            result = self.cache_collection.delete_many({
+                '$or': [
+                    {'current_price': {'$lte': 0}},
+                    {'market': {'$ne': 'KRW'}, 'exchange_rate': {'$lte': 0}},
+                    {'market': {'$ne': 'KRW'}, 'exchange_rate': None},
+                    {'market': {'$ne': 'KRW'}, 'exchange_rate': {'$exists': False}},
+                ]
+            })
+            if result.deleted_count > 0:
+                logging.info(f"오염된 캐시 {result.deleted_count}건 정리 완료")
+        except Exception as e:
+            logging.error(f"캐시 정리 실패: {e}")
+
+    def _valid_rate(self, rate):
+        """환율 값이 유효한지 확인"""
+        return isinstance(rate, (int, float)) and not math.isnan(rate) and not math.isinf(rate) and rate > 0
+
     def update_exchange_rate(self):
         """실시간 환율 업데이트 (USD, HKD, EUR, GBP → KRW)"""
         try:
@@ -481,7 +504,9 @@ class StockService:
             try:
                 usd_krw = fdr.DataReader('USD/KRW', datetime.now() - timedelta(days=1))
                 if not usd_krw.empty:
-                    self.exchange_rates['USD'] = float(usd_krw.iloc[-1]['Close'])
+                    new_rate = float(usd_krw.iloc[-1]['Close'])
+                    if self._valid_rate(new_rate):
+                        self.exchange_rates['USD'] = new_rate
             except Exception:
                 pass
 
@@ -496,13 +521,19 @@ class StockService:
                     usd_krw = self.exchange_rates['USD']
                     # HKD → KRW = USD/KRW ÷ USD/HKD
                     if 'HKD' in rates and rates['HKD'] > 0:
-                        self.exchange_rates['HKD'] = usd_krw / rates['HKD']
+                        new_rate = usd_krw / rates['HKD']
+                        if self._valid_rate(new_rate):
+                            self.exchange_rates['HKD'] = new_rate
                     # EUR → KRW = USD/KRW ÷ USD/EUR
                     if 'EUR' in rates and rates['EUR'] > 0:
-                        self.exchange_rates['EUR'] = usd_krw / rates['EUR']
+                        new_rate = usd_krw / rates['EUR']
+                        if self._valid_rate(new_rate):
+                            self.exchange_rates['EUR'] = new_rate
                     # GBP → KRW
                     if 'GBP' in rates and rates['GBP'] > 0:
-                        self.exchange_rates['GBP'] = usd_krw / rates['GBP']
+                        new_rate = usd_krw / rates['GBP']
+                        if self._valid_rate(new_rate):
+                            self.exchange_rates['GBP'] = new_rate
             except Exception as e:
                 logging.warning(f"환율 API 조회 실패: {e}")
 
@@ -844,6 +875,15 @@ class StockService:
         try:
             save_data = {k: v for k, v in data.items() if k != '_id'}
             save_data = self._clean_nan(save_data)
+
+            # 해외 주식인데 exchange_rate이 잘못된 경우 저장 차단
+            market = save_data.get('market', save_data.get('currency', 'KRW'))
+            if market != 'KRW':
+                ex_rate = save_data.get('exchange_rate', 0)
+                if not self._valid_rate(ex_rate):
+                    logging.warning(f"캐시 저장 차단 {symbol}: exchange_rate 무효 ({ex_rate})")
+                    return
+
             self.cache_collection.replace_one(
                 {'symbol': symbol}, save_data, upsert=True
             )
@@ -866,6 +906,17 @@ class StockService:
             # ETF 여부 표시
             if symbol in self.etf_symbols:
                 data['type'] = 'etf'
+
+        # current_price가 0이면 캐시에서 마지막 유효 가격 복원
+        if data and data.get('current_price', 0) <= 0:
+            try:
+                cached = self.cache_collection.find_one({'symbol': symbol})
+                if cached and cached.get('current_price', 0) > 0:
+                    logging.info(f"{symbol} 실시간 가격 0 → 캐시 가격 {cached['current_price']} 사용")
+                    data['current_price'] = cached['current_price']
+                    data['is_estimated'] = True
+            except Exception:
+                pass
 
         # 실시간 조회 결과를 캐시에 저장
         if data and data.get('current_price', 0) > 0:

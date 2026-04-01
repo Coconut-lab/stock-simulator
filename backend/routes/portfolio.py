@@ -70,12 +70,22 @@ def get_portfolio():
             if not stock_data:
                 stock_data = stock_service.get_stock_info(symbol)
 
-            if stock_data:
+            # 가격이 0이면 만료 무시하고 캐시 재조회
+            if stock_data and stock_data.get('current_price', 0) <= 0:
+                cached_fallback = stock_service.get_cached_stock_data(symbol)
+                if cached_fallback and cached_fallback.get('current_price', 0) > 0:
+                    stock_data = cached_fallback
+
+            if stock_data and stock_data.get('current_price', 0) > 0:
                 current_price = stock_data['current_price']
 
-                # 미국 주식인 경우 환율 적용하여 원화로 변환
-                if stock_data.get('currency') != 'KRW' and stock_data.get('exchange_rate'):
-                    current_price_krw = current_price * stock_data['exchange_rate']
+                # 해외 주식인 경우 환율 적용하여 원화로 변환
+                if stock_data.get('currency') != 'KRW':
+                    ex_rate = stock_data.get('exchange_rate') or stock_service.get_exchange_rate(
+                        stock_data.get('price_currency', stock_data.get('currency', 'USD'))
+                    )
+                    current_price_krw = current_price * ex_rate
+                    stock_data['exchange_rate'] = ex_rate
                 else:
                     current_price_krw = current_price
 
@@ -112,7 +122,7 @@ def get_portfolio():
                     original_profit_loss = None
                     original_profit_loss_percent = None
                     purchase_price_original = None
-                    if stock_data.get('currency') != 'KRW' and stock_data.get('exchange_rate'):
+                    if stock_data.get('currency') != 'KRW' and stock_data.get('exchange_rate', 0) > 0:
                         purchase_price_original = holding.get('original_avg_price') or (holding['avg_price'] / stock_data['exchange_rate'])
                         original_profit_loss = (current_price - purchase_price_original) * holding['quantity']
                         if purchase_price_original > 0:
@@ -216,8 +226,11 @@ def buy_stock():
         market = stock_data.get('market', stock_data.get('currency', 'KRW'))
 
         # 외화 주식인 경우 환율 적용하여 원화로 변환
-        if market != 'KRW' and stock_data.get('exchange_rate'):
-            current_price_krw = current_price * stock_data['exchange_rate']
+        if market != 'KRW':
+            ex_rate = stock_data.get('exchange_rate') or stock_service.get_exchange_rate(
+                stock_data.get('price_currency', market)
+            )
+            current_price_krw = current_price * ex_rate
         else:
             current_price_krw = current_price
 
@@ -250,7 +263,7 @@ def buy_stock():
         existing_holding = portfolio_model.get_holding(user_id, symbol, 'long')
 
         # 원래 통화 평균 단가 계산
-        is_foreign = market != 'KRW' and stock_data.get('exchange_rate')
+        is_foreign = market != 'KRW'
         if existing_holding:
             total_quantity = existing_holding['quantity'] + quantity
             total_value = (existing_holding['quantity'] * existing_holding['avg_price']) + total_amount
@@ -355,8 +368,11 @@ def sell_stock():
         market = holding['market']
 
         # 외화 주식인 경우 환율 적용하여 원화로 변환
-        if market != 'KRW' and stock_data.get('exchange_rate'):
-            current_price_krw = current_price * stock_data['exchange_rate']
+        if market != 'KRW':
+            ex_rate = stock_data.get('exchange_rate') or stock_service.get_exchange_rate(
+                stock_data.get('price_currency', market)
+            )
+            current_price_krw = current_price * ex_rate
         else:
             current_price_krw = current_price
 
@@ -448,8 +464,11 @@ def short_sell_stock():
         current_price = stock_data['current_price']
         market = stock_data.get('market', stock_data.get('currency', 'KRW'))
 
-        if market != 'KRW' and stock_data.get('exchange_rate'):
-            current_price_krw = current_price * stock_data['exchange_rate']
+        if market != 'KRW':
+            ex_rate = stock_data.get('exchange_rate') or stock_service.get_exchange_rate(
+                stock_data.get('price_currency', market)
+            )
+            current_price_krw = current_price * ex_rate
         else:
             current_price_krw = current_price
 
@@ -553,8 +572,11 @@ def short_cover_stock():
         current_price = stock_data['current_price']
         market = holding['market']
 
-        if market != 'KRW' and stock_data.get('exchange_rate'):
-            current_price_krw = current_price * stock_data['exchange_rate']
+        if market != 'KRW':
+            ex_rate = stock_data.get('exchange_rate') or stock_service.get_exchange_rate(
+                stock_data.get('price_currency', market)
+            )
+            current_price_krw = current_price * ex_rate
         else:
             current_price_krw = current_price
 
@@ -663,8 +685,11 @@ def calculate_max_buy(symbol):
         market = stock_data.get('market', stock_data.get('currency', 'KRW'))
 
         # 외화 주식인 경우 환율 적용하여 원화로 변환
-        if market != 'KRW' and stock_data.get('exchange_rate'):
-            current_price_krw = current_price * stock_data['exchange_rate']
+        if market != 'KRW':
+            ex_rate = stock_data.get('exchange_rate') or stock_service.get_exchange_rate(
+                stock_data.get('price_currency', market)
+            )
+            current_price_krw = current_price * ex_rate
         else:
             current_price_krw = current_price
 
@@ -781,12 +806,21 @@ def get_portfolio_summary():
             if not stock_data:
                 stock_data = stock_service.get_stock_info(symbol)
 
-            if stock_data:
+            # 가격이 0이면 만료 무시하고 캐시 재조회
+            if stock_data and stock_data.get('current_price', 0) <= 0:
+                cached_fallback = stock_service.get_cached_stock_data(symbol)
+                if cached_fallback and cached_fallback.get('current_price', 0) > 0:
+                    stock_data = cached_fallback
+
+            if stock_data and stock_data.get('current_price', 0) > 0:
                 current_price = stock_data['current_price']
 
-                # 미국 주식인 경우 환율 적용
-                if stock_data.get('currency') != 'KRW' and stock_data.get('exchange_rate'):
-                    current_price_krw = current_price * stock_data['exchange_rate']
+                # 해외 주식인 경우 환율 적용
+                if stock_data.get('currency') != 'KRW':
+                    ex_rate = stock_data.get('exchange_rate') or stock_service.get_exchange_rate(
+                        stock_data.get('price_currency', stock_data.get('currency', 'USD'))
+                    )
+                    current_price_krw = current_price * ex_rate
                 else:
                     current_price_krw = current_price
 
