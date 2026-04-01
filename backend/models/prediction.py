@@ -43,6 +43,15 @@ class Prediction:
             {'$set': {'status': status}}
         )
 
+    def atomic_claim_for_settlement(self, prediction_id):
+        """status='closed'인 예측을 'settling'으로 원자적 전환. 성공 시 원본 문서 반환."""
+        from pymongo import ReturnDocument
+        return self.collection.find_one_and_update(
+            {'_id': ObjectId(prediction_id), 'status': 'closed'},
+            {'$set': {'status': 'settling'}},
+            return_document=ReturnDocument.BEFORE
+        )
+
     def settle_prediction(self, prediction_id, result):
         self.collection.update_one(
             {'_id': ObjectId(prediction_id)},
@@ -53,12 +62,18 @@ class Prediction:
             }}
         )
 
+    def update_deadline(self, prediction_id, new_deadline):
+        self.collection.update_one(
+            {'_id': ObjectId(prediction_id)},
+            {'$set': {'deadline': new_deadline}}
+        )
+
     def delete_prediction(self, prediction_id):
         self.collection.delete_one({'_id': ObjectId(prediction_id)})
 
     # ── 베팅 ──
 
-    def place_bet(self, prediction_id, user_id, choice, amount, estimated_payout):
+    def place_bet(self, prediction_id, user_id, choice, amount, estimated_payout, is_first_bet_on_side=True):
         bet = {
             'prediction_id': ObjectId(prediction_id),
             'user_id': ObjectId(user_id),
@@ -73,10 +88,13 @@ class Prediction:
         self.bets_collection.insert_one(bet)
 
         inc_field = 'total_yes_amount' if choice == 'yes' else 'total_no_amount'
-        cnt_field = 'total_yes_bettors' if choice == 'yes' else 'total_no_bettors'
+        inc_update = {inc_field: amount}
+        if is_first_bet_on_side:
+            cnt_field = 'total_yes_bettors' if choice == 'yes' else 'total_no_bettors'
+            inc_update[cnt_field] = 1
         self.collection.update_one(
             {'_id': ObjectId(prediction_id)},
-            {'$inc': {inc_field: amount, cnt_field: 1}}
+            {'$inc': inc_update}
         )
 
     def get_bets_for_prediction(self, prediction_id):
@@ -115,6 +133,14 @@ class Prediction:
         return self.bets_collection.count_documents(
             {'prediction_id': ObjectId(prediction_id)}
         )
+
+    def mark_bet_refunded(self, bet_id):
+        """베팅을 'refunded'로 원자적 표시. 이미 환불된 베팅은 무시."""
+        result = self.bets_collection.update_one(
+            {'_id': ObjectId(bet_id), 'status': {'$ne': 'refunded'}},
+            {'$set': {'status': 'refunded', 'settled_at': datetime.utcnow()}}
+        )
+        return result.modified_count > 0
 
     def delete_bets_for_prediction(self, prediction_id):
         """예측에 대한 모든 베팅 삭제"""

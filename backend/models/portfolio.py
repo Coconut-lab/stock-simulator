@@ -15,12 +15,16 @@ class Portfolio:
     
     def get_holding(self, user_id, symbol, position_type='long'):
         """특정 종목 보유량 조회"""
-        holding = self.collection.find_one({
+        query = {
             'user_id': ObjectId(user_id),
             'symbol': symbol,
-            'position_type': position_type
-        })
-        return holding
+        }
+        if position_type == 'long':
+            # position_type 필드가 없는 기존 보유 종목도 매칭 (하위 호환)
+            query['$or'] = [{'position_type': 'long'}, {'position_type': {'$exists': False}}]
+        else:
+            query['position_type'] = position_type
+        return self.collection.find_one(query)
 
     def add_holding(self, user_id, symbol, quantity, avg_price, market, original_avg_price=None, position_type='long'):
         """새 보유 종목 추가"""
@@ -41,28 +45,30 @@ class Portfolio:
 
     def update_holding(self, user_id, symbol, new_quantity, new_avg_price, original_avg_price=None, position_type='long'):
         """보유 종목 업데이트"""
+        query = {
+            'user_id': ObjectId(user_id),
+            'symbol': symbol,
+        }
+        if position_type == 'long':
+            query['$or'] = [{'position_type': 'long'}, {'position_type': {'$exists': False}}]
+        else:
+            query['position_type'] = position_type
+
         if new_quantity < 0.0001:
             # 수량이 거의 0이면 삭제
-            result = self.collection.delete_one({
-                'user_id': ObjectId(user_id),
-                'symbol': symbol,
-                'position_type': position_type
-            })
+            result = self.collection.delete_one(query)
             return result.deleted_count > 0
         else:
             update_fields = {
                 'quantity': new_quantity,
                 'avg_price': new_avg_price,
+                'position_type': position_type,
                 'updated_at': datetime.utcnow()
             }
             if original_avg_price is not None:
                 update_fields['original_avg_price'] = original_avg_price
             result = self.collection.update_one(
-                {
-                    'user_id': ObjectId(user_id),
-                    'symbol': symbol,
-                    'position_type': position_type
-                },
+                query,
                 {'$set': update_fields}
             )
             return result.modified_count > 0

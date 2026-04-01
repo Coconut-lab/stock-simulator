@@ -75,12 +75,30 @@ export const predictionService = {
     }
   },
 
+  updateDeadline: async (id, deadline) => {
+    try {
+      const response = await api.put(`/predictions/update-deadline/${id}`, { deadline });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { error: '마감일시 변경에 실패했습니다.' };
+    }
+  },
+
   deletePrediction: async (id) => {
     try {
       const response = await api.delete(`/predictions/remove/${id}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || { error: '예측 삭제에 실패했습니다.' };
+    }
+  },
+
+  getAdminBets: async (predictionId) => {
+    try {
+      const response = await api.get(`/predictions/admin/bets/${predictionId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { error: '베팅 상세 조회에 실패했습니다.' };
     }
   },
 

@@ -104,14 +104,18 @@ def update_user_balance(user_id):
 
         if action == 'set':
             new_balance = amount
+            user_model.update_balance(user_id, new_balance)
         elif action == 'add':
-            new_balance = user['balance'] + amount
+            user_model.adjust_balance(user_id, amount)
+            updated = user_model.find_by_id(user_id)
+            new_balance = updated['balance']
         elif action == 'subtract':
-            new_balance = max(0, user['balance'] - amount)
+            if not user_model.adjust_balance(user_id, -amount):
+                return jsonify({'error': '잔액이 부족하여 차감할 수 없습니다.'}), 400
+            updated = user_model.find_by_id(user_id)
+            new_balance = updated['balance']
         else:
             return jsonify({'error': "action은 'set', 'add', 'subtract' 중 하나여야 합니다."}), 400
-
-        user_model.update_balance(user_id, new_balance)
 
         # 잔액 변경 거래 기록 저장
         diff = new_balance - user['balance']
@@ -167,21 +171,19 @@ def bulk_payment():
             return jsonify({'error': '지급 금액은 1원 이상이어야 합니다.'}), 400
         amount = int(amount)
 
-        # 모든 유저 조회
+        # 원자적 일괄 잔액 증가
+        user_model.collection.update_many(
+            {},
+            {'$inc': {'balance': amount}, '$set': {'updated_at': datetime.utcnow()}}
+        )
+
+        # 거래 기록은 별도 루프
         all_users = list(user_model.collection.find({}))
-        updated_count = 0
+        updated_count = len(all_users)
 
         for u in all_users:
-            uid = u['_id']
-            new_balance = u['balance'] + amount
-
-            user_model.collection.update_one(
-                {'_id': uid},
-                {'$set': {'balance': new_balance, 'updated_at': datetime.utcnow()}}
-            )
-
             portfolio_model.transactions_collection.insert_one({
-                'user_id': uid,
+                'user_id': u['_id'],
                 'symbol': '-',
                 'name': '관리자 조정',
                 'type': 'admin_deposit',
@@ -195,7 +197,6 @@ def bulk_payment():
                 'memo': memo,
                 'timestamp': datetime.utcnow()
             })
-            updated_count += 1
 
         return jsonify({
             'message': f'{updated_count}명에게 {amount:,}원이 지급되었습니다.',

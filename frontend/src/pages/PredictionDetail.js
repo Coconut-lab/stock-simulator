@@ -445,6 +445,15 @@ const PredictionDetail = () => {
 
   useEffect(() => { loadData(); }, [id]); // eslint-disable-line
 
+  // 마감 시간 도달 시 자동 새로고침
+  useEffect(() => {
+    if (!prediction || prediction.status !== 'open' || !prediction.deadline) return;
+    const msLeft = new Date(prediction.deadline) - Date.now();
+    if (msLeft <= 0) { loadData(); return; }
+    const timer = setTimeout(() => loadData(), msLeft + 500);
+    return () => clearTimeout(timer);
+  }, [prediction]); // eslint-disable-line
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -505,7 +514,7 @@ const PredictionDetail = () => {
   const p = prediction;
   const total = p.total_yes_amount + p.total_no_amount;
   const yp = total === 0 ? 50 : Math.round((p.total_yes_amount / total) * 100);
-  const isOpen = p.status === 'open';
+  const isOpen = p.status === 'open' && (!p.deadline || new Date(p.deadline) > new Date());
 
   const calcPayout = () => {
     if (!amount || !choice) return 0;

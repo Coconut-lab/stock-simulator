@@ -162,6 +162,45 @@ def admin_get_all():
         return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
 
 
+# ── 관리자: 베팅 상세 조회 ──
+
+@prediction_bp.route('/admin/bets/<prediction_id>', methods=['GET'])
+def admin_get_bets(prediction_id):
+    user_data, error = verify_admin()
+    if error:
+        return jsonify({'error': error}), 403
+    try:
+        bets, err = prediction_service.get_prediction_bets_detail(prediction_id)
+        if err:
+            return jsonify({'error': err}), 400
+        return jsonify({'data': bets}), 200
+    except Exception as e:
+        logging.error(f"베팅 상세 조회 에러: {e}")
+        return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
+
+
+# ── 관리자: 기간 수정 ──
+
+@prediction_bp.route('/update-deadline/<prediction_id>', methods=['PUT'])
+def update_deadline(prediction_id):
+    user_data, error = verify_admin()
+    if error:
+        return jsonify({'error': error}), 403
+    try:
+        data = request.get_json()
+        if not data or 'deadline' not in data:
+            return jsonify({'error': '마감일시(deadline)를 입력해주세요.'}), 400
+
+        err = prediction_service.update_deadline(prediction_id, data['deadline'])
+        if err:
+            return jsonify({'error': err}), 400
+
+        return jsonify({'message': '마감일시가 변경되었습니다.'}), 200
+    except Exception as e:
+        logging.error(f"마감일시 변경 에러: {e}")
+        return jsonify({'error': '서버 에러가 발생했습니다.'}), 500
+
+
 # ── 관리자: 마감 ──
 
 @prediction_bp.route('/close/<prediction_id>', methods=['PUT'])

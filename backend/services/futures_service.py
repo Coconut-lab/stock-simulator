@@ -118,9 +118,12 @@ class FuturesService:
             user_id, contract_id, direction, quantity, entry_price, margin
         )
 
-        # 잔액 차감
-        new_balance = int(round(user['balance'] - margin))
-        user_model.update_balance(user_id, new_balance)
+        # 잔액 차감 (원자적)
+        if not user_model.adjust_balance(user_id, -margin):
+            return None, f"증거금이 부족합니다. 필요: ₩{margin:,}"
+
+        updated_user = user_model.find_by_id(user_id)
+        new_balance = updated_user['balance']
 
         # 거래 기록 저장
         portfolio_model = Portfolio()
@@ -180,12 +183,13 @@ class FuturesService:
         # 포지션 청산
         self.futures_model.close_position(position_id, exit_price, pnl_krw)
 
-        # 증거금 + P&L 반환
+        # 증거금 + P&L 반환 (원자적)
         margin_return = position['margin'] + pnl_krw
         user_model = User()
-        user = user_model.find_by_id(user_id)
-        new_balance = int(round(user['balance'] + margin_return))
-        user_model.update_balance(user_id, new_balance)
+        user_model.adjust_balance(user_id, margin_return)
+
+        updated_user = user_model.find_by_id(user_id)
+        new_balance = updated_user['balance']
 
         # 거래 기록 저장
         portfolio_model = Portfolio()

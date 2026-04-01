@@ -86,7 +86,7 @@ class User:
         return False
     
     def update_balance(self, user_id, new_balance):
-        """사용자 잔액 업데이트"""
+        """사용자 잔액 업데이트 (admin set 전용)"""
         result = self.collection.update_one(
             {'_id': ObjectId(user_id)},
             {
@@ -96,6 +96,20 @@ class User:
                 }
             }
         )
+        return result.modified_count > 0
+
+    def adjust_balance(self, user_id, delta):
+        """잔액을 원자적으로 증감. 차감 시 잔액 부족이면 False 반환."""
+        if delta < 0:
+            result = self.collection.update_one(
+                {'_id': ObjectId(user_id), 'balance': {'$gte': abs(delta)}},
+                {'$inc': {'balance': delta}, '$set': {'updated_at': datetime.utcnow()}}
+            )
+        else:
+            result = self.collection.update_one(
+                {'_id': ObjectId(user_id)},
+                {'$inc': {'balance': delta}, '$set': {'updated_at': datetime.utcnow()}}
+            )
         return result.modified_count > 0
     
     def get_user_stats(self, user_id):

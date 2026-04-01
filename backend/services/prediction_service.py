@@ -30,9 +30,12 @@ class PredictionService:
             return None, '제목을 입력해주세요.'
 
         try:
-            deadline = datetime.fromisoformat(deadline_str)
+            deadline = datetime.fromisoformat(deadline_str.replace('Z', '+00:00')).replace(tzinfo=None)
         except (ValueError, TypeError):
             return None, '마감 시간 형식이 올바르지 않습니다.'
+
+        if deadline <= datetime.utcnow():
+            return None, '마감 시간은 현재 시간 이후여야 합니다.'
 
         pred_id = self.prediction_model.create_prediction(
             title=title.strip(),
@@ -72,11 +75,19 @@ class PredictionService:
         if result not in ('yes', 'no'):
             return None, "결과는 'yes' 또는 'no'여야 합니다."
 
-        pred = self.prediction_model.get_prediction(prediction_id)
+        pred = self.prediction_model.atomic_claim_for_settlement(prediction_id)
         if not pred:
-            return None, '예측을 찾을 수 없습니다.'
-        if pred['status'] == 'settled':
-            return None, '이미 정산된 예측입니다.'
+            # 원자적 전환 실패 — 상태별 에러 메시지
+            current = self.prediction_model.get_prediction(prediction_id)
+            if not current:
+                return None, '예측을 찾을 수 없습니다.'
+            if current['status'] == 'settled':
+                return None, '이미 정산된 예측입니다.'
+            if current['status'] == 'settling':
+                return None, '정산이 진행 중입니다.'
+            if current['status'] == 'open':
+                return None, '먼저 베팅을 마감해야 합니다.'
+            return None, f"현재 상태({current['status']})에서는 정산할 수 없습니다."
 
         total_yes = pred.get('total_yes_amount', 0)
         total_no = pred.get('total_no_amount', 0)
@@ -147,19 +158,51 @@ class PredictionService:
         }
         return summary, None
 
+    def update_deadline(self, prediction_id, new_deadline_str):
+        pred = self.prediction_model.get_prediction(prediction_id)
+        if not pred:
+            return '예측을 찾을 수 없습니다.'
+        if pred['status'] == 'settled':
+            return '이미 정산된 예측은 수정할 수 없습니다.'
+
+        try:
+            new_deadline = datetime.fromisoformat(new_deadline_str.replace('Z', '+00:00')).replace(tzinfo=None)
+        except (ValueError, TypeError):
+            return '마감 시간 형식이 올바르지 않습니다.'
+
+        old_deadline = pred['deadline'].strftime('%Y-%m-%d %H:%M') if pred.get('deadline') else '없음'
+        new_deadline_display = new_deadline.strftime('%Y-%m-%d %H:%M')
+
+        self.prediction_model.update_deadline(prediction_id, new_deadline)
+
+        # 마감 전으로 변경 시 다시 open
+        if pred['status'] == 'closed' and new_deadline > datetime.utcnow():
+            self.prediction_model.update_status(prediction_id, 'open')
+
+        send_discord(
+            "예측 기간 변경",
+            f"**{pred['title']}**",
+            color=0x9b59b6,
+            fields=[
+                {"name": "변경 전", "value": old_deadline, "inline": True},
+                {"name": "변경 후", "value": new_deadline_display, "inline": True},
+            ]
+        )
+        return None
+
     def delete_prediction(self, prediction_id):
         pred = self.prediction_model.get_prediction(prediction_id)
         if not pred:
             return None, '예측을 찾을 수 없습니다.'
-        if pred.get('status') == 'settled':
-            return None, '이미 정산된 예측은 삭제할 수 없습니다.'
+        if pred.get('status') in ('settled', 'settling'):
+            return None, '정산 중이거나 이미 정산된 예측은 삭제할 수 없습니다.'
 
-        # 베팅한 유저에게 환불
+        # 베팅한 유저에게 환불 (원자적 중복 방지)
         bets = self.prediction_model.get_bets_for_prediction(prediction_id)
         refund_count = 0
         refund_total = 0
         for bet in bets:
-            if bet.get('status') != 'refunded':
+            if self.prediction_model.mark_bet_refunded(str(bet['_id'])):
                 self.user_model.collection.update_one(
                     {'_id': bet['user_id']},
                     {'$inc': {'balance': bet['amount']}}
@@ -188,7 +231,34 @@ class PredictionService:
         pred = self.prediction_model.get_prediction(prediction_id)
         if not pred:
             return None
+        # 마감 시간 지난 open 예측 자동 마감
+        if pred['status'] == 'open' and datetime.utcnow() >= pred['deadline']:
+            self.prediction_model.update_status(prediction_id, 'closed')
+            pred['status'] = 'closed'
         return self._serialize_prediction(pred)
+
+    def get_prediction_bets_detail(self, prediction_id):
+        pred = self.prediction_model.get_prediction(prediction_id)
+        if not pred:
+            return None, '예측을 찾을 수 없습니다.'
+
+        bets = self.prediction_model.get_bets_for_prediction(prediction_id)
+        results = []
+        for bet in bets:
+            user = self.user_model.find_by_id(str(bet['user_id']))
+            results.append({
+                'bet_id': str(bet['_id']),
+                'user_id': str(bet['user_id']),
+                'username': user['username'] if user else '탈퇴유저',
+                'name': user.get('name', user['username']) if user else '탈퇴유저',
+                'choice': bet['choice'],
+                'amount': bet['amount'],
+                'potential_payout': bet.get('potential_payout', 0),
+                'status': bet['status'],
+                'payout': bet.get('payout', 0),
+                'created_at': bet['created_at'].isoformat() if bet.get('created_at') else None,
+            })
+        return results, None
 
     # ── 베팅 ──
 
@@ -199,15 +269,25 @@ class PredictionService:
         amount = int(amount)
         if amount < Config.PREDICTION_MIN_BET:
             return None, f'최소 베팅 금액은 {Config.PREDICTION_MIN_BET:,}원입니다.'
+        if amount > Config.PREDICTION_MAX_BET:
+            return None, f'최대 베팅 금액은 {Config.PREDICTION_MAX_BET:,}원입니다.'
 
         pred = self.prediction_model.get_prediction(prediction_id)
         if not pred:
             return None, '예측을 찾을 수 없습니다.'
+        if datetime.utcnow() >= pred['deadline']:
+            if pred['status'] == 'open':
+                self.prediction_model.update_status(prediction_id, 'closed')
+            return None, '베팅 마감 시간이 지났습니다.'
         if pred['status'] != 'open':
             return None, '베팅이 마감된 예측입니다.'
-        if datetime.utcnow() >= pred['deadline']:
-            self.prediction_model.update_status(prediction_id, 'closed')
-            return None, '베팅 마감 시간이 지났습니다.'
+
+        # 양쪽 베팅 차단 + 중복 bettor 카운트 방지
+        existing_bets = self.prediction_model.get_user_bet_on_prediction(prediction_id, user_id)
+        opposite_choice = 'no' if choice == 'yes' else 'yes'
+        if any(b['choice'] == opposite_choice for b in existing_bets):
+            return None, '이미 반대편에 베팅하셨습니다. 같은 방향으로만 추가 베팅할 수 있습니다.'
+        is_first_bet_on_side = not any(b['choice'] == choice for b in existing_bets)
 
         user = self.user_model.find_by_id(user_id)
         if not user:
@@ -235,7 +315,7 @@ class PredictionService:
             new_total = total_yes + new_no
             estimated_payout = int(amount * new_total / new_no) if new_no > 0 else amount
 
-        self.prediction_model.place_bet(prediction_id, user_id, choice, amount, estimated_payout)
+        self.prediction_model.place_bet(prediction_id, user_id, choice, amount, estimated_payout, is_first_bet_on_side)
 
         # 거래 기록
         portfolio_model = Portfolio()

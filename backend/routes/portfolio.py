@@ -276,9 +276,12 @@ def buy_stock():
             name=stock_name, original_price=original_price, exchange_rate=ex_rate
         )
 
-        # 사용자 잔액 업데이트
-        new_balance = int(round(user_data['balance'] - total_cost))
-        user_model.update_balance(user_id, new_balance)
+        # 사용자 잔액 업데이트 (원자적 차감)
+        if not user_model.adjust_balance(user_id, -total_cost):
+            return jsonify({'error': '잔액이 부족합니다.'}), 400
+
+        updated_user = user_model.find_by_id(user_id)
+        new_balance = updated_user['balance']
 
         return jsonify({
             'message': '매수가 완료되었습니다.',
@@ -382,9 +385,11 @@ def sell_stock():
             cost_price=holding['avg_price']
         )
 
-        # 사용자 잔액 업데이트
-        new_balance = int(round(user_data['balance'] + net_amount))
-        user_model.update_balance(user_id, new_balance)
+        # 사용자 잔액 업데이트 (원자적 증가)
+        user_model.adjust_balance(user_id, net_amount)
+
+        updated_user = user_model.find_by_id(user_id)
+        new_balance = updated_user['balance']
 
         profit_loss = (current_price_krw - holding['avg_price']) * quantity
 
@@ -477,9 +482,12 @@ def short_sell_stock():
             name=stock_name
         )
 
-        # 증거금 차감
-        new_balance = int(round(user_data['balance'] - margin_required))
-        user_model.update_balance(user_id, new_balance)
+        # 증거금 차감 (원자적)
+        if not user_model.adjust_balance(user_id, -margin_required):
+            return jsonify({'error': '증거금이 부족합니다.'}), 400
+
+        updated_user = user_model.find_by_id(user_id)
+        new_balance = updated_user['balance']
 
         return jsonify({
             'message': '공매도가 완료되었습니다.',
@@ -577,8 +585,10 @@ def short_cover_stock():
         )
 
         user_model = User()
-        new_balance = int(round(user_data['balance'] + net_return))
-        user_model.update_balance(user_id, new_balance)
+        user_model.adjust_balance(user_id, net_return)
+
+        updated_user = user_model.find_by_id(user_id)
+        new_balance = updated_user['balance']
 
         return jsonify({
             'message': '숏 커버가 완료되었습니다.',

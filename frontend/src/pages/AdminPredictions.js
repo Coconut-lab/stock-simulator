@@ -257,18 +257,24 @@ const ActionBtn = styled(Btn)`
   font-size: 13px;
   border-radius: 8px;
   background: ${p => {
+    if (p.$variant === 'detail') return 'rgba(52,152,219,0.15)';
+    if (p.$variant === 'deadline') return 'rgba(155,89,182,0.15)';
     if (p.$variant === 'close') return 'rgba(243,156,18,0.15)';
     if (p.$variant === 'settle') return 'rgba(39,174,96,0.15)';
     if (p.$variant === 'delete') return 'rgba(231,76,60,0.15)';
     return 'rgba(255,255,255,0.1)';
   }};
   color: ${p => {
+    if (p.$variant === 'detail') return '#5dade2';
+    if (p.$variant === 'deadline') return '#bb8fce';
     if (p.$variant === 'close') return '#f7c948';
     if (p.$variant === 'settle') return '#6bcb77';
     if (p.$variant === 'delete') return '#ff6b6b';
     return '#ccc';
   }};
   border: 1px solid ${p => {
+    if (p.$variant === 'detail') return 'rgba(52,152,219,0.25)';
+    if (p.$variant === 'deadline') return 'rgba(155,89,182,0.25)';
     if (p.$variant === 'close') return 'rgba(243,156,18,0.25)';
     if (p.$variant === 'settle') return 'rgba(39,174,96,0.25)';
     if (p.$variant === 'delete') return 'rgba(231,76,60,0.25)';
@@ -349,6 +355,73 @@ const ConfirmBtn = styled(ModalBtn)`
   &:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
 `;
 
+const DetailModalBox = styled(ModalBox)`
+  max-width: 640px;
+`;
+
+const BetTable = styled.div`
+  max-height: 400px;
+  overflow-y: auto;
+  margin-bottom: 20px;
+  &::-webkit-scrollbar { width: 6px; }
+  &::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+`;
+
+const BetRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  &:last-child { border-bottom: none; }
+  &:hover { background: rgba(255,255,255,0.03); }
+`;
+
+const BetUser = styled.div`
+  flex: 1;
+  min-width: 0;
+  .name { font-size: 14px; font-weight: 600; color: #f0f0f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .id { font-size: 11px; color: #777; }
+`;
+
+const BetChoice = styled.span`
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  background: ${p => p.$c === 'yes' ? 'rgba(52,152,219,0.15)' : 'rgba(231,76,60,0.15)'};
+  color: ${p => p.$c === 'yes' ? '#5dade2' : '#ff6b6b'};
+  border: 1px solid ${p => p.$c === 'yes' ? 'rgba(52,152,219,0.3)' : 'rgba(231,76,60,0.3)'};
+`;
+
+const BetAmount = styled.div`
+  text-align: right;
+  min-width: 90px;
+  .amount { font-size: 14px; font-weight: 600; color: #f0f0f0; }
+  .time { font-size: 11px; color: #777; }
+`;
+
+const BetResultTag = styled.span`
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  background: ${p => p.$s === 'won' ? 'rgba(39,174,96,0.15)' : p.$s === 'lost' ? 'rgba(231,76,60,0.15)' : 'rgba(255,255,255,0.06)'};
+  color: ${p => p.$s === 'won' ? '#6bcb77' : p.$s === 'lost' ? '#ff6b6b' : '#999'};
+`;
+
+const BetSummary = styled.div`
+  display: flex;
+  gap: 16px;
+  padding: 14px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 10px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: #adb5c7;
+  span { font-weight: 700; color: #f0f0f0; }
+`;
+
 const Empty = styled.div`
   text-align: center;
   padding: 80px 20px;
@@ -371,6 +444,13 @@ const AdminPredictions = () => {
 
   const [settleTarget, setSettleTarget] = useState(null);
   const [settleResult, setSettleResult] = useState('');
+
+  const [deadlineTarget, setDeadlineTarget] = useState(null);
+  const [newDeadline, setNewDeadline] = useState('');
+
+  const [detailTarget, setDetailTarget] = useState(null);
+  const [detailBets, setDetailBets] = useState([]);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   useEffect(() => { loadPredictions(); }, []);
 
@@ -396,7 +476,7 @@ const AdminPredictions = () => {
       await predictionService.createPrediction({
         title: title.trim(),
         description: description.trim(),
-        deadline,
+        deadline: new Date(deadline).toISOString(),
       });
       setSuccess('예측이 생성되었습니다.');
       setTitle(''); setDescription(''); setDeadline('');
@@ -426,6 +506,45 @@ const AdminPredictions = () => {
       setSettleTarget(null); setSettleResult('');
       await loadPredictions();
     } catch (err) { setError(err.error || '정산에 실패했습니다.'); }
+  };
+
+  const openDetail = async (p) => {
+    setDetailTarget(p);
+    setDetailLoading(true);
+    try {
+      const res = await predictionService.getAdminBets(p.id);
+      setDetailBets(res.data || []);
+    } catch (err) {
+      setError(err.error || '베팅 내역 조회에 실패했습니다.');
+      setDetailTarget(null);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const openDeadlineModal = (p) => {
+    setDeadlineTarget(p);
+    // 기존 deadline을 datetime-local 형식으로 변환
+    if (p.deadline) {
+      const d = new Date(p.deadline);
+      const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      setNewDeadline(local);
+    } else {
+      setNewDeadline('');
+    }
+  };
+
+  const handleUpdateDeadline = async () => {
+    if (!deadlineTarget || !newDeadline) return;
+    try {
+      await predictionService.updateDeadline(deadlineTarget.id, new Date(newDeadline).toISOString());
+      setSuccess('마감일시가 변경되었습니다.');
+      setDeadlineTarget(null);
+      setNewDeadline('');
+      await loadPredictions();
+    } catch (err) {
+      setError(err.error || '마감일시 변경에 실패했습니다.');
+    }
   };
 
   const handleDelete = async (id, hasBets) => {
@@ -537,6 +656,14 @@ const AdminPredictions = () => {
                 </MetaRow>
 
                 <ActionBtns>
+                  <ActionBtn $variant="detail" onClick={() => openDetail(p)}>
+                    자세히
+                  </ActionBtn>
+                  {p.status !== 'settled' && (
+                    <ActionBtn $variant="deadline" onClick={() => openDeadlineModal(p)}>
+                      기간 수정
+                    </ActionBtn>
+                  )}
                   {p.status === 'open' && (
                     <ActionBtn $variant="close" onClick={() => handleClose(p.id)}>
                       베팅 마감
@@ -572,6 +699,71 @@ const AdminPredictions = () => {
               <ModalActions>
                 <CancelBtn onClick={() => setSettleTarget(null)}>취소</CancelBtn>
                 <ConfirmBtn onClick={handleSettle} disabled={!settleResult}>정산 확정</ConfirmBtn>
+              </ModalActions>
+            </ModalBox>
+          </ModalOverlay>
+        )}
+
+        {detailTarget && (
+          <ModalOverlay onClick={() => setDetailTarget(null)}>
+            <DetailModalBox onClick={e => e.stopPropagation()}>
+              <h3>{detailTarget.title}</h3>
+              <p>{detailTarget.description || '설명 없음'}</p>
+
+              {detailLoading ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>로딩 중...</div>
+              ) : detailBets.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#777' }}>베팅 내역이 없습니다.</div>
+              ) : (
+                <>
+                  <BetSummary>
+                    <div>총 <span>{detailBets.length}건</span></div>
+                    <div>YES <span>{detailBets.filter(b => b.choice === 'yes').length}건</span> / <span>{formatNumber(detailBets.filter(b => b.choice === 'yes').reduce((s,b) => s + b.amount, 0))}원</span></div>
+                    <div>NO <span>{detailBets.filter(b => b.choice === 'no').length}건</span> / <span>{formatNumber(detailBets.filter(b => b.choice === 'no').reduce((s,b) => s + b.amount, 0))}원</span></div>
+                  </BetSummary>
+                  <BetTable>
+                    {detailBets.map(bet => (
+                      <BetRow key={bet.bet_id}>
+                        <BetUser>
+                          <div className="name">{bet.name}</div>
+                          <div className="id">@{bet.username}</div>
+                        </BetUser>
+                        <BetChoice $c={bet.choice}>{bet.choice === 'yes' ? 'YES' : 'NO'}</BetChoice>
+                        <BetAmount>
+                          <div className="amount">{formatNumber(bet.amount)}원</div>
+                          <div className="time">{bet.created_at ? new Date(bet.created_at).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}</div>
+                        </BetAmount>
+                        {bet.status !== 'pending' && (
+                          <BetResultTag $s={bet.status}>
+                            {bet.status === 'won' ? `+${formatNumber(bet.payout - bet.amount)}` : bet.status === 'lost' ? '패배' : bet.status}
+                          </BetResultTag>
+                        )}
+                      </BetRow>
+                    ))}
+                  </BetTable>
+                </>
+              )}
+
+              <ModalActions>
+                <CancelBtn onClick={() => setDetailTarget(null)} style={{ flex: 'none', padding: '12px 28px' }}>닫기</CancelBtn>
+              </ModalActions>
+            </DetailModalBox>
+          </ModalOverlay>
+        )}
+
+        {deadlineTarget && (
+          <ModalOverlay onClick={() => setDeadlineTarget(null)}>
+            <ModalBox onClick={e => e.stopPropagation()}>
+              <h3>기간 수정</h3>
+              <p>{deadlineTarget.title}</p>
+              <FormGroup>
+                <label>새 마감일시</label>
+                <input type="datetime-local" value={newDeadline}
+                  onChange={e => setNewDeadline(e.target.value)} />
+              </FormGroup>
+              <ModalActions style={{ marginTop: '20px' }}>
+                <CancelBtn onClick={() => setDeadlineTarget(null)}>취소</CancelBtn>
+                <ConfirmBtn onClick={handleUpdateDeadline} disabled={!newDeadline}>변경 확정</ConfirmBtn>
               </ModalActions>
             </ModalBox>
           </ModalOverlay>

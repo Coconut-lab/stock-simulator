@@ -243,9 +243,12 @@ class OptionsService:
             user_id, contract_id, quantity, premium, total_cost
         )
 
-        # 잔액 차감
-        new_balance = int(round(user['balance'] - total_cost))
-        user_model.update_balance(user_id, new_balance)
+        # 잔액 차감 (원자적)
+        if not user_model.adjust_balance(user_id, -total_cost):
+            return None, f"잔액이 부족합니다. 필요: ₩{total_cost:,}"
+
+        updated_user = user_model.find_by_id(user_id)
+        new_balance = updated_user['balance']
 
         # 거래 기록 저장
         portfolio_model = Portfolio()
@@ -297,11 +300,12 @@ class OptionsService:
         # 청산
         self.options_model.close_position(position_id, current_premium, pnl)
 
-        # 잔액 반환
+        # 잔액 반환 (원자적)
         user_model = User()
-        user = user_model.find_by_id(user_id)
-        new_balance = int(round(user['balance'] + sale_amount))
-        user_model.update_balance(user_id, new_balance)
+        user_model.adjust_balance(user_id, sale_amount)
+
+        updated_user = user_model.find_by_id(user_id)
+        new_balance = updated_user['balance']
 
         # 거래 기록 저장
         portfolio_model = Portfolio()
@@ -367,11 +371,12 @@ class OptionsService:
         # 행사 처리
         self.options_model.exercise_position(position_id, settlement)
 
-        # 정산금 지급
+        # 정산금 지급 (원자적)
         user_model = User()
-        user = user_model.find_by_id(user_id)
-        new_balance = int(round(user['balance'] + settlement))
-        user_model.update_balance(user_id, new_balance)
+        user_model.adjust_balance(user_id, settlement)
+
+        updated_user = user_model.find_by_id(user_id)
+        new_balance = updated_user['balance']
 
         # 거래 기록 저장
         portfolio_model = Portfolio()
