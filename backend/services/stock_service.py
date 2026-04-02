@@ -9,6 +9,13 @@ from datetime import datetime, timedelta, timezone
 from utils.db import get_collection
 from config import Config
 
+# 공유 HTTP 세션 (커넥션 풀링)
+_http_session = requests.Session()
+_http_session.headers.update({'User-Agent': 'Mozilla/5.0 (compatible; StockSimulator/1.0)'})
+_adapter = requests.adapters.HTTPAdapter(pool_connections=10, pool_maxsize=20, max_retries=1)
+_http_session.mount('http://', _adapter)
+_http_session.mount('https://', _adapter)
+
 def safe_float(value, default=0.0):
     """NaN/Inf를 안전하게 처리하여 JSON 직렬화 가능한 값 반환"""
     try:
@@ -20,6 +27,9 @@ def safe_float(value, default=0.0):
         return default
 
 class StockService:
+    # 인메모리 캐시 최대 항목 수
+    MAX_CACHE_SIZE = 200
+
     def __init__(self):
         self.cache_collection = get_collection('stock_cache')
         self.listing_collection = get_collection('stock_listings')
@@ -27,6 +37,9 @@ class StockService:
         self.is_running = False
 
         self.listing_loaded = False
+
+        # 스레드 안전을 위한 Lock
+        self._rate_lock = threading.Lock()
 
         # 환율 정보 저장
         self.exchange_rates = {
@@ -37,6 +50,9 @@ class StockService:
         }
         self.prev_exchange_rates = dict(self.exchange_rates)
         self.last_exchange_update = None
+
+        # API circuit breaker 상태
+        self._api_failures = {}  # {'api_name': {'count': 0, 'last_fail': datetime}}
 
         # 시작 시 오염된 캐시 정리
         self._cleanup_invalid_cache()
@@ -282,9 +298,10 @@ class StockService:
         self.kr_stock_names.update(self.kr_etf_names)
         self.us_stock_names.update(self.us_etf_names)
 
-        # 재무제표/뉴스 캐시
+        # 재무제표/뉴스 캐시 (크기 제한 적용)
         self.financial_cache = {}
         self.news_cache = {}
+        self._cache_lock = threading.Lock()
 
         # 모든 주식 목록
         self.all_stocks = self.kr_stocks + self.us_stocks + self.hk_stocks + self.eu_stocks
@@ -405,7 +422,7 @@ class StockService:
         eu = {}
         for index_name, (url, suffix) in wiki_indices.items():
             try:
-                html = requests.get(url, headers=headers, timeout=10).text
+                html = _http_session.get(url, headers=headers, timeout=10).text
                 tables = pd.read_html(StringIO(html))
 
                 for table in tables:
@@ -496,59 +513,90 @@ class StockService:
         """환율 값이 유효한지 확인"""
         return isinstance(rate, (int, float)) and not math.isnan(rate) and not math.isinf(rate) and rate > 0
 
+    def _evict_cache(self, cache_dict, max_size=None):
+        """인메모리 캐시에서 만료된 항목 제거 + 크기 제한"""
+        max_size = max_size or self.MAX_CACHE_SIZE
+        now = datetime.utcnow()
+        # 만료 항목 제거
+        expired = [k for k, v in cache_dict.items()
+                   if (now - v.get('time', now)).total_seconds() > 86400]
+        for k in expired:
+            cache_dict.pop(k, None)
+        # 크기 초과 시 가장 오래된 항목 제거
+        if len(cache_dict) > max_size:
+            sorted_keys = sorted(cache_dict, key=lambda k: cache_dict[k].get('time', now))
+            for k in sorted_keys[:len(cache_dict) - max_size]:
+                cache_dict.pop(k, None)
+
+    def _api_circuit_open(self, api_name, threshold=5, cooldown_sec=300):
+        """circuit breaker: 연속 실패 시 일정 시간 요청 차단"""
+        state = self._api_failures.get(api_name)
+        if not state:
+            return False
+        if state['count'] >= threshold:
+            elapsed = (datetime.utcnow() - state['last_fail']).total_seconds()
+            if elapsed < cooldown_sec:
+                return True  # 아직 cooldown 중
+            # cooldown 지남 → 리셋
+            self._api_failures[api_name] = {'count': 0, 'last_fail': datetime.utcnow()}
+        return False
+
+    def _api_record_failure(self, api_name):
+        """API 실패 기록"""
+        state = self._api_failures.get(api_name, {'count': 0, 'last_fail': datetime.utcnow()})
+        state['count'] += 1
+        state['last_fail'] = datetime.utcnow()
+        self._api_failures[api_name] = state
+
+    def _api_record_success(self, api_name):
+        """API 성공 시 리셋"""
+        self._api_failures.pop(api_name, None)
+
     def update_exchange_rate(self):
         """실시간 환율 업데이트 (USD, HKD, EUR, GBP → KRW)"""
-        try:
-            self.prev_exchange_rates = dict(self.exchange_rates)
-            # USD/KRW
+        with self._rate_lock:
             try:
-                usd_krw = fdr.DataReader('USD/KRW', datetime.now() - timedelta(days=1))
-                if not usd_krw.empty:
-                    new_rate = float(usd_krw.iloc[-1]['Close'])
-                    if self._valid_rate(new_rate):
-                        self.exchange_rates['USD'] = new_rate
-            except Exception:
-                pass
+                self.prev_exchange_rates = dict(self.exchange_rates)
+                # USD/KRW
+                try:
+                    usd_krw = fdr.DataReader('USD/KRW', datetime.now() - timedelta(days=1))
+                    if not usd_krw.empty:
+                        new_rate = float(usd_krw.iloc[-1]['Close'])
+                        if self._valid_rate(new_rate):
+                            self.exchange_rates['USD'] = new_rate
+                except Exception:
+                    pass
 
-            # 무료 API로 나머지 환율
-            try:
-                response = requests.get(
-                    'https://api.exchangerate-api.com/v4/latest/USD',
-                    timeout=10
-                )
-                if response.status_code == 200:
-                    rates = response.json().get('rates', {})
-                    usd_krw = self.exchange_rates['USD']
-                    # HKD → KRW = USD/KRW ÷ USD/HKD
-                    if 'HKD' in rates and rates['HKD'] > 0:
-                        new_rate = usd_krw / rates['HKD']
-                        if self._valid_rate(new_rate):
-                            self.exchange_rates['HKD'] = new_rate
-                    # EUR → KRW = USD/KRW ÷ USD/EUR
-                    if 'EUR' in rates and rates['EUR'] > 0:
-                        new_rate = usd_krw / rates['EUR']
-                        if self._valid_rate(new_rate):
-                            self.exchange_rates['EUR'] = new_rate
-                    # GBP → KRW
-                    if 'GBP' in rates and rates['GBP'] > 0:
-                        new_rate = usd_krw / rates['GBP']
-                        if self._valid_rate(new_rate):
-                            self.exchange_rates['GBP'] = new_rate
+                # 무료 API로 나머지 환율
+                try:
+                    response = _http_session.get(
+                        'https://api.exchangerate-api.com/v4/latest/USD',
+                        timeout=10
+                    )
+                    if response.status_code == 200:
+                        rates = response.json().get('rates', {})
+                        usd_krw = self.exchange_rates['USD']
+                        for currency, divisor_key in [('HKD', 'HKD'), ('EUR', 'EUR'), ('GBP', 'GBP')]:
+                            if divisor_key in rates and rates[divisor_key] > 0:
+                                new_rate = usd_krw / rates[divisor_key]
+                                if self._valid_rate(new_rate):
+                                    self.exchange_rates[currency] = new_rate
+                except Exception as e:
+                    logging.warning(f"환율 API 조회 실패: {e}")
+
+                self.last_exchange_update = datetime.utcnow()
+                logging.info(f"환율 업데이트: USD={self.exchange_rates['USD']:.0f}, HKD={self.exchange_rates['HKD']:.0f}, EUR={self.exchange_rates['EUR']:.0f}")
+
             except Exception as e:
-                logging.warning(f"환율 API 조회 실패: {e}")
-
-            self.last_exchange_update = datetime.utcnow()
-            logging.info(f"환율 업데이트: USD={self.exchange_rates['USD']:.0f}, HKD={self.exchange_rates['HKD']:.0f}, EUR={self.exchange_rates['EUR']:.0f}")
-
-        except Exception as e:
-            logging.error(f"환율 업데이트 실패: {e}")
+                logging.error(f"환율 업데이트 실패: {e}")
 
     def get_exchange_rate(self, currency='USD'):
-        """현재 환율 반환"""
+        """현재 환율 반환 (스레드 안전)"""
         if (not self.last_exchange_update or
             datetime.utcnow() - self.last_exchange_update > timedelta(minutes=30)):
             self.update_exchange_rate()
-        return self.exchange_rates.get(currency, 1350)
+        with self._rate_lock:
+            return self.exchange_rates.get(currency, 1350)
 
     @staticmethod
     def is_market_open(market):
@@ -1323,78 +1371,48 @@ class StockService:
             
             all_results = {}
             
-            # 한국 주식 처리 (주요 종목만, 더 긴 간격)
-            logging.info("한국 주식 데이터 업데이트 중...")
-            for i, symbol in enumerate(self.kr_stocks[:10]):  # 상위 10개만 자동 업데이트
-                try:
-                    if i > 0:
-                        time.sleep(random.uniform(2, 4))  # 더 긴 지연
-                    
-                    stock_data = self.get_kr_stock_info(symbol)
-                    if stock_data:
-                        all_results[symbol] = stock_data
-                        
-                except Exception as e:
-                    logging.error(f"한국 주식 조회 실패 {symbol}: {e}")
-                    fallback_data = self.get_fallback_data(symbol, is_korean=True)
-                    if fallback_data:
-                        all_results[symbol] = fallback_data
-            
-            # 중간 휴식
-            time.sleep(5)
-            
-            # 미국 주식 처리 (주요 종목만, 훨씬 더 긴 간격)
-            logging.info("미국 주식 데이터 업데이트 중...")
-            for i, symbol in enumerate(self.us_stocks[:10]):  # 상위 10개만 자동 업데이트
-                try:
-                    if i > 0:
-                        time.sleep(random.uniform(4, 8))  # 훨씬 더 긴 지연
+            # 시장별 업데이트 (circuit breaker 적용)
+            market_configs = [
+                ('KR', self.kr_stocks[:10], self.get_kr_stock_info, {'is_korean': True}, (2, 4)),
+                ('US', self.us_stocks[:10], self.get_us_stock_info, {'is_korean': False}, (4, 8)),
+                ('HK', self.hk_stocks[:10], self.get_hk_stock_info, {'market': 'HKD'}, (3, 6)),
+                ('EU', self.eu_stocks[:10], self.get_eu_stock_info, {'market': 'EUR'}, (3, 6)),
+            ]
 
-                    stock_data = self.get_us_stock_info(symbol)
-                    if stock_data:
-                        all_results[symbol] = stock_data
+            for market_name, symbols, fetch_fn, fallback_kwargs, delay_range in market_configs:
+                api_key = f"stock_{market_name}"
 
-                except Exception as e:
-                    logging.error(f"미국 주식 조회 실패 {symbol}: {e}")
-                    fallback_data = self.get_fallback_data(symbol, is_korean=False)
-                    if fallback_data:
-                        all_results[symbol] = fallback_data
+                # circuit breaker: 연속 5회 실패 시 5분간 스킵
+                if self._api_circuit_open(api_key):
+                    logging.warning(f"{market_name} 시장 API circuit open — 스킵")
+                    continue
 
-            # 중간 휴식
-            time.sleep(5)
+                logging.info(f"{market_name} 주식 데이터 업데이트 중...")
+                market_failures = 0
 
-            # 홍콩 주식 처리
-            logging.info("홍콩 주식 데이터 업데이트 중...")
-            for i, symbol in enumerate(self.hk_stocks[:10]):
-                try:
-                    if i > 0:
-                        time.sleep(random.uniform(3, 6))
-                    stock_data = self.get_hk_stock_info(symbol)
-                    if stock_data:
-                        all_results[symbol] = stock_data
-                except Exception as e:
-                    logging.error(f"홍콩 주식 조회 실패 {symbol}: {e}")
-                    fallback_data = self.get_fallback_data(symbol, market='HKD')
-                    if fallback_data:
-                        all_results[symbol] = fallback_data
+                for i, symbol in enumerate(symbols):
+                    if not self.is_running:
+                        return
+                    try:
+                        if i > 0:
+                            time.sleep(random.uniform(*delay_range))
+                        stock_data = fetch_fn(symbol)
+                        if stock_data:
+                            all_results[symbol] = stock_data
+                            self._api_record_success(api_key)
+                    except Exception as e:
+                        market_failures += 1
+                        logging.error(f"{market_name} 주식 조회 실패 {symbol}: {e}")
+                        self._api_record_failure(api_key)
+                        fallback_data = self.get_fallback_data(symbol, **fallback_kwargs)
+                        if fallback_data:
+                            all_results[symbol] = fallback_data
+                        # 시장 내 연속 3회 실패 시 해당 시장 중단
+                        if market_failures >= 3:
+                            logging.warning(f"{market_name} 시장 연속 실패 — 다음 시장으로")
+                            break
 
-            # 중간 휴식
-            time.sleep(5)
-
-            # 유럽 주식 처리
-            logging.info("유럽 주식 데이터 업데이트 중...")
-            for i, symbol in enumerate(self.eu_stocks[:10]):
-                try:
-                    if i > 0:
-                        time.sleep(random.uniform(3, 6))
-                    stock_data = self.get_eu_stock_info(symbol)
-                    if stock_data:
-                        all_results[symbol] = stock_data
-                except Exception as e:
-                    logging.error(f"유럽 주식 조회 실패 {symbol}: {e}")
-                    fallback_data = self.get_fallback_data(symbol, market='EUR')
-                    if fallback_data:
-                        all_results[symbol] = fallback_data
+                time.sleep(3)
 
             # 캐시 업데이트 (_save_to_cache로 메모리+MongoDB 동시 저장)
             for symbol, data in all_results.items():
@@ -1673,27 +1691,39 @@ class StockService:
         """자동 업데이트 시작 (429 에러 방지를 위해 간격 증가)"""
         if self.is_running:
             return
-        
+
         self.is_running = True
-        
+
         def update_loop():
+            consecutive_failures = 0
             while self.is_running:
                 try:
                     self.update_stock_cache()
-                    time.sleep(interval)
+                    consecutive_failures = 0
+                    # 인메모리 캐시 주기적 정리
+                    with self._cache_lock:
+                        self._evict_cache(self.financial_cache)
+                        self._evict_cache(self.news_cache)
                 except Exception as e:
-                    logging.error(f"자동 업데이트 에러: {e}")
-                    time.sleep(interval)
-        
+                    consecutive_failures += 1
+                    logging.error(f"자동 업데이트 에러 ({consecutive_failures}회 연속): {e}")
+                    # 연속 실패 시 대기 시간 증가 (최대 30분)
+                    if consecutive_failures >= 3:
+                        backoff = min(interval * consecutive_failures, 1800)
+                        logging.warning(f"연속 실패로 {backoff}초 대기")
+                        time.sleep(backoff)
+                        continue
+                time.sleep(interval)
+
         self.update_thread = threading.Thread(target=update_loop, daemon=True)
         self.update_thread.start()
         logging.info(f"주식 자동 업데이트 시작 (간격: {interval}초)")
-    
+
     def stop_auto_update(self):
         """자동 업데이트 중지"""
         self.is_running = False
         if self.update_thread:
-            self.update_thread.join()
+            self.update_thread.join(timeout=10)
         logging.info("주식 자동 업데이트 중지")
 
     def _to_yf_symbol(self, symbol):
@@ -1760,7 +1790,9 @@ class StockService:
                 logging.warning(f"현금흐름표 조회 실패 ({symbol}): {e}")
                 result['cashflow'] = {}
 
-            self.financial_cache[cache_key] = {'data': result, 'time': datetime.utcnow()}
+            with self._cache_lock:
+                self.financial_cache[cache_key] = {'data': result, 'time': datetime.utcnow()}
+                self._evict_cache(self.financial_cache)
             return result
 
         except Exception as e:
@@ -1808,10 +1840,9 @@ class StockService:
     def _get_naver_news(self, symbol):
         """한국 주식 네이버 뉴스 조회"""
         try:
-            import requests as req
             url = f'https://m.stock.naver.com/api/news/stock/{symbol}?pageSize=15'
             headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'}
-            r = req.get(url, headers=headers, timeout=5)
+            r = _http_session.get(url, headers=headers, timeout=5)
             if r.status_code != 200:
                 return []
 
@@ -1881,7 +1912,9 @@ class StockService:
             except Exception as e:
                 logging.error(f"yfinance 뉴스 조회 실패 ({symbol}): {e}")
 
-        self.news_cache[cache_key] = {'data': news_list, 'time': datetime.utcnow()}
+        with self._cache_lock:
+            self.news_cache[cache_key] = {'data': news_list, 'time': datetime.utcnow()}
+            self._evict_cache(self.news_cache)
         return news_list
 
 
