@@ -259,10 +259,13 @@ def buy_stock():
         portfolio_model = Portfolio()
         user_model = User()
 
-        # 기존 보유 종목 확인 (롱 포지션)
+        # 1. 잔액 먼저 차감 (실패 시 포트폴리오 변경 없이 종료)
+        if not user_model.adjust_balance(user_id, -total_cost):
+            return jsonify({'error': '잔액이 부족합니다.'}), 400
+
+        # 2. 포트폴리오 업데이트
         existing_holding = portfolio_model.get_holding(user_id, symbol, 'long')
 
-        # 원래 통화 평균 단가 계산
         is_foreign = market != 'KRW'
         if existing_holding:
             total_quantity = existing_holding['quantity'] + quantity
@@ -280,7 +283,7 @@ def buy_stock():
             original_avg = current_price if is_foreign else None
             portfolio_model.add_holding(user_id, symbol, quantity, current_price_krw, market, original_avg, 'long')
 
-        # 거래 기록 저장
+        # 3. 거래 기록 저장
         stock_name = stock_data.get('name', symbol)
         original_price = current_price if market != 'KRW' else None
         ex_rate = stock_data.get('exchange_rate') if market != 'KRW' else None
@@ -288,10 +291,6 @@ def buy_stock():
             user_id, symbol, 'buy', quantity, current_price_krw, commission, market,
             name=stock_name, original_price=original_price, exchange_rate=ex_rate
         )
-
-        # 사용자 잔액 업데이트 (원자적 차감)
-        if not user_model.adjust_balance(user_id, -total_cost):
-            return jsonify({'error': '잔액이 부족합니다.'}), 400
 
         updated_user = user_model.find_by_id(user_id)
         new_balance = updated_user['balance']
@@ -402,7 +401,8 @@ def sell_stock():
         )
 
         # 사용자 잔액 업데이트 (원자적 증가)
-        user_model.adjust_balance(user_id, net_amount)
+        if not user_model.adjust_balance(user_id, net_amount):
+            logging.error(f"매도 잔액 반환 실패: user={user_id}, amount={net_amount}")
 
         updated_user = user_model.find_by_id(user_id)
         new_balance = updated_user['balance']
@@ -482,11 +482,14 @@ def short_sell_stock():
         portfolio_model = Portfolio()
         user_model = User()
 
-        # 기존 숏 포지션 확인
+        # 1. 증거금 먼저 차감 (실패 시 포트폴리오 변경 없이 종료)
+        if not user_model.adjust_balance(user_id, -margin_required):
+            return jsonify({'error': '증거금이 부족합니다.'}), 400
+
+        # 2. 포트폴리오 업데이트
         existing_short = portfolio_model.get_holding(user_id, symbol, 'short')
 
         if existing_short:
-            # 기존 숏에 추가
             total_quantity = existing_short['quantity'] + quantity
             total_value = (existing_short['quantity'] * existing_short['avg_price']) + sell_amount
             new_avg_price = total_value / total_quantity
@@ -494,16 +497,12 @@ def short_sell_stock():
         else:
             portfolio_model.add_holding(user_id, symbol, quantity, current_price_krw, market, None, 'short')
 
-        # 거래 기록 저장
+        # 3. 거래 기록 저장
         stock_name = stock_data.get('name', symbol)
         portfolio_model.record_transaction(
             user_id, symbol, 'short_sell', quantity, current_price_krw, 0, market,
             name=stock_name
         )
-
-        # 증거금 차감 (원자적)
-        if not user_model.adjust_balance(user_id, -margin_required):
-            return jsonify({'error': '증거금이 부족합니다.'}), 400
 
         updated_user = user_model.find_by_id(user_id)
         new_balance = updated_user['balance']
@@ -607,7 +606,8 @@ def short_cover_stock():
         )
 
         user_model = User()
-        user_model.adjust_balance(user_id, net_return)
+        if not user_model.adjust_balance(user_id, net_return):
+            logging.error(f"숏커버 잔액 반환 실패: user={user_id}, amount={net_return}")
 
         updated_user = user_model.find_by_id(user_id)
         new_balance = updated_user['balance']

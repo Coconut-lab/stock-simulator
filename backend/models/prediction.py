@@ -44,11 +44,27 @@ class Prediction:
         )
 
     def atomic_claim_for_settlement(self, prediction_id):
-        """status='closed'인 예측을 'settling'으로 원자적 전환. 성공 시 원본 문서 반환."""
+        """status='closed'인 예측을 'settling'으로 원자적 전환. 성공 시 원본 문서 반환.
+        settling 상태에서 5분 이상 멈춘 경우에도 재시도 허용."""
         from pymongo import ReturnDocument
-        return self.collection.find_one_and_update(
+        from datetime import timedelta
+        # 정상 전환: closed → settling
+        result = self.collection.find_one_and_update(
             {'_id': ObjectId(prediction_id), 'status': 'closed'},
-            {'$set': {'status': 'settling'}},
+            {'$set': {'status': 'settling', 'settling_started_at': datetime.utcnow()}},
+            return_document=ReturnDocument.BEFORE
+        )
+        if result:
+            return result
+        # 교착 복구: settling 상태에서 5분 초과 시 재시도 허용
+        stale_cutoff = datetime.utcnow() - timedelta(minutes=5)
+        return self.collection.find_one_and_update(
+            {'_id': ObjectId(prediction_id), 'status': 'settling',
+             '$or': [
+                 {'settling_started_at': {'$lt': stale_cutoff}},
+                 {'settling_started_at': {'$exists': False}}
+             ]},
+            {'$set': {'settling_started_at': datetime.utcnow()}},
             return_document=ReturnDocument.BEFORE
         )
 

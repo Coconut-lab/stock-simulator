@@ -66,13 +66,13 @@ class AuthService:
                     # 한도 초과 — 추천 보너스 없이 계속 진행
                     referrer = None
                 else:
-                    # 신규 유저에 추천인 정보 기록 + 보너스 지급
+                    # 신규 유저에 추천인 정보 기록 + 보너스 지급 ($inc로 원자적 증가)
                     self.user_model.collection.update_one(
                         {'_id': ObjectId(user_id)},
-                        {'$set': {
-                            'referred_by': referrer_id,
-                            'balance': Config.INITIAL_BALANCE + bonus
-                        }}
+                        {
+                            '$set': {'referred_by': referrer_id},
+                            '$inc': {'balance': bonus}
+                        }
                     )
 
                     # 거래 기록 - 신규 유저

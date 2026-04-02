@@ -90,6 +90,24 @@ def create_app():
             'error': '서버 내부 에러가 발생했습니다.'
         }), 500
     
+    # DB 인덱스 생성
+    def ensure_indexes():
+        """성능에 필요한 MongoDB 인덱스 생성"""
+        from utils.db import get_collection
+        try:
+            get_collection('portfolios').create_index([('user_id', 1)])
+            get_collection('portfolios').create_index([('user_id', 1), ('symbol', 1), ('position_type', 1)])
+            get_collection('transactions').create_index([('user_id', 1)])
+            get_collection('prediction_bets').create_index([('prediction_id', 1)])
+            get_collection('prediction_bets').create_index([('user_id', 1)])
+            get_collection('predictions').create_index([('status', 1)])
+            get_collection('users').create_index([('username', 1)], unique=True)
+            logging.info("MongoDB 인덱스 생성 완료")
+        except Exception as e:
+            logging.warning(f"인덱스 생성 실패 (무시 가능): {e}")
+
+    ensure_indexes()
+
     # 서비스 초기화 함수 (별도로 호출)
     def initialize_services():
         """서비스 초기화"""

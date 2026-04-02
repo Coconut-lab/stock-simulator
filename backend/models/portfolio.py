@@ -123,20 +123,23 @@ class Portfolio:
         return total_value
 
     def calculate_profit_loss(self, user_id, current_prices):
-        """손익 계산 (롱 포지션만, 숏은 별도 계산)"""
+        """손익 계산 (롱 + 숏 포지션 모두 포함)"""
         portfolio = self.get_user_portfolio(user_id)
         total_profit_loss = 0
 
         for holding in portfolio:
-            if holding.get('position_type', 'long') != 'long':
-                continue
             symbol = holding['symbol']
             quantity = holding['quantity']
             avg_price = holding['avg_price']
 
             if symbol in current_prices:
                 current_price = current_prices[symbol]
-                profit_loss = (current_price - avg_price) * quantity
+                if holding.get('position_type', 'long') == 'short':
+                    # 숏: 매도가(avg) - 현재가 = 수익
+                    profit_loss = (avg_price - current_price) * quantity
+                else:
+                    # 롱: 현재가 - 매수가 = 수익
+                    profit_loss = (current_price - avg_price) * quantity
                 total_profit_loss += profit_loss
 
         return total_profit_loss
@@ -153,9 +156,13 @@ class Portfolio:
         for t in all_transactions:
             total_commission += t.get('commission', 0)
 
-            if t['type'] == 'sell' and t.get('cost_price') is not None:
-                # 실현 손익 = (매도가 - 매수 평균가) * 수량 - 매도 수수료
-                realized_pnl += (t['price'] - t['cost_price']) * t['quantity'] - t['commission']
+            if t.get('cost_price') is not None:
+                if t['type'] == 'sell':
+                    # 롱 매도: (매도가 - 매수 평균가) * 수량
+                    realized_pnl += (t['price'] - t['cost_price']) * t['quantity']
+                elif t['type'] == 'short_cover':
+                    # 숏 커버: (매도 진입가 - 커버 매수가) * 수량
+                    realized_pnl += (t['cost_price'] - t['price']) * t['quantity']
 
         return {
             'realized_pnl': realized_pnl,

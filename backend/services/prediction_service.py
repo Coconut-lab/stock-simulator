@@ -106,17 +106,25 @@ class PredictionService:
         title_short = pred['title'][:30]
 
         for bet in winning_bets:
+            # 멱등성: 이미 처리된 베팅은 건너뛰기 (교착 복구 시 중복 방지)
+            if bet.get('status') != 'pending':
+                continue
+
             if winning_pool > 0 and total_pool > 0:
-                payout = int(bet['amount'] * total_pool / winning_pool)
+                payout = max(int(bet['amount'] * total_pool / winning_pool), bet['amount'])
             else:
                 payout = bet['amount']  # 반대편 베팅이 없으면 원금 반환
 
-            # atomic $inc로 잔액 증가 (동시성 안전)
-            self.user_model.collection.update_one(
+            # 베팅 상태 먼저 업데이트 (멱등성 보장)
+            self.prediction_model.update_bet_result(str(bet['_id']), 'won', payout)
+
+            # 잔액 증가 + 결과 확인
+            bal_result = self.user_model.collection.update_one(
                 {'_id': bet['user_id']},
                 {'$inc': {'balance': payout}}
             )
-            self.prediction_model.update_bet_result(str(bet['_id']), 'won', payout)
+            if bal_result.modified_count == 0:
+                logging.warning(f"정산 잔액 지급 실패: user={bet['user_id']}, payout={payout}")
 
             profit = payout - bet['amount']
             portfolio_model.record_transaction(
@@ -128,6 +136,9 @@ class PredictionService:
             winners += 1
 
         for bet in losing_bets:
+            # 멱등성: 이미 처리된 베팅은 건너뛰기
+            if bet.get('status') != 'pending':
+                continue
             self.prediction_model.update_bet_result(str(bet['_id']), 'lost', 0)
             portfolio_model.record_transaction(
                 str(bet['user_id']), 'PREDICTION', 'bet_loss', 1,
@@ -197,22 +208,26 @@ class PredictionService:
         if pred.get('status') in ('settled', 'settling'):
             return None, '정산 중이거나 이미 정산된 예측은 삭제할 수 없습니다.'
 
-        # 베팅한 유저에게 환불 (원자적 중복 방지)
+        # 베팅한 유저에게 환불 (잔액 먼저 증가 → 상태 표시)
         bets = self.prediction_model.get_bets_for_prediction(prediction_id)
         refund_count = 0
         refund_total = 0
         for bet in bets:
-            if self.prediction_model.mark_bet_refunded(str(bet['_id'])):
-                self.user_model.collection.update_one(
-                    {'_id': bet['user_id']},
-                    {'$inc': {'balance': bet['amount']}}
-                )
+            if bet.get('status') == 'refunded':
+                continue  # 이미 환불된 베팅 건너뛰기
+            # 잔액 먼저 증가 (실패해도 mark 안 되므로 재시도 가능)
+            result = self.user_model.collection.update_one(
+                {'_id': bet['user_id']},
+                {'$inc': {'balance': bet['amount']}}
+            )
+            if result.modified_count > 0:
+                self.prediction_model.mark_bet_refunded(str(bet['_id']))
                 refund_count += 1
                 refund_total += bet['amount']
 
-        # 베팅 기록 삭제 후 예측 삭제
-        self.prediction_model.delete_bets_for_prediction(prediction_id)
+        # 예측 먼저 삭제 (베팅 삭제 실패 시에도 예측은 사라짐 → 재시도로 환불 보존)
         self.prediction_model.delete_prediction(prediction_id)
+        self.prediction_model.delete_bets_for_prediction(prediction_id)
 
         summary = {
             'refund_count': refund_count,

@@ -494,7 +494,7 @@ class StockService:
         logging.info(f"EU 종목 리스트 로드 완료: {len(eu)}개")
 
     def _cleanup_invalid_cache(self):
-        """시작 시 exchange_rate이 0이거나 current_price가 0인 캐시 정리"""
+        """시작 시 오염된 캐시 정리"""
         try:
             result = self.cache_collection.delete_many({
                 '$or': [
@@ -502,6 +502,8 @@ class StockService:
                     {'market': {'$ne': 'KRW'}, 'exchange_rate': {'$lte': 0}},
                     {'market': {'$ne': 'KRW'}, 'exchange_rate': None},
                     {'market': {'$ne': 'KRW'}, 'exchange_rate': {'$exists': False}},
+                    # .L 주식 캐시 삭제 (펜스→파운드 변환 적용을 위해)
+                    {'symbol': {'$regex': r'\.L$'}},
                 ]
             })
             if result.deleted_count > 0:
@@ -1055,15 +1057,32 @@ class StockService:
                 if math.isnan(previous_close) or math.isinf(previous_close) or previous_close <= 0:
                     previous_close = current_price * 0.99
 
+                open_price = float(latest_data['Open'])
+                high_price = float(latest_data['High'])
+                low_price = float(latest_data['Low'])
+
+                # yfinance에서 통화 정보 + 종목명 조회
+                stock_currency = 'GBp' if symbol.endswith('.L') else 'EUR'
                 stock_name = self.eu_stock_names.get(symbol)
-                if not stock_name or stock_name == symbol:
-                    try:
-                        info = ticker.info
+                try:
+                    info = ticker.info
+                    stock_currency = info.get('currency', stock_currency)
+                    if not stock_name or stock_name == symbol:
                         stock_name = info.get('shortName') or info.get('longName') or symbol
-                    except Exception:
+                except Exception:
+                    if not stock_name:
                         stock_name = symbol
-                # GBP(.L) vs EUR(.DE, .PA) 구분
-                if symbol.endswith('.L'):
+
+                # GBp(펜스) 단위인 경우 GBP로 변환 (/100)
+                if stock_currency in ('GBp', 'GBX', 'GBx'):
+                    price_currency = 'GBP'
+                    current_price /= 100
+                    previous_close /= 100
+                    open_price /= 100
+                    high_price /= 100
+                    low_price /= 100
+                elif symbol.endswith('.L'):
+                    # .L인데 GBP로 표기된 경우 (ETF 등)
                     price_currency = 'GBP'
                 else:
                     price_currency = 'EUR'
@@ -1071,13 +1090,13 @@ class StockService:
                 return {
                     'symbol': symbol,
                     'name': stock_name,
-                    'current_price': current_price,
-                    'previous_close': previous_close,
-                    'open_price': float(latest_data['Open']),
-                    'high_price': float(latest_data['High']),
-                    'low_price': float(latest_data['Low']),
+                    'current_price': round(current_price, 4),
+                    'previous_close': round(previous_close, 4),
+                    'open_price': round(open_price, 4),
+                    'high_price': round(high_price, 4),
+                    'low_price': round(low_price, 4),
                     'volume': int(latest_data['Volume']) if 'Volume' in latest_data else 0,
-                    'change': current_price - previous_close,
+                    'change': round(current_price - previous_close, 4),
                     'change_percent': (current_price - previous_close) / previous_close * 100 if previous_close > 0 else 0,
                     'market': 'EUR',
                     'currency': 'EUR',
@@ -1122,8 +1141,9 @@ class StockService:
             }
         elif market == 'EUR':
             stock_name = self.eu_stock_names.get(symbol) or symbol
+            # .L 주식은 GBP 단위 (펜스→파운드 변환 후)
             base_prices = {
-                'AZN.L': 11000, 'SHEL.L': 2500, 'HSBA.L': 650, 'ULVR.L': 4000, 'BP.L': 450,
+                'AZN.L': 110, 'SHEL.L': 25, 'HSBA.L': 6.5, 'ULVR.L': 40, 'BP.L': 4.5,
                 'SAP.DE': 200, 'SIE.DE': 170, 'ALV.DE': 260, 'BMW.DE': 80, 'BAS.DE': 45,
             }
             base_price = base_prices.get(symbol, 100)
