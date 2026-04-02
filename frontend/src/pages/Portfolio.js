@@ -140,15 +140,15 @@ const StockCell = styled.div`
   }
 
   .symbol {
+    font-size: 12px;
+    color: #666;
+  }
+
+  .name {
     font-weight: 700;
     color: #333;
     margin-bottom: 4px;
     transition: color 0.15s;
-  }
-
-  .name {
-    font-size: 12px;
-    color: #666;
   }
 `;
 
@@ -580,8 +580,8 @@ const Portfolio = () => {
                               <tr key={holding.symbol}>
                                 <td>
                                   <StockCell onClick={() => navigate(`/stock/${holding.symbol}`)}>
-                                    <div className="symbol">{holding.symbol}</div>
                                     <div className="name">{holding.name}</div>
+                                    <div className="symbol">{holding.symbol}</div>
                                   </StockCell>
                                 </td>
                                 <td>{formatQuantity(holding.quantity)}</td>
